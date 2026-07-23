@@ -3,6 +3,7 @@ name: Build Tauri App
 on:
   push:
     branches: [main]
+    tags: ["v*"]
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -52,3 +53,35 @@ jobs:
         with:
           name: LMU-RACECONTROL-MSI
           path: src-tauri/target/release/bundle/msi/*.msi
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: windows-latest
+
+    steps:
+      - name: Download NSIS installer
+        uses: actions/download-artifact@v4
+        with:
+          name: LMU-RACECONTROL-NSIS
+          path: installer
+
+      - name: Download MSI installer
+        uses: actions/download-artifact@v4
+        with:
+          name: LMU-RACECONTROL-MSI
+          path: installer
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: LMU RACECONTROL ${{ github.ref_name }}
+          body: "Automatisch erstellter Release – siehe CHANGELOG.md für Details."
+          draft: false
+          prerelease: false
+          files: |
+            installer/*.exe
+            installer/*.msi
+          fail_on_unmatched_files: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
