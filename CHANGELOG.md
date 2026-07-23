@@ -4,6 +4,14 @@ Alle nennenswerten Änderungen an LMU Race Control werden hier dokumentiert.
 Format angelehnt an [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
 
+## [0.6.4] - 24.07.2026 (Icon-Größe: Logo auf Desktop/Taskleiste vergrößert)
+
+### Behoben
+- **Icon auf Desktop und Taskleiste war zu klein**: Das Logo hatte im Quellbild (`icon-source.png`) zu viel transparenten Rand. Dadurch wurde es bei der Skalierung auf kleine Icon-Größen (32x32) winzig dargestellt. Der transparente Rand wurde entfernt und das Logo füllt jetzt fast die gesamte Icon-Fläche.
+
+### Geändert
+- **Version**: 0.6.3 → 0.6.4
+
 ## [0.6.3] - 23.07.2026 (Icon-Fix: korrekte Windows-Icon-Generierung)
 
 ### Behoben
