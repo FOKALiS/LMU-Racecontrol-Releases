@@ -267,6 +267,7 @@ export default function App() {
             onInvestigate={openInvestigateModal}
             onFocusDriver={focusDriver}
             onCamSelect={selectCamera}
+            onReplay={jumpToReplay}
           />
         )}
 

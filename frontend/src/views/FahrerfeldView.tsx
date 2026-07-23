@@ -10,6 +10,7 @@ interface Props {
   onInvestigate: (incident: Incident) => void;
   onFocusDriver: (carNumber: string) => void;
   onCamSelect?: (cam: string) => void;
+  onReplay?: (incident: Incident) => void;
 }
 
 export default function FahrerfeldView({
@@ -18,6 +19,7 @@ export default function FahrerfeldView({
   onInvestigate,
   onFocusDriver,
   onCamSelect,
+  onReplay,
 }: Props) {
   const { t } = useLanguage();
   const [imageMode, setImageMode] = useState<"live" | "replay">("live");
@@ -32,7 +34,7 @@ export default function FahrerfeldView({
     <div className="view-fahrerfeld">
       <div className="view-header-row">
         <h1>{t("fahrerfeld_title")}</h1>
-        <TopToolbar imageMode={imageMode} onImageModeChange={setImageMode} />
+        <TopToolbar imageMode={imageMode} onImageModeChange={setImageMode} onCamSelect={onCamSelect} />
       </div>
 
       <div className="table-scroll">
@@ -61,7 +63,7 @@ export default function FahrerfeldView({
             {standings.map((car) => {
               const pending = pendingFor(car.car_number);
               return (
-                <tr key={car.slot_id} onDoubleClick={() => onFocusDriver(car.car_number)}>
+                <tr key={car.slot_id} onClick={() => onFocusDriver(car.car_number)}>
                   <td>{car.position}</td>
                   <td>
                     <span className="class-badge">{car.class}</span>
@@ -73,15 +75,20 @@ export default function FahrerfeldView({
                   <td>{car.speed_kmh ? car.speed_kmh.toFixed(0) : "–"}</td>
                   <td>{formatLap(car.best_lap_s)}</td>
                   <td className="incident-cell">
-                    <button
-                      className={`flag-dot flag-${pending?.flag_color?.toLowerCase() ?? "empty"}`}
-                      disabled={!pending}
-                      title={pending?.incident_type || ""}
-                    >
-                      {pending && <EyeIcon />}
-                    </button>
                     {pending && (
-                      <button className="investigate-btn" onClick={() => onInvestigate(pending)}>
+                      <button
+                        className={`flag-dot flag-${pending?.flag_color?.toLowerCase() ?? "empty"}`}
+                        onClick={(e) => { e.stopPropagation(); onReplay?.(pending); }}
+                        title={pending?.incident_type || ""}
+                      >
+                        <EyeIcon />
+                      </button>
+                    )}
+                    {pending && (
+                      <button
+                        className="investigate-btn"
+                        onClick={(e) => { e.stopPropagation(); onInvestigate(pending); }}
+                      >
                         {t("investigate")}
                       </button>
                     )}

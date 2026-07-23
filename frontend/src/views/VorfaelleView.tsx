@@ -11,6 +11,7 @@ interface Props {
   postRoll: number;
   onNewIncident: () => void;
   onInvestigate: (incident: Incident) => void;
+  onReplay?: (incident: Incident) => void;
   onGoToArchiv: () => void;
   onFcyClick: () => void;
   onCamSelect?: (cam: string) => void;
@@ -23,6 +24,7 @@ export default function VorfaelleView({
   onSaveReplaySettings,
   onNewIncident,
   onInvestigate,
+  onReplay,
   onGoToArchiv,
   onFcyClick,
   onCamSelect,
@@ -118,7 +120,10 @@ export default function VorfaelleView({
                 <td>{i.corner}</td>
                 <td>{i.timestamp_label}</td>
                 <td className="incident-cell">
-                  <button className={`flag-dot flag-${i.flag_color.toLowerCase()}`} disabled>
+                  <button
+                    className={`flag-dot flag-${i.flag_color.toLowerCase()}`}
+                    onClick={() => onReplay?.(i)}
+                  >
                     <EyeIcon />
                   </button>
                   <button className="investigate-btn" onClick={() => onInvestigate(i)}>
