@@ -1,0 +1,11 @@
+/* Diese Datei wird bei jedem Cloud-Build automatisch überschrieben (siehe
+   .github/workflows/build-windows.yml, Schritt "Schriftarten für
+   Offline-Nutzung herunterladen") - dort werden Michroma und Inter als
+   echte Schriftdateien heruntergeladen und hier per @font-face eingetragen,
+   sodass die fertige App komplett offline funktioniert.
+
+   Diese Platzhalter-Version hier im Repository sorgt nur dafür, dass die
+   lokale Entwicklung (`cargo tauri dev`) nicht mit einem fehlenden Import
+   abbricht. Lokal siehst du dann ggf. eine System-Schriftart statt
+   Michroma/Inter - das ist normal und nur bei lokalem Testen der Fall,
+   nicht in der fertigen, über GitHub gebauten App. */

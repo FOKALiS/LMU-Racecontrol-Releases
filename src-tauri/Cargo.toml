@@ -1,0 +1,43 @@
+[package]
+name = "lmu-race-control"
+version = "0.5.6"
+description = "LIVE Rennkommission Tool für Le Mans Ultimate – Vorfallserkennung und -dokumentation"
+authors = ["Your Race Control Team"]
+edition = "2021"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-shell = "2"
+tauri-plugin-dialog = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["full"] }
+rusqlite = { version = "0.31", features = ["bundled"] }
+chrono = { version = "0.4", features = ["serde"] }
+uuid = { version = "1", features = ["v4", "serde"] }
+anyhow = "1"
+thiserror = "1"
+
+# HTTP-Client für die offizielle LMU REST-API (localhost:6397)
+# Wird sowohl zum Polling der Live-Timing-Daten als auch zum Auslösen des
+# Replay-Zeitsprungs (/rest/watch/replaytime/{seconds}) verwendet - kein
+# Shared-Memory-Hack und keine simulierten Tastatureingaben nötig.
+reqwest = { version = "0.12", features = ["json"] }
+
+# Auto-Update-Funktion (Splashscreen prüft beim Start auf neue Version und
+# kann sie per Klick automatisch herunterladen und installieren)
+tauri-plugin-updater = "2"
+tauri-plugin-process = "2"
+
+[[bin]]
+name = "lmu-race-control"
+path = "src/main.rs"
+
+[profile.release]
+panic = "abort"
+codegen-units = 1
+lto = true
+opt-level = "s"
