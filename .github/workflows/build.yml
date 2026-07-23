@@ -8,6 +8,10 @@ on:
     branches: [main]
   workflow_dispatch:
 
+permissions:
+  contents: write
+  actions: write
+
 concurrency:
   group: build-lmu-race-control
   cancel-in-progress: true
