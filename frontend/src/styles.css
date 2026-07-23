@@ -292,6 +292,13 @@ button { cursor: pointer; }
 }
 .data-table td:first-child { border-radius: 10px 0 0 10px; }
 .data-table td:last-child { border-radius: 0 10px 10px 0; }
+.data-table tbody tr {
+  transition: background 0.15s;
+}
+.data-table tbody tr:hover {
+  background: rgba(10, 89, 137, 0.3);
+  cursor: pointer;
+}
 .empty-row { color: var(--text-dim); padding: 40px 0 !important; white-space: normal; border: none !important; border-radius: 10px !important; }
 
 .class-badge {

@@ -4,6 +4,7 @@ import TopToolbar from "../components/TopToolbar";
 import EyeIcon from "../components/EyeIcon";
 import { useLanguage } from "../i18n/LanguageContext";
 import { classColor } from "../classColors";
+import { invoke } from "@tauri-apps/api/core";
 
 interface Props {
   standings: CarStanding[];
@@ -25,6 +26,15 @@ export default function FahrerfeldView({
   const { t } = useLanguage();
   const [imageMode, setImageMode] = useState<"live" | "replay">("live");
 
+  function handleImageModeChange(mode: "live" | "replay") {
+    setImageMode(mode);
+    if (mode === "live") {
+      invoke("switch_to_live").catch(console.error);
+    } else {
+      invoke("switch_to_replay").catch(console.error);
+    }
+  }
+
   function pendingFor(carNumber: string): Incident | undefined {
     return pendingIncidents
       .filter((i) => i.car_number_a === carNumber)
@@ -35,7 +45,7 @@ export default function FahrerfeldView({
     <div className="view-fahrerfeld">
       <div className="view-header-row">
         <h1>{t("fahrerfeld_title")}</h1>
-        <TopToolbar imageMode={imageMode} onImageModeChange={setImageMode} onCamSelect={onCamSelect} />
+        <TopToolbar imageMode={imageMode} onImageModeChange={handleImageModeChange} onCamSelect={onCamSelect} />
       </div>
 
       <div className="table-scroll">

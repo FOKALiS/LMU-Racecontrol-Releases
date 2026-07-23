@@ -20,6 +20,34 @@
 use enigo::{
     Direction, Enigo, Key, Keyboard, Settings,
 };
+use std::process::Command;
+
+/// Bringt das LMU-Fenster in den Vordergrund, damit Tastatureingaben dort
+/// ankommen (nicht in der Racecontrol-App). Nutzt PowerShell, um das
+/// Fenster per Titel zu aktivieren.
+fn focus_lmu_window() -> Result<(), String> {
+    // Versuche zuerst "Le Mans Ultimate", dann "LMU" als Fenstertitel
+    for title in &["Le Mans Ultimate", "LMU", "rFactor 2"] {
+        let output = Command::new("powershell")
+            .args([
+                "-Command",
+                &format!(
+                    "$wshell = New-Object -ComObject WScript.Shell; \
+                     $wshell.AppActivate('{}') | Out-Null",
+                    title
+                ),
+            ])
+            .output()
+            .map_err(|e| format!("PowerShell-Aufruf fehlgeschlagen: {}", e))?;
+
+        if output.status.success() {
+            return Ok(());
+        }
+    }
+    // Fenster nicht gefunden – kein Fehler, nur Log
+    println!("LMU-Fenster nicht gefunden – Tasten gehen evtl. ins Leere");
+    Ok(())
+}
 
 /// Schaltet die LMU-Kamera auf die angegebene Kamera-ID um.
 pub fn switch_camera(cam_id: &str) -> Result<(), String> {
@@ -36,9 +64,12 @@ pub fn switch_camera(cam_id: &str) -> Result<(), String> {
         )),
     };
 
+    // Zuerst LMU in den Vordergrund holen
+    focus_lmu_window()?;
+    std::thread::sleep(std::time::Duration::from_millis(100));
+
     let mut enigo = Enigo::new(&Settings::default()).map_err(|e| format!("Enigo-Init fehlgeschlagen: {}", e))?;
 
-    // Taste drücken und loslassen
     enigo.key(key, Direction::Click)
         .map_err(|e| format!("Tastendruck fehlgeschlagen: {}", e))?;
 
@@ -46,28 +77,30 @@ pub fn switch_camera(cam_id: &str) -> Result<(), String> {
 }
 
 /// Fokussiert die Kamera auf ein bestimmtes Fahrzeug (über Strg+F + Fahrzeugnummer + Enter).
-/// Das ist die Standard-Methode in rFactor 2 / LMU, um ein bestimmtes Fahrzeug zu fokussieren.
 pub fn focus_car(car_number: &str) -> Result<(), String> {
+    // Zuerst LMU in den Vordergrund holen
+    focus_lmu_window()?;
+    std::thread::sleep(std::time::Duration::from_millis(100));
+
     let mut enigo = Enigo::new(&Settings::default()).map_err(|e| format!("Enigo-Init fehlgeschlagen: {}", e))?;
 
     // 1) Strg+F für Fahrzeug-Fokus-Dialog
     enigo.key(Key::Control, Direction::Press)
         .map_err(|e| format!("Strg drücken fehlgeschlagen: {}", e))?;
-    std::thread::sleep(std::time::Duration::from_millis(20));
+    std::thread::sleep(std::time::Duration::from_millis(50));
     enigo.key(Key::Unicode('f'), Direction::Click)
         .map_err(|e| format!("F drücken fehlgeschlagen: {}", e))?;
-    std::thread::sleep(std::time::Duration::from_millis(20));
+    std::thread::sleep(std::time::Duration::from_millis(50));
     enigo.key(Key::Control, Direction::Release)
         .map_err(|e| format!("Strg loslassen fehlgeschlagen: {}", e))?;
 
-    // Kurz warten, bis der Fokus-Dialog erscheint
     std::thread::sleep(std::time::Duration::from_millis(300));
 
-    // 2) Fahrzeugnummer eingeben (Zeichen für Zeichen)
+    // 2) Fahrzeugnummer eingeben
     for c in car_number.chars() {
         enigo.key(Key::Unicode(c), Direction::Click)
             .map_err(|e| format!("Zeichen '{}' eingeben fehlgeschlagen: {}", c, e))?;
-        std::thread::sleep(std::time::Duration::from_millis(30));
+        std::thread::sleep(std::time::Duration::from_millis(40));
     }
 
     // 3) Enter drücken

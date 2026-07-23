@@ -4,6 +4,7 @@ import TopToolbar from "../components/TopToolbar";
 import EyeIcon from "../components/EyeIcon";
 import { useLanguage } from "../i18n/LanguageContext";
 import { classColor } from "../classColors";
+import { invoke } from "@tauri-apps/api/core";
 
 interface Props {
   incidents: Incident[];
@@ -15,6 +16,15 @@ export default function ArchivView({ incidents, onReplay, onCamSelect }: Props) 
   const { t } = useLanguage();
   const [imageMode, setImageMode] = useState<"live" | "replay">("live");
 
+  function handleImageModeChange(mode: "live" | "replay") {
+    setImageMode(mode);
+    if (mode === "live") {
+      invoke("switch_to_live").catch(console.error);
+    } else {
+      invoke("switch_to_replay").catch(console.error);
+    }
+  }
+
   function isPenalty(decision: string | null): boolean {
     return !!decision && !decision.toLowerCase().includes("keine") && !decision.toLowerCase().includes(" no ") && !decision.toLowerCase().startsWith("no ");
   }
@@ -23,7 +33,7 @@ export default function ArchivView({ incidents, onReplay, onCamSelect }: Props) 
     <div className="view-archiv">
       <div className="view-header-row">
         <h1>{t("archiv_title")}</h1>
-        <TopToolbar imageMode={imageMode} onImageModeChange={setImageMode} onCamSelect={onCamSelect} />
+        <TopToolbar imageMode={imageMode} onImageModeChange={handleImageModeChange} onCamSelect={onCamSelect} />
       </div>
 
       <div className="table-scroll">
