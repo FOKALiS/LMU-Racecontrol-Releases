@@ -295,7 +295,6 @@ button { cursor: pointer; }
 .empty-row { color: var(--text-dim); padding: 40px 0 !important; white-space: normal; border: none !important; border-radius: 10px !important; }
 
 .class-badge {
-  background: var(--green);
   color: var(--text);
   font-family: "Michroma", sans-serif;
   font-size: 10px;
@@ -304,6 +303,10 @@ button { cursor: pointer; }
   border-radius: 4px;
   display: inline-block;
 }
+.class-badge-red { background: #ff0000; }
+.class-badge-blue { background: #0055ff; }
+.class-badge-purple { background: #aa00ff; }
+.class-badge-green { background: var(--green); }
 
 .incident-cell { display: flex; align-items: center; justify-content: center; gap: 0; border: none !important; padding: 0 !important; }
 .flag-dot {

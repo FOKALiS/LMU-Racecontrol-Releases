@@ -3,6 +3,7 @@ import type { Incident } from "../types";
 import TopToolbar from "../components/TopToolbar";
 import EyeIcon from "../components/EyeIcon";
 import { useLanguage } from "../i18n/LanguageContext";
+import { classColor } from "../classColors";
 
 interface Props {
   incidents: Incident[];
@@ -53,10 +54,10 @@ export default function ArchivView({ incidents, onReplay, onCamSelect }: Props) 
             {incidents.map((i) => (
               <tr key={i.id}>
                 <td>{i.incident_number}</td>
-                <td>{i.class_a && <span className="class-badge">{i.class_a}</span>}</td>
+                <td>{i.class_a && <span className={`class-badge class-badge-${classColor(i.class_a)}`}>{i.class_a}</span>}</td>
                 <td>{i.car_number_a}</td>
                 <td>{i.driver_a}</td>
-                <td>{i.class_b && <span className="class-badge">{i.class_b}</span>}</td>
+                <td>{i.class_b && <span className={`class-badge class-badge-${classColor(i.class_b)}`}>{i.class_b}</span>}</td>
                 <td>{i.car_number_b}</td>
                 <td>{i.driver_b}</td>
                 <td>{i.lap}</td>

@@ -3,6 +3,7 @@ import type { CarStanding, Incident } from "../types";
 import TopToolbar from "../components/TopToolbar";
 import EyeIcon from "../components/EyeIcon";
 import { useLanguage } from "../i18n/LanguageContext";
+import { classColor } from "../classColors";
 
 interface Props {
   standings: CarStanding[];
@@ -66,7 +67,7 @@ export default function FahrerfeldView({
                 <tr key={car.slot_id} onClick={() => onFocusDriver(car.car_number)}>
                   <td>{car.position}</td>
                   <td>
-                    <span className="class-badge">{car.class}</span>
+                    <span className={`class-badge class-badge-${classColor(car.class)}`}>{car.class}</span>
                   </td>
                   <td>{car.car_number}</td>
                   <td>{car.driver}</td>
