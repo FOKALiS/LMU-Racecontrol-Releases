@@ -225,6 +225,16 @@ async fn focus_driver(car_number: String) -> Result<(), String> {
 }
 
 #[tauri::command]
+async fn switch_to_live(state: State<'_, AppState>) -> Result<(), String> {
+    state.lmu.switch_to_live().await.map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn switch_to_replay(state: State<'_, AppState>) -> Result<(), String> {
+    state.lmu.switch_to_replay().await.map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 async fn check_lmu_connection(state: State<'_, AppState>) -> Result<bool, String> {
     Ok(state.lmu.is_available().await)
 }
@@ -461,6 +471,8 @@ fn main() {
             set_camera,
             focus_driver,
             check_lmu_connection,
+            switch_to_live,
+            switch_to_replay,
             start_fcy,
             clear_fcy,
             show_main_window,

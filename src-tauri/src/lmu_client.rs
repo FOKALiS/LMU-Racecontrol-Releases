@@ -165,6 +165,16 @@ impl LmuClient {
         self.put(&path).await
     }
 
+    /// Schaltet das LMU-Bild zurück ins Live-Geschehen (verlässt das Replay).
+    pub async fn switch_to_live(&self) -> Result<()> {
+        self.put("/rest/watch/replayCommand/live").await
+    }
+
+    /// Schaltet das LMU-Bild in den Replay-Modus.
+    pub async fn switch_to_replay(&self) -> Result<()> {
+        self.put("/rest/watch/replayCommand/replay").await
+    }
+
     /// Versucht, die In-Game-Kamera auf ein bestimmtes Fahrzeug zu fokussieren.
     ///
     /// HINWEIS: LMU bietet im Gegensatz zu rFactor 2 KEINEN offiziellen
