@@ -4,6 +4,15 @@ Alle nennenswerten Änderungen an LMU Race Control werden hier dokumentiert.
 Format angelehnt an [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
 
+## [0.6.3] - 23.07.2026 (Icon-Fix: korrekte Windows-Icon-Generierung)
+
+### Behoben
+- **Windows-Icon (.ico) wurde nicht korrekt angezeigt**: Die `icon.ico` war fehlerhaft und zu klein für eine korrekte Anzeige in Desktop und Taskleiste. Mit dem Tauri Icon Generator (`npx @tauri-apps/cli icon`) aus der `icon-source.png` neu generiert (34.690 Bytes).
+- **Alle Icons** (32x32.png, 128x128.png, 128x128@2x.png, icon.icns, icon.ico) wurden aus der Quelle neu erzeugt.
+
+### Geändert
+- **Version**: 0.6.2 → 0.6.3
+
 ## [0.6.1] - 22.07.2026 (Installer-Fix, Schriftarten lokal, Sidebar-Steuerung)
 
 ### Behoben
