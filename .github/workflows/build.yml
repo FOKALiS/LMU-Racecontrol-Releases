@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: build-${{ github.ref }}
+  group: build-lmu-race-control
   cancel-in-progress: true
 
 jobs:
