@@ -296,7 +296,7 @@ button { cursor: pointer; }
   transition: background 0.15s;
 }
 .data-table tbody tr:hover {
-  background: rgba(10, 89, 137, 0.3);
+  background: #1E1E1E;
   cursor: pointer;
 }
 .empty-row { color: var(--text-dim); padding: 40px 0 !important; white-space: normal; border: none !important; border-radius: 10px !important; }
