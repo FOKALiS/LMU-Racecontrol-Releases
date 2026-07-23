@@ -100,6 +100,7 @@ function Splashscreen() {
   return (
     <div className="splash">
       <img src="/logo.png" alt="LMU Racecontrol" className="splash-logo" />
+
       <div className="splash-version">
         {t.version} {appVersion}
       </div>

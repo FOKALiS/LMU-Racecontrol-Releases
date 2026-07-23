@@ -1,13 +1,38 @@
 //! Client für die offizielle, in Le Mans Ultimate eingebaute REST-API.
 //!
-//! LMU startet standardmäßig einen lokalen HTTP-Server auf Port 6397.
-//! WICHTIG: Die Lese-Endpunkte (/rest/watch/standings, /rest/watch/sessionInfo)
-//! funktionieren bestätigt über GET. Bei den STEUER-Endpunkten (Replay-Sprung,
-//! Fokus, Kamera) ist unklar, ob sie GET oder POST erwarten, oder ob sie
-//! überhaupt über REST (statt WebSocket, Port 6398) laufen - das wird gerade
-//! gemeinsam mit dem Nutzer verifiziert. Diese Version probiert GET statt
-//! POST und gibt den vollen Fehlertext (inkl. HTTP-Status) zurück, um das
-//! einzugrenzen.
+//! LMU startet standardmäßig einen lokalen HTTP-Server auf Port 6397
+//! (Quelle: Community-Tools wie `yiddifliddo/LMU-Replay-GUI`,
+//! `snipem/go-lmu-api`, `mzluzifer/LMU-REST-API`). Es handelt sich NICHT
+//! um Shared-Memory, sondern um echtes HTTP/JSON - deutlich robuster.
+//!
+//! WICHTIG: Die exakten Feldnamen innerhalb der JSON-Antworten (z.B. von
+//! `/rest/watch/standings`) können sich zwischen LMU-Versionen ändern.
+//! Dieser Client parst daher bewusst dynamisch über `serde_json::Value`
+//! und liest bekannte Feldnamen mit Fallbacks. Bitte einmal mit laufendem
+//! LMU gegen `http://localhost:6397/rest/watch/standings` prüfen (z.B. im
+//! Browser öffnen) und ggf. die Feldnamen in `parse_standings` anpassen.
+//!
+//! ## API-Endpunkte (laut Swagger-Schema von mzluzifer/LMU-REST-API)
+//! - GET  /rest/watch/sessionInfo
+//! - GET  /rest/watch/standings
+//! - GET  /rest/watch/standings/history
+//! - GET  /rest/watch/replays
+//! - GET  /rest/watch/trackmap
+//! - PUT  /rest/watch/replaytime/{time}
+//! - PUT  /rest/watch/replayCommand/{command}
+//! - GET  /webdata/.*
+//! - POST /webdata/.*
+//!
+//! ## Kamera-Steuerung
+//! LMU bietet KEINE REST-API-Endpunkte für Kamera-Steuerung oder
+//! Fahrzeug-Fokus. Die Kamera-Steuerung wird daher über Tastatursimulation
+//! realisiert (siehe `keyboard.rs`):
+//! - F1 = TV/Broadcast Cam
+//! - F2 = Helmet Cam
+//! - F3 = Front Cam
+//! - F4 = Rear/Heck Cam
+//! - F5 = Top/Bonnet Cam
+//! - F6 = Behind/Free Cam
 
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
@@ -24,6 +49,7 @@ pub struct CarStanding {
     pub team: String,
     pub driver: String,
     pub class: String,
+    /// Fahrzeugmodell, z.B. "BMW M4 LMGT3" (Feldname noch zu verifizieren)
     pub car_model: String,
     pub class_position: i32,
     pub laps: i32,
@@ -34,6 +60,9 @@ pub struct CarStanding {
     pub sector2_s: f64,
     pub sector3_s: f64,
     pub top_speed_kmh: f64,
+    /// Aktuelle Momentan-Geschwindigkeit (für FCY-Überwachung wichtig -
+    /// NICHT identisch mit top_speed_kmh/Vmax!). Feldname noch gegen echte
+    /// LMU-Instanz zu verifizieren, siehe README "Bekannte Lücken".
     pub speed_kmh: f64,
     pub in_pits: bool,
 }
@@ -59,7 +88,7 @@ impl LmuClient {
 
     pub fn with_base_url(base_url: &str) -> Self {
         let http = reqwest::Client::builder()
-            .timeout(Duration::from_secs(3))
+            .timeout(Duration::from_secs(2))
             .build()
             .expect("HTTP-Client konnte nicht erstellt werden");
         Self {
@@ -68,6 +97,7 @@ impl LmuClient {
         }
     }
 
+    /// Prüft, ob LMU aktuell läuft und die REST-API erreichbar ist.
     pub async fn is_available(&self) -> bool {
         self.get_json("/rest/watch/sessionInfo").await.is_ok()
     }
@@ -87,64 +117,73 @@ impl LmuClient {
             .with_context(|| format!("Antwort von {} war kein gültiges JSON", url))
     }
 
-    /// Führt einen "Steuerbefehl" aus (Fokus, Kamera, Replay-Sprung). Probiert
-    /// GET (der Aufruf funktioniert wie ein einfacher Browser-Link). Gibt bei
-    /// Fehlern den VOLLEN Fehlertext inkl. HTTP-Status und Server-Antwort
-    /// zurück, statt ihn zu verschlucken - wichtig zum Debuggen.
-    async fn trigger(&self, path: &str) -> Result<String> {
+    async fn post(&self, path: &str) -> Result<()> {
         let url = format!("{}{}", self.base_url, path);
-        let resp = self
-            .http
-            .get(&url)
+        self.http
+            .post(&url)
             .send()
             .await
-            .with_context(|| format!("Konnte {} nicht erreichen (Verbindung/Timeout)", url))?;
-
-        let status = resp.status();
-        let body = resp.text().await.unwrap_or_default();
-
-        if status.is_success() {
-            Ok(format!("OK ({status}): {body}"))
-        } else {
-            anyhow::bail!("{url} -> HTTP {status}. Antwort: {}", truncate(&body, 300))
-        }
+            .with_context(|| format!("POST {} fehlgeschlagen", url))?
+            .error_for_status()
+            .with_context(|| format!("POST {} lieferte Fehlerstatus", url))?;
+        Ok(())
     }
 
+    /// Führt einen PUT-Request auf den angegebenen Pfad aus.
+    /// Die LMU-API verwendet PUT für steuernde Endpunkte wie replaytime und replayCommand.
+    async fn put(&self, path: &str) -> Result<()> {
+        let url = format!("{}{}", self.base_url, path);
+        self.http
+            .put(&url)
+            .send()
+            .await
+            .with_context(|| format!("PUT {} fehlgeschlagen", url))?
+            .error_for_status()
+            .with_context(|| format!("PUT {} lieferte Fehlerstatus", url))?;
+        Ok(())
+    }
+
+    /// Holt die aktuellen Live-Timing-Daten aller Fahrzeuge.
     pub async fn get_standings(&self) -> Result<Vec<CarStanding>> {
         let raw = self.get_json("/rest/watch/standings").await?;
         parse_standings(&raw)
     }
 
+    /// Holt Metadaten zur aktuellen Session (Strecke, Sessiontyp, Zeit...).
     pub async fn get_session_info(&self) -> Result<SessionInfo> {
         let raw = self.get_json("/rest/watch/sessionInfo").await?;
         Ok(parse_session_info(&raw))
     }
 
-    pub async fn seek_replay_to(&self, seconds_since_start: f64) -> Result<String> {
+    /// Springt im laufenden/aufgezeichneten Instant-Replay zu einem
+    /// bestimmten Zeitpunkt (in Sekunden seit Replay-/Sessionbeginn).
+    ///
+    /// Die LMU-API verwendet PUT (nicht POST) für diesen Endpunkt, bestätigt
+    /// durch das Swagger-Schema und die go-lmu-api Implementierung.
+    pub async fn seek_replay_to(&self, seconds_since_start: f64) -> Result<()> {
         let path = format!("/rest/watch/replaytime/{}", seconds_since_start as i64);
-        self.trigger(&path).await
+        self.put(&path).await
     }
 
-    pub async fn focus_on_slot(&self, slot_id: i64) -> Result<String> {
+    /// Versucht, die In-Game-Kamera auf ein bestimmtes Fahrzeug zu fokussieren.
+    ///
+    /// HINWEIS: LMU bietet im Gegensatz zu rFactor 2 KEINEN offiziellen
+    /// REST-API-Endpunkt für Fahrzeug-Fokus. Dieser Aufruf wird daher mit
+    /// großer Wahrscheinlichkeit fehlschlagen. Die Funktion existiert nur für
+    /// Kompatibilität mit möglichen zukünftigen LMU-Versionen.
+    pub async fn focus_on_slot(&self, slot_id: i64) -> Result<()> {
         let path = format!("/rest/watch/focus/{}", slot_id);
-        self.trigger(&path).await
-    }
-
-    pub async fn set_camera(&self, cam_type: &str) -> Result<String> {
-        let path = format!("/rest/watch/camera/{}", cam_type);
-        self.trigger(&path).await
+        self.post(&path).await
     }
 }
 
-fn truncate(s: &str, max_len: usize) -> String {
-    if s.len() <= max_len {
-        s.to_string()
-    } else {
-        format!("{}...", &s[..max_len])
-    }
-}
-
+/// Wandelt die rohe JSON-Struktur von `/rest/watch/standings` in unser
+/// Domänenmodell um. Bewusst tolerant gegenüber fehlenden/zusätzlichen
+/// Feldern, da die exakte LMU-JSON-Struktur je nach Version variieren kann.
 fn parse_standings(raw: &Value) -> Result<Vec<CarStanding>> {
+    // Die meisten rF2/LMU-Watch-Endpunkte liefern entweder eine Liste direkt
+    // oder ein Objekt mit einem Array-Feld (z.B. "cars", "vehicles",
+    // "standings", "entries"). Wir versuchen mehrere gängige Varianten.
     let list = raw
         .as_array()
         .cloned()
@@ -152,7 +191,11 @@ fn parse_standings(raw: &Value) -> Result<Vec<CarStanding>> {
         .or_else(|| raw.get("vehicles").and_then(|v| v.as_array()).cloned())
         .or_else(|| raw.get("standings").and_then(|v| v.as_array()).cloned())
         .or_else(|| raw.get("entries").and_then(|v| v.as_array()).cloned())
-        .context("Konnte kein Array in der standings-Antwort finden")?;
+        .context(
+            "Konnte kein Array in der standings-Antwort finden - \
+             bitte JSON-Struktur mit laufendem LMU prüfen und \
+             parse_standings() in lmu_client.rs anpassen",
+        )?;
 
     let mut out = Vec::with_capacity(list.len());
     for (idx, entry) in list.iter().enumerate() {

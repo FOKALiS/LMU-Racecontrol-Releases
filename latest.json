@@ -1,0 +1,11 @@
+{
+  "version": "0.6.1",
+  "notes": "Installer-Fix: ERR_CONNECTION_REFUSED behoben, Schriftarten lokal eingebettet, Sidebar-Steuerung korrigiert\n\n## Behoben\n- ERR_CONNECTION_REFUSED beim Start: Dem Hauptfenster fehlte \"url\": \"index.html\"\n- Schriftarten (Michroma/Inter) werden jetzt lokal eingebettet – kein Internet nötig\n\n## Geändert\n- Sidebar-Steuerung an drei Zustände angepasst (ohne Lizenz / lizenziert + nicht verbunden / lizenziert + verbunden)\n- beforeBuildCommand auf npm --prefix frontend run build umgestellt",
+  "pub_date": "2026-07-22T22:00:00+02:00",
+  "platforms": {
+    "windows-x86_64": {
+      "signature": "",
+      "url": "https://github.com/FOKALiS/LMU-Racecontrol/releases/download/v0.6.1/LMU-Racecontrol_0.6.1_x64-setup.exe"
+    }
+  }
+}

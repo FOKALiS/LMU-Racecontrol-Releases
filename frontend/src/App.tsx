@@ -30,11 +30,6 @@ const DEFAULT_SETTINGS: Settings = {
   fcy_countdown_seconds: 10,
 };
 
-export interface ActionResult {
-  ok: boolean;
-  message: string;
-}
-
 export default function App() {
   const { t } = useLanguage();
   const [view, setView] = useState<View>("home");
@@ -54,6 +49,8 @@ export default function App() {
 
   const [modalDraft, setModalDraft] = useState<IncidentDraft | null>(null);
 
+  // Lizenzprüfung: solange "license" null ist, wird noch geladen (kurz
+  // beim Start) - erst danach wissen wir, ob die App freigeschaltet ist.
   const [license, setLicense] = useState<LicenseData | null>(null);
   const [licenseError, setLicenseError] = useState<string | null>(null);
 
@@ -107,10 +104,7 @@ export default function App() {
       session: SessionInfo;
       session_time_s: number;
     }>("standings-update", (e) => {
-      // Nach aktueller Position sortiert (P1 oben) - unabhängig davon, in
-      // welcher Reihenfolge LMU die Fahrzeuge in der API-Antwort liefert.
-      const sorted = [...e.payload.standings].sort((a, b) => a.position - b.position);
-      setStandings(sorted);
+      setStandings(e.payload.standings);
       setSession(e.payload.session);
       setSessionTimeS(e.payload.session_time_s);
     });
@@ -206,41 +200,37 @@ export default function App() {
     refreshIncidents();
   }
 
-  /** Springt im LMU-Replay zum Vorfall. Gibt eine sichtbare Rückmeldung
-   * zurück (Erfolg/Fehler + Text), statt nur still zu scheitern. */
-  async function jumpToReplay(incident: Incident): Promise<ActionResult> {
-    const target = Math.max(0, incident.session_time_s - preRoll);
+  async function jumpToReplay(incident: Incident) {
     try {
       await invoke("jump_to_incident_replay", {
         sessionTimeS: incident.session_time_s,
         preRollSeconds: preRoll,
       });
-      return { ok: true, message: `Replay-Sprung zu Sekunde ${target.toFixed(0)} gesendet.` };
+      const targetCar = incident.car_number_a || incident.car_number_b;
+      if (targetCar) {
+        await new Promise(r => setTimeout(r, 300));
+        await invoke("focus_driver", { carNumber: targetCar });
+      }
     } catch (err) {
-      return { ok: false, message: t("alert_replay_failed", { error: String(err) }) };
+      alert(t("alert_replay_failed", { error: String(err) }));
     }
   }
 
-  /** Fokussiert einen Fahrer + versucht die Kamera zu wechseln (experimentell).
-   * Gibt ebenfalls eine sichtbare Rückmeldung zurück. */
-  async function focusDriver(slotId: number, camType: string): Promise<ActionResult> {
-    const messages: string[] = [];
-    let ok = true;
+  async function focusDriver(carNumber: string) {
     try {
-      await invoke("focus_driver", { slotId });
-      messages.push("Fokus gesendet.");
+      await invoke("focus_driver", { carNumber });
     } catch (err) {
-      ok = false;
-      messages.push(`focus_driver-Fehler: ${String(err)}`);
+      console.error("Fahrzeug-Fokus fehlgeschlagen:", err);
     }
+  }
+
+  async function selectCamera(cam: string) {
     try {
-      await invoke("set_camera", { camType });
-      messages.push(`Kamera "${camType}" angefragt.`);
+      await invoke("set_camera", { camId: cam });
     } catch (err) {
-      ok = false;
-      messages.push(`set_camera-Fehler (experimentell): ${String(err)}`);
+      console.error("Kamerawechsel fehlgeschlagen:", err);
+      alert(t("alert_camera_unavailable"));
     }
-    return { ok, message: messages.join(" ") };
   }
 
   async function saveSettings(updated: Settings) {
@@ -276,7 +266,7 @@ export default function App() {
             pendingIncidents={pendingIncidents}
             onInvestigate={openInvestigateModal}
             onFocusDriver={focusDriver}
-            onJumpToReplay={jumpToReplay}
+            onCamSelect={selectCamera}
           />
         )}
 
@@ -291,14 +281,14 @@ export default function App() {
             }}
             onNewIncident={openNewIncidentModal}
             onInvestigate={openInvestigateModal}
-            onJumpToReplay={jumpToReplay}
             onGoToArchiv={() => setView("archiv")}
             onFcyClick={handleFcyClick}
+            onCamSelect={selectCamera}
           />
         )}
 
         {license?.licensed && view === "archiv" && (
-          <ArchivView incidents={archivedIncidents} onReplay={jumpToReplay} />
+          <ArchivView incidents={archivedIncidents} onReplay={jumpToReplay} onCamSelect={selectCamera} />
         )}
 
         {license?.licensed && view === "einstellungen" && (

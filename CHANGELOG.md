@@ -4,6 +4,53 @@ Alle nennenswerten Änderungen an LMU Race Control werden hier dokumentiert.
 Format angelehnt an [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
 
+## [0.6.1] - 22.07.2026 (Installer-Fix, Schriftarten lokal, Sidebar-Steuerung)
+
+### Behoben
+- **ERR_CONNECTION_REFUSED beim Start**: Dem Hauptfenster fehlte `"url": "index.html"`,
+  sodass die installierte App versuchte, vom Dev-Server (localhost:1420) zu laden.
+  Die App startet jetzt sofort, ohne Internetverbindung.
+- **Schriftarten (Michroma/Inter) werden jetzt lokal eingebettet**: Die
+  Schriftart-Dateien liegen als `.woff2` im `frontend/public/fonts/`-Verzeichnis
+  und werden beim Bauen fest in die App integriert – kein Google-Fonts-Netzwerkzugriff
+  mehr nötig. Die App funktioniert jetzt vollständig offline.
+
+### Geändert
+- **Sidebar-Steuerung** an die drei Zustände angepasst:
+  - Ohne Lizenz: nur "Software Infos" (Sprache, Hilfe, Website, Footer)
+  - Lizenziert, nicht verbunden: "Connect to Server" + "Software Infos"
+  - Lizenziert + verbunden: alle Buttons (Fahrerfeld, Vorfälle, Archiv, FCY)
+- **`beforeBuildCommand`** auf `npm --prefix frontend run build` umgestellt
+  (löst Sonderzeichen-Probleme mit Umlauten im Pfad)
+- **Version**: 0.6.0 → 0.6.1
+
+## [0.6.0] - 22.07.2026 (Kamera-Steuerung, Fahrzeug-Fokus, Splashscreen-Design)
+
+### Hinzugefügt
+- **Kamera-Steuerung per Tastatursimulation**: Die Kamera-Buttons (TV, Helmet,
+  Front, Heck, Top, Behind) simulieren jetzt die Tastendrücke F1-F6 direkt in
+  LMU/rFactor2 - funktioniert, weil die LMU-REST-API keinen Kamera-Endpunkt
+  bietet
+- **Fahrzeug-Fokus per Tastatursimulation**: Klick auf einen Vorfall oder
+  Doppelklick auf einen Fahrer springt zur richtigen Replay-Position, schaltet
+  auf TV-Kamera und fokussiert das Fahrzeug via Strg+F + Fahrzeugnummer + Enter
+- **Automatischer Replay-Sprung**: Der Replay-Sprung zur Vorfall-Position
+  funktioniert jetzt zuverlässig über die LMU-REST-API
+
+### Geändert
+- **Splashscreen-Design überarbeitet**: Logo vergrößert (300px → 380px),
+  Versionsnummer unter dem Logo platziert, gesamtes Layout optisch
+  aufgewertet
+- **Backend**: Tastatursimulation von `windows`-crate auf `enigo`-crate
+  umgestellt (löst Versionskonflikte mit Tauri 2)
+- **Version**: 0.5.4 → 0.6.0 (alle Versionsnummern aktualisiert)
+
+### Technisch
+- `keyboard.rs`: Neues Modul für Tastatursimulation mit `enigo`-crate
+- `main.rs`: `set_camera` und `focus_driver` nutzen jetzt die
+  Tastatursimulation statt fehlschlagender REST-API-Aufrufe
+- `Cargo.toml`: `enigo = "0.2"` ersetzt `windows = "0.58"`
+
 ## [0.5.4] - Unveröffentlicht (Cam Control rechtsbündig)
 
 ### Geändert

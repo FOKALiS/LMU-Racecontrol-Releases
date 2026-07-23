@@ -4,6 +4,10 @@
 
 export type Lang = "de" | "en";
 
+// Bewusst OHNE "as const": so hat jeder Text den Typ "string" statt eines
+// exakten Literal-Typs - sonst würde TypeScript beim Bauen einen Fehler
+// werfen, sobald sich ein deutscher und englischer Text unterscheiden
+// (was ja der Sinn der Sache ist).
 const de = {
   // Sidebar
   sidebar_functions: "Functions",
@@ -121,6 +125,8 @@ const de = {
   // Fehlermeldungen
   alert_connect_failed: "Keine Verbindung zu LMU möglich. Läuft das Spiel und bist du auf dem Server?",
   alert_replay_failed: "Replay-Sprung fehlgeschlagen: {error}",
+  alert_focus_unavailable: "Fahrzeug-Fokus fehlgeschlagen. Stelle sicher, dass LMU läuft und nicht minimiert ist.",
+  alert_camera_unavailable: "Kamerawechsel fehlgeschlagen. Stelle sicher, dass LMU läuft und nicht minimiert ist.",
 
   // Lizenz
   license_title: "Lizenz aktivieren",
@@ -130,12 +136,6 @@ const de = {
   license_activate_button: "Aktivieren",
   license_activating: "Wird geprüft...",
   license_no_key_hint: "Noch keine Lizenz? Ihr findet das Angebot auf unserer Website.",
-
-  // Vorfall-Typ-Filter
-  filter_crashes: "Unfälle",
-  filter_overtakes: "Überholmanöver",
-  filter_yellow: "Gelbe Flaggen",
-  filter_white: "Weiße Flaggen",
 };
 
 const en: typeof de = {
@@ -244,6 +244,8 @@ const en: typeof de = {
 
   alert_connect_failed: "Could not connect to LMU. Is the game running and are you on the server?",
   alert_replay_failed: "Replay jump failed: {error}",
+  alert_focus_unavailable: "Vehicle focus failed. Make sure LMU is running and not minimized.",
+  alert_camera_unavailable: "Camera switch failed. Make sure LMU is running and not minimized.",
 
   license_title: "Activate License",
   license_instructions:
@@ -252,11 +254,6 @@ const en: typeof de = {
   license_activate_button: "Activate",
   license_activating: "Checking...",
   license_no_key_hint: "Don't have a license yet? Find our offer on our website.",
-
-  filter_crashes: "Crashes",
-  filter_overtakes: "Overtakes",
-  filter_yellow: "Yellow Flags",
-  filter_white: "White Flags",
 };
 
 export const translations: Record<Lang, typeof de> = { de, en };

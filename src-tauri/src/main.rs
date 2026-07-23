@@ -4,6 +4,7 @@ mod db;
 mod discord;
 mod fcy;
 mod incidents;
+mod keyboard;
 mod license;
 mod lmu_client;
 mod settings;
@@ -78,6 +79,8 @@ async fn get_settings(state: State<'_, AppState>) -> Result<Settings, String> {
     Ok(state.settings.lock().await.clone())
 }
 
+/// Aktuellen Lizenzstatus liefern (wird beim App-Start abgefragt, um zu
+/// entscheiden, ob die volle Oberfläche freigeschaltet wird).
 #[derive(Serialize, Clone)]
 struct LicenseStatusResponse {
     licensed: bool,
@@ -85,8 +88,6 @@ struct LicenseStatusResponse {
     data: LicenseData,
 }
 
-/// Aktuellen Lizenzstatus liefern (wird beim App-Start abgefragt, um zu
-/// entscheiden, ob die volle Oberfläche freigeschaltet wird).
 #[tauri::command]
 async fn get_license_status(state: State<'_, AppState>) -> Result<LicenseStatusResponse, String> {
     let data = state.license.lock().await.clone();
@@ -96,17 +97,10 @@ async fn get_license_status(state: State<'_, AppState>) -> Result<LicenseStatusR
 
 /// Aktiviert einen neu eingegebenen Lizenzschlüssel für diese Installation.
 #[tauri::command]
-async fn activate_license(
-    state: State<'_, AppState>,
-    license_key: String,
-) -> Result<LicenseStatusResponse, String> {
+async fn activate_license(state: State<'_, AppState>, license_key: String) -> Result<LicenseStatusResponse, String> {
     let existing_fingerprint = {
         let data = state.license.lock().await;
-        if data.fingerprint.is_empty() {
-            None
-        } else {
-            Some(data.fingerprint.clone())
-        }
+        if data.fingerprint.is_empty() { None } else { Some(data.fingerprint.clone()) }
     };
     let device_name = hostname_label();
     let data = license::activate(&license_key, &device_name, existing_fingerprint)
@@ -144,6 +138,9 @@ async fn list_archived_incidents(state: State<'_, AppState>) -> Result<Vec<Incid
     state.db.list_archived().map_err(|e| e.to_string())
 }
 
+/// Legt bei Bedarf einen neuen Vorfall an (falls `id` leer ist) und trägt
+/// direkt die Entscheidung der Kommission ein -> Vorfall wandert damit
+/// automatisch ins Archiv. Löst anschließend die Discord-Benachrichtigung aus.
 #[allow(clippy::too_many_arguments)]
 #[tauri::command]
 async fn submit_incident_decision(
@@ -194,6 +191,7 @@ async fn submit_incident_decision(
 
     let webhook_url = state.settings.lock().await.discord_webhook_url.clone();
     if let Err(e) = discord::send_incident_decision(&webhook_url, &updated).await {
+        // Discord-Fehler soll das Archivieren nicht blockieren, aber sichtbar sein.
         eprintln!("Discord-Webhook fehlgeschlagen: {e:#}");
     }
 
@@ -211,14 +209,19 @@ async fn jump_to_incident_replay(
 }
 
 #[tauri::command]
-async fn focus_driver(state: State<'_, AppState>, slot_id: i64) -> Result<(), String> {
-    state.lmu.focus_on_slot(slot_id).await.map_err(|e| e.to_string())
+async fn set_camera(cam_id: String) -> Result<(), String> {
+    keyboard::switch_camera(&cam_id)?;
+    Ok(())
 }
 
-/// EXPERIMENTELL - siehe Kommentar in lmu_client.rs bei set_camera().
 #[tauri::command]
-async fn set_camera(state: State<'_, AppState>, cam_type: String) -> Result<(), String> {
-    state.lmu.set_camera(&cam_type).await.map_err(|e| e.to_string())
+async fn focus_driver(car_number: String) -> Result<(), String> {
+    // Fahrzeug-Fokus via Tastatursimulation (Strg+F + Fahrzeugnummer + Enter)
+    // Zuerst Kamera auf TV (F1) schalten, dann Fahrzeug fokussieren
+    let _ = keyboard::switch_camera("TV");
+    std::thread::sleep(std::time::Duration::from_millis(100));
+    keyboard::focus_car(&car_number)?;
+    Ok(())
 }
 
 #[tauri::command]
@@ -229,7 +232,7 @@ async fn check_lmu_connection(state: State<'_, AppState>) -> Result<bool, String
 #[tauri::command]
 async fn start_fcy(app: tauri::AppHandle, state: State<'_, AppState>) -> Result<(), String> {
     if state.fcy.current_phase() != FcyPhase::Idle {
-        return Ok(());
+        return Ok(()); // läuft schon
     }
     let countdown_from = state.settings.lock().await.fcy_countdown_seconds;
     state.fcy.set_phase(FcyPhase::Countdown);
@@ -309,6 +312,7 @@ async fn poll_loop(app: tauri::AppHandle, state: Arc<AppState>) {
                     .map(|t| t.elapsed().as_secs_f64())
                     .unwrap_or(0.0);
 
+                // 1) Automatische Verdachtserkennung (rot/gelb/weiß)
                 {
                     let mut detector = state.detector.lock().await;
                     let ctx = DetectionContext {
@@ -323,6 +327,7 @@ async fn poll_loop(app: tauri::AppHandle, state: Arc<AppState>) {
                     }
                 }
 
+                // 2) FCY-Geschwindigkeitsüberwachung
                 if state.fcy.current_phase() == FcyPhase::Active {
                     let limit = state.settings.lock().await.fcy_speed_limit_kmh;
                     let ctx = DetectionContext {
@@ -368,6 +373,10 @@ async fn revalidate_license_on_startup(store: Arc<LicenseStore>, license: Arc<As
             let _ = store.save(&data);
         }
         Err(e) => {
+            // Kein Internet oder Server nicht erreichbar -> NICHT sofort
+            // sperren, sondern die zwischengespeicherte Kulanzfrist greifen
+            // lassen (siehe LicenseData::is_currently_licensed). Nur den
+            // Fehlertext fürs UI aktualisieren.
             let mut data = license.lock().await;
             data.last_error = Some(e.to_string());
             let _ = store.save(&data);
@@ -430,6 +439,10 @@ fn main() {
             let app_handle = app.handle().clone();
             tauri::async_runtime::spawn(poll_loop(app_handle, state));
 
+            // Beim Start einmalig die gespeicherte Lizenz online nachprüfen
+            // (falls eine hinterlegt ist). Läuft im Hintergrund, blockiert
+            // den Programmstart nicht - die zwischengespeicherte Gültigkeit
+            // (inkl. Offline-Kulanzfrist) gilt bis das Ergebnis da ist.
             tauri::async_runtime::spawn(revalidate_license_on_startup(license_store, license));
 
             Ok(())
@@ -445,8 +458,8 @@ fn main() {
             list_archived_incidents,
             submit_incident_decision,
             jump_to_incident_replay,
-            focus_driver,
             set_camera,
+            focus_driver,
             check_lmu_connection,
             start_fcy,
             clear_fcy,

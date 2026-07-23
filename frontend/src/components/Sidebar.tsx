@@ -14,6 +14,9 @@ interface Props {
   fcyPhase: FcyPhase;
   fcyRemaining: number;
   onFcyClick: () => void;
+  /** Solange keine gültige Lizenz vorliegt: nur Logo, Sprache, Hilfe und
+   * Website sichtbar - keine Funktionen, keine Navigation zu den übrigen
+   * Ansichten. */
   licensed: boolean;
 }
 
@@ -35,9 +38,6 @@ export default function Sidebar({
     getVersion().then(setAppVersion).catch(console.error);
   }, []);
 
-  // Vor dem Verbinden: nur "Connect to Server" + Software Infos sichtbar.
-  const showFullNav = licensed && connected;
-
   return (
     <aside className="sidebar">
       <div className="sidebar-logo">
@@ -56,7 +56,7 @@ export default function Sidebar({
             </button>
           </div>
 
-          {showFullNav && (
+          {connected && (
             <>
               <div className="sidebar-section">
                 <div className="sidebar-section-label">{t("sidebar_control")}</div>
@@ -88,7 +88,7 @@ export default function Sidebar({
         </div>
       )}
 
-      {showFullNav && (
+      {licensed && connected && (
         <button className={`fcy-btn fcy-${fcyPhase}`} onClick={onFcyClick}>
           {fcyPhase === "idle" && "FCY"}
           {fcyPhase === "countdown" && fcyRemaining}
@@ -100,7 +100,7 @@ export default function Sidebar({
         <div className="sidebar-section">
           <div className="sidebar-section-label">{t("sidebar_software_infos")}</div>
           <LanguageToggle full />
-          {showFullNav && (
+          {licensed && (
             <button
               className={`nav-btn-outline nav-btn-outline-block ${view === "einstellungen" ? "active" : ""}`}
               onClick={() => onNavigate("einstellungen")}

@@ -48,7 +48,7 @@ button { cursor: pointer; }
   align-items: center;
   justify-content: center;
 }
-.sidebar-logo img { width: 150px; }
+.sidebar-logo img { width: 184px; }
 
 /* ---------- Sprachumschalter ---------- */
 .language-toggle {
@@ -174,6 +174,7 @@ button { cursor: pointer; }
   align-items: flex-end;
   justify-content: space-between;
   margin-bottom: 30px;
+  flex-wrap: wrap;
   gap: 16px;
 }
 .view-header-row h1, .view-einstellungen h1 {
@@ -188,15 +189,26 @@ button { cursor: pointer; }
   display: flex;
   gap: 40px;
   align-items: flex-start;
+  /* Gesamte Zeile (Image Control + Cam Control) bekommt dieselbe Breite wie
+     die Race-Control-Zeile darunter und wird als EINHEIT rechtsbündig
+     ausgerichtet - Image Control behält dabei seine natürliche Größe und
+     rutscht nur als Ganzes mit nach rechts. */
   width: 790px;
   justify-content: flex-end;
 }
 .toolbar-group { display: flex; flex-direction: column; }
+/* Innerhalb von Cam Control: Buttons rechtsbündig an die eigene Box-Kante
+   anlegen (statt linksbündig gepackt mit Leerraum rechts). */
 .toolbar-group-align .toolbar-buttons { justify-content: flex-end; }
-.toolbar-group-race-control { width: 790px; }
+/* Nur für die Race-Control-Zeile bei Vorfälle: spannt sich über die volle
+   Breite von Image Control + Cam Control zusammen (Zeile darüber) und
+   streckt die drei Buttons gleichmäßig über diese Breite, statt sie nur
+   in natürlicher Größe rechtsbündig zu packen. */
+.toolbar-group-race-control {
+  width: 790px;
+}
 .toolbar-group-race-control .toolbar-buttons { width: 100%; }
 .toolbar-group-race-control .toolbar-buttons button { flex: 1; }
-
 .toolbar-label {
   font-family: "Inter", sans-serif;
   font-weight: 300;
@@ -230,6 +242,7 @@ button { cursor: pointer; }
   justify-content: space-between;
   align-items: flex-start;
   margin-bottom: 30px;
+  flex-wrap: wrap;
   gap: 20px;
 }
 .replay-inputs { display: flex; gap: 20px; }
@@ -249,43 +262,11 @@ button { cursor: pointer; }
 .fcy-inline-btn { background: var(--yellow) !important; color: #000 !important; border-color: var(--yellow) !important; }
 .fcy-inline-btn:hover { background: var(--red) !important; border-color: var(--red) !important; }
 
-/* ---------- Vorfall-Typ-Filter ---------- */
-.incident-filter {
-  display: flex;
-  flex-direction: column;
-}
-.incident-filter-chips { display: flex; gap: 8px; flex-wrap: wrap; }
-.incident-filter-chip {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  background: transparent;
-  border: 1px solid var(--border);
-  color: var(--text-dim);
-  padding: 8px 12px;
-  border-radius: 20px;
-  font-family: "Inter", sans-serif;
-  font-size: 12px;
-}
-.incident-filter-chip.active { border-color: var(--text); color: var(--text); }
-.incident-filter-chip .dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
-.incident-filter-chip .dot.red { background: var(--red); }
-.incident-filter-chip .dot.yellow { background: var(--yellow); }
-.incident-filter-chip .dot.white { background: #ffffff; }
-.incident-filter-chip .dot.none { background: var(--btn-active); }
-
-.action-status {
-  padding: 10px 16px;
-  border-radius: 8px;
-  font-family: "Inter", sans-serif;
-  font-size: 13px;
-  margin-bottom: 16px;
-}
-.action-status.ok { background: rgba(53, 229, 0, 0.15); border: 1px solid rgba(53, 229, 0, 0.4); color: #7fe87f; }
-.action-status.error { background: rgba(255, 0, 0, 0.15); border: 1px solid rgba(255, 0, 0, 0.4); color: #ff8a8a; }
-
 /* ---------- Tables ---------- */
 .table-scroll { overflow-x: auto; position: relative; }
+/* border-collapse:separate + border-spacing ist nötig, damit border-radius
+   auf einzelnen Zellen überhaupt sichtbar wird - mit "collapse" ignorieren
+   die meisten Browser Rundungen an Zellrändern. */
 .data-table { width: 100%; border-collapse: separate; border-spacing: 0 4px; }
 .data-table th {
   font-family: "Michroma", sans-serif;
@@ -311,8 +292,6 @@ button { cursor: pointer; }
 }
 .data-table td:first-child { border-radius: 10px 0 0 10px; }
 .data-table td:last-child { border-radius: 0 10px 10px 0; }
-.data-table tr.clickable-row { cursor: pointer; }
-.data-table tr.clickable-row:hover td { background: rgba(255,255,255,0.04); }
 .empty-row { color: var(--text-dim); padding: 40px 0 !important; white-space: normal; border: none !important; border-radius: 10px !important; }
 
 .class-badge {
@@ -326,11 +305,6 @@ button { cursor: pointer; }
   display: inline-block;
 }
 
-.class-badge.green { background: rgba(53, 229, 0, 0.5); }
-.class-badge.red { background: rgba(255, 0, 0, 0.7); }
-.class-badge.blue { background: rgba(0, 140, 255, 0.6); }
-.class-badge.purple { background: rgba(168, 85, 247, 0.65); }
-
 .incident-cell { display: flex; align-items: center; justify-content: center; gap: 0; border: none !important; padding: 0 !important; }
 .flag-dot {
   width: 32px;
@@ -343,7 +317,6 @@ button { cursor: pointer; }
   align-items: center;
   justify-content: center;
 }
-.flag-dot:not(:disabled) { cursor: pointer; }
 .flag-dot svg { width: 15px; height: 15px; }
 .flag-dot.flag-red { background: var(--red); }
 .flag-dot.flag-yellow { background: var(--yellow); }
@@ -418,7 +391,50 @@ button { cursor: pointer; }
 }
 .home-connected-hint { color: var(--green-solid); font-family: "Michroma", sans-serif; font-size: 14px; margin-top: 24px; }
 
+/* ---------- Lizenz-Gate ---------- */
+.license-title {
+  font-family: "Michroma", sans-serif;
+  font-size: 20px;
+  color: var(--text);
+  margin: 8px 0 12px;
+}
+.license-instructions {
+  font-family: "Inter", sans-serif;
+  font-size: 14px;
+  color: var(--text-dim);
+  max-width: 480px;
+  line-height: 1.6;
+  margin: 0 0 24px;
+}
+.license-form { display: flex; gap: 12px; width: 100%; max-width: 460px; }
+.license-form input {
+  flex: 1;
+  background: var(--bg-input, var(--bg));
+  border: 1px solid var(--text-dim);
+  color: var(--text);
+  padding: 12px 14px;
+  border-radius: 8px;
+  font-family: "Michroma", sans-serif;
+  font-size: 13px;
+}
+.license-form .btn-solid { flex: none; padding: 12px 24px; }
+.license-error {
+  color: var(--red);
+  font-family: "Inter", sans-serif;
+  font-size: 13px;
+  margin-top: 16px;
+  max-width: 460px;
+}
+.license-hint {
+  font-family: "Inter", sans-serif;
+  font-size: 12px;
+  color: var(--text-dim);
+  margin-top: 28px;
+}
+
 /* ---------- FCY Overlay ---------- */
+/* Nur über dem Hauptbereich zentriert (nicht über der Sidebar) - deshalb
+   links um die Sidebar-Breite eingezogen statt über das ganze Fenster. */
 .fcy-overlay {
   position: fixed;
   top: 0;
@@ -557,47 +573,6 @@ button { cursor: pointer; }
 .help-content ul { margin: 0 0 10px; padding-left: 20px; color: var(--text-dim); }
 .help-content li { margin-bottom: 4px; }
 
-/* ---------- Lizenz-Gate ---------- */
-.license-title {
-  font-family: "Michroma", sans-serif;
-  font-size: 20px;
-  color: var(--text);
-  margin: 8px 0 12px;
-}
-.license-instructions {
-  font-family: "Inter", sans-serif;
-  font-size: 14px;
-  color: var(--text-dim);
-  max-width: 480px;
-  line-height: 1.6;
-  margin: 0 0 24px;
-}
-.license-form { display: flex; gap: 12px; width: 100%; max-width: 460px; }
-.license-form input {
-  flex: 1;
-  background: var(--bg);
-  border: 1px solid var(--text-dim);
-  color: var(--text);
-  padding: 12px 14px;
-  border-radius: 8px;
-  font-family: "Michroma", sans-serif;
-  font-size: 13px;
-}
-.license-form .btn-solid { flex: none; padding: 12px 24px; }
-.license-error {
-  color: var(--red);
-  font-family: "Inter", sans-serif;
-  font-size: 13px;
-  margin-top: 16px;
-  max-width: 460px;
-}
-.license-hint {
-  font-family: "Inter", sans-serif;
-  font-size: 12px;
-  color: var(--text-dim);
-  margin-top: 28px;
-}
-
 /* ---------- Einstellungen ---------- */
 .view-einstellungen { max-width: 920px; }
 .settings-hint { font-family: "Inter", sans-serif; color: var(--text-dim); margin-bottom: 26px; font-size: 13px; }
@@ -630,9 +605,9 @@ body:has(.splash) { background: transparent; }
   background: var(--bg);
   border: 1px solid var(--border);
   overflow: hidden;
-  padding-top: 60px;
+  padding-top: 80px;
 }
-.splash-logo { width: 300px; margin-bottom: 24px; }
+.splash-logo { width: 380px; margin-bottom: 32px; margin-top: 40px; }
 .splash-version {
   font-family: "Michroma", sans-serif;
   font-size: 18px;

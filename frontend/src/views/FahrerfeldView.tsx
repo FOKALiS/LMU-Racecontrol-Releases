@@ -1,17 +1,15 @@
 import { useState } from "react";
 import type { CarStanding, Incident } from "../types";
-import type { ActionResult } from "../App";
 import TopToolbar from "../components/TopToolbar";
 import EyeIcon from "../components/EyeIcon";
 import { useLanguage } from "../i18n/LanguageContext";
-import { classColor } from "../classColors";
 
 interface Props {
   standings: CarStanding[];
   pendingIncidents: Incident[];
   onInvestigate: (incident: Incident) => void;
-  onFocusDriver: (slotId: number, camType: string) => Promise<ActionResult>;
-  onJumpToReplay: (incident: Incident) => Promise<ActionResult>;
+  onFocusDriver: (carNumber: string) => void;
+  onCamSelect?: (cam: string) => void;
 }
 
 export default function FahrerfeldView({
@@ -19,17 +17,10 @@ export default function FahrerfeldView({
   pendingIncidents,
   onInvestigate,
   onFocusDriver,
-  onJumpToReplay,
+  onCamSelect,
 }: Props) {
   const { t } = useLanguage();
   const [imageMode, setImageMode] = useState<"live" | "replay">("live");
-  const [selectedCam, setSelectedCam] = useState("TV");
-  const [status, setStatus] = useState<{ ok: boolean; message: string } | null>(null);
-
-  function showStatus(result: { ok: boolean; message: string }) {
-    setStatus(result);
-    window.setTimeout(() => setStatus(null), 6000);
-  }
 
   function pendingFor(carNumber: string): Incident | undefined {
     return pendingIncidents
@@ -37,32 +28,12 @@ export default function FahrerfeldView({
       .sort((a, b) => b.incident_number - a.incident_number)[0];
   }
 
-  async function handleRowClick(car: CarStanding) {
-    const result = await onFocusDriver(car.slot_id, selectedCam);
-    showStatus(result);
-  }
-
-  async function handleEyeClick(incident: Incident) {
-    const result = await onJumpToReplay(incident);
-    showStatus(result);
-    if (result.ok) setImageMode("replay");
-  }
-
   return (
     <div className="view-fahrerfeld">
       <div className="view-header-row">
         <h1>{t("fahrerfeld_title")}</h1>
-        <TopToolbar
-          imageMode={imageMode}
-          onImageModeChange={setImageMode}
-          selectedCam={selectedCam}
-          onCamSelect={setSelectedCam}
-        />
+        <TopToolbar imageMode={imageMode} onImageModeChange={setImageMode} />
       </div>
-
-      {status && (
-        <div className={`action-status ${status.ok ? "ok" : "error"}`}>{status.message}</div>
-      )}
 
       <div className="table-scroll">
         <table className="data-table">
@@ -90,15 +61,10 @@ export default function FahrerfeldView({
             {standings.map((car) => {
               const pending = pendingFor(car.car_number);
               return (
-                <tr
-                  key={car.slot_id}
-                  className="clickable-row"
-                  title={`${t("nav_fahrerfeld")}: ${car.driver} (${selectedCam})`}
-                  onClick={() => handleRowClick(car)}
-                >
+                <tr key={car.slot_id} onDoubleClick={() => onFocusDriver(car.car_number)}>
                   <td>{car.position}</td>
                   <td>
-                    <span className={`class-badge ${classColor(car.class)}`}>{car.class}</span>
+                    <span className="class-badge">{car.class}</span>
                   </td>
                   <td>{car.car_number}</td>
                   <td>{car.driver}</td>
@@ -106,12 +72,11 @@ export default function FahrerfeldView({
                   <td>{car.car_model || "–"}</td>
                   <td>{car.speed_kmh ? car.speed_kmh.toFixed(0) : "–"}</td>
                   <td>{formatLap(car.best_lap_s)}</td>
-                  <td className="incident-cell" onClick={(e) => e.stopPropagation()}>
+                  <td className="incident-cell">
                     <button
                       className={`flag-dot flag-${pending?.flag_color?.toLowerCase() ?? "empty"}`}
                       disabled={!pending}
                       title={pending?.incident_type || ""}
-                      onClick={() => pending && handleEyeClick(pending)}
                     >
                       {pending && <EyeIcon />}
                     </button>
