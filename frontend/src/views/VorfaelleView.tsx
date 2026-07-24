@@ -1,6 +1,7 @@
 import { useState } from "react";
-import type { Incident } from "../types";
+import type { Incident, FlagColor } from "../types";
 import TopToolbar from "../components/TopToolbar";
+import FlagFilter from "../components/FlagFilter";
 import EyeIcon from "../components/EyeIcon";
 import { useLanguage } from "../i18n/LanguageContext";
 import { classColor } from "../classColors";
@@ -35,6 +36,9 @@ export default function VorfaelleView({
 }: Props) {
   const { t } = useLanguage();
   const [imageMode, setImageMode] = useState<"live" | "replay">("live");
+  const [showRed, setShowRed] = useState(true);
+  const [showYellow, setShowYellow] = useState(true);
+  const [showWhite, setShowWhite] = useState(true);
 
   function handleImageModeChange(mode: "live" | "replay") {
     setImageMode(mode);
@@ -44,6 +48,22 @@ export default function VorfaelleView({
       invoke("switch_to_replay").catch(console.error);
     }
   }
+
+  function handleFlagFilterChange(color: FlagColor, show: boolean) {
+    if (color === "Red") setShowRed(show);
+    else if (color === "Yellow") setShowYellow(show);
+    else if (color === "White") setShowWhite(show);
+  }
+
+  function matchesFilter(incident: Incident): boolean {
+    const color = incident.flag_color?.toLowerCase() ?? "none";
+    if (color === "red" && !showRed) return false;
+    if (color === "yellow" && !showYellow) return false;
+    if (color === "white" && !showWhite) return false;
+    return true;
+  }
+
+  const filteredIncidents = incidents.filter(matchesFilter);
 
   return (
     <div className="view-vorfaelle">
@@ -95,6 +115,13 @@ export default function VorfaelleView({
         </div>
       </div>
 
+      <FlagFilter
+        showRed={showRed}
+        showYellow={showYellow}
+        showWhite={showWhite}
+        onChange={handleFlagFilterChange}
+      />
+
       <div className="table-scroll">
         <table className="data-table incident-table">
           <thead>
@@ -113,14 +140,14 @@ export default function VorfaelleView({
             </tr>
           </thead>
           <tbody>
-            {incidents.length === 0 && (
+            {filteredIncidents.length === 0 && (
               <tr>
                 <td colSpan={11} className="empty-row">
                   {t("vorfaelle_empty")}
                 </td>
               </tr>
             )}
-            {incidents.map((i) => (
+            {filteredIncidents.map((i) => (
               <tr key={i.id}>
                 <td>{i.incident_number}</td>
                 <td>{i.class_a && <span className={`class-badge class-badge-${classColor(i.class_a)}`}>{i.class_a}</span>}</td>

@@ -262,6 +262,40 @@ button { cursor: pointer; }
 .fcy-inline-btn { background: var(--yellow) !important; color: #000 !important; border-color: var(--yellow) !important; }
 .fcy-inline-btn:hover { background: var(--red) !important; border-color: var(--red) !important; }
 
+/* ---------- Flag Filter ---------- */
+.flag-filter {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.flag-filter-label {
+  font-family: "Inter", sans-serif;
+  font-size: 13px;
+  color: var(--text-dim);
+  margin-right: 4px;
+}
+.flag-filter-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  padding: 6px 14px;
+  border-radius: 5px;
+  font-family: "Michroma", sans-serif;
+  font-size: 11px;
+  letter-spacing: 0.03em;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  cursor: pointer;
+}
+.flag-filter-btn.active {
+  color: var(--text);
+  border-color: var(--text);
+}
+.flag-filter-red.active { background: rgba(255, 0, 0, 0.25); }
+.flag-filter-yellow.active { background: rgba(255, 242, 0, 0.25); }
+.flag-filter-white.active { background: rgba(255, 255, 255, 0.15); }
+.flag-filter-btn:hover { color: var(--text); }
+
 /* ---------- Tables ---------- */
 .table-scroll { overflow-x: auto; position: relative; }
 /* border-collapse:separate + border-spacing ist nötig, damit border-radius

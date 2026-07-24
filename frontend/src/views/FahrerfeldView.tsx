@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
-import type { CarStanding, Incident } from "../types";
+import type { CarStanding, Incident, FlagColor } from "../types";
 import TopToolbar from "../components/TopToolbar";
+import FlagFilter from "../components/FlagFilter";
 import EyeIcon from "../components/EyeIcon";
 import { useLanguage } from "../i18n/LanguageContext";
 import { classColor } from "../classColors";
@@ -27,6 +28,9 @@ export default function FahrerfeldView({
 }: Props) {
   const { t } = useLanguage();
   const [imageMode, setImageMode] = useState<"live" | "replay">("live");
+  const [showRed, setShowRed] = useState(true);
+  const [showYellow, setShowYellow] = useState(true);
+  const [showWhite, setShowWhite] = useState(true);
 
   // Sortierung nach Position (1., 2., 3., ...)
   const sortedStandings = useMemo(() => {
@@ -46,10 +50,24 @@ export default function FahrerfeldView({
     onCamSelect?.(cam);
   }
 
+  function handleFlagFilterChange(color: FlagColor, show: boolean) {
+    if (color === "Red") setShowRed(show);
+    else if (color === "Yellow") setShowYellow(show);
+    else if (color === "White") setShowWhite(show);
+  }
+
   function pendingFor(carNumber: string): Incident | undefined {
     return pendingIncidents
       .filter((i) => i.car_number_a === carNumber)
       .sort((a, b) => b.incident_number - a.incident_number)[0];
+  }
+
+  function matchesFilter(incident: Incident): boolean {
+    const color = incident.flag_color?.toLowerCase() ?? "none";
+    if (color === "red" && !showRed) return false;
+    if (color === "yellow" && !showYellow) return false;
+    if (color === "white" && !showWhite) return false;
+    return true;
   }
 
   return (
@@ -63,6 +81,13 @@ export default function FahrerfeldView({
           onCamSelect={handleCamSelect}
         />
       </div>
+
+      <FlagFilter
+        showRed={showRed}
+        showYellow={showYellow}
+        showWhite={showWhite}
+        onChange={handleFlagFilterChange}
+      />
 
       <div className="table-scroll">
         <table className="data-table">
@@ -89,6 +114,7 @@ export default function FahrerfeldView({
             )}
             {sortedStandings.map((car) => {
               const pending = pendingFor(car.car_number);
+              const showIncident = pending && matchesFilter(pending);
               return (
                 <tr key={car.slot_id} onClick={() => onFocusDriver(car.car_number)}>
                   <td>{car.position}</td>
@@ -102,16 +128,16 @@ export default function FahrerfeldView({
                   <td>{car.speed_kmh ? car.speed_kmh.toFixed(0) : "–"}</td>
                   <td>{formatLap(car.best_lap_s)}</td>
                   <td className="incident-cell">
-                    {pending && (
+                    {showIncident && pending && (
                       <button
-                        className={`flag-dot flag-${pending?.flag_color?.toLowerCase() ?? "empty"}`}
+                        className={`flag-dot flag-${pending.flag_color?.toLowerCase() ?? "empty"}`}
                         onClick={(e) => { e.stopPropagation(); onReplay?.(pending); }}
-                        title={pending?.incident_type || ""}
+                        title={pending.incident_type || ""}
                       >
                         <EyeIcon />
                       </button>
                     )}
-                    {pending && (
+                    {showIncident && pending && (
                       <button
                         className="investigate-btn"
                         onClick={(e) => { e.stopPropagation(); onInvestigate(pending); }}
