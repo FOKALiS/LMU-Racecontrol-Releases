@@ -212,24 +212,25 @@ async fn jump_to_incident_replay(
 #[tauri::command]
 async fn set_camera(cam_id: String) -> Result<(), String> {
     // Shared Memory ist der zuverlässigere Weg (kein Fokus nötig)
-    // Fallback auf Tastatursimulation, falls Shared Memory nicht verfügbar
-    if let Err(e) = shared_memory::switch_camera_sm(&cam_id) {
-        println!("[set_camera] Shared Memory nicht verfügbar ({}), Fallback auf Tastatur", e);
-        keyboard::switch_camera(&cam_id)?;
+    // Öffne Shared Memory NUR bei Bedarf - blockiert nicht beim Start
+    if let Some(sm) = shared_memory::try_open() {
+        if sm.set_camera(&cam_id).is_ok() {
+            return Ok(());
+        }
     }
+    // Fallback: Tastatursimulation (funktioniert immer, braucht aber Fokus)
+    println!("[set_camera] Fallback auf Tastatur-Simulation");
+    keyboard::switch_camera(&cam_id)?;
     Ok(())
 }
 
 #[tauri::command]
 async fn focus_driver(car_number: String) -> Result<(), String> {
-    // Shared Memory ist der zuverlässigere Weg (kein Fokus nötig)
-    // Zuerst Kamera auf TV schalten (via Shared Memory oder Tastatur)
+    // Zuerst Kamera auf TV schalten
     set_camera("TV".to_string()).await?;
     tokio::time::sleep(std::time::Duration::from_millis(100)).await;
     
-    // Shared Memory für Fahrzeug-Fokus: wir brauchen die Slot-ID, nicht die Startnummer
-    // Die CarStandings haben slot_id - aber wir bekommen hier nur die car_number
-    // Für jetzt: Tastatur-Fallback (da wir die Slot-ID nicht haben)
+    // Fahrzeug-Fokus via Tastatursimulation (Strg+F + Fahrzeugnummer + Enter)
     keyboard::focus_car(&car_number)?;
     Ok(())
 }

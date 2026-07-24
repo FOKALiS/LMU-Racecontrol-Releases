@@ -1,22 +1,15 @@
-//! Zugriff auf den rFactor 2 / LMU Shared Memory.
+//! Zugriff auf den rFactor 2 / LMU Shared Memory (optional).
 //!
-//! LMU (Le Mans Ultimate) basiert auf rFactor 2 und verwendet dieselbe
-//! Shared-Memory-Schnittstelle. Der Shared Memory Block wird von LMU
-//! beim Start erstellt und mit Live-Daten (u.a. Kamera-Status, Fahrzeug-
-//! informationen) gefüllt.
+//! WARNUNG: Dieser Code wird beim Start NICHT ausgeführt. Der Shared Memory
+//! wird nur bei Bedarf geöffnet (lazy). Wenn LMU nicht läuft, wird einfach
+//! `None` zurückgegeben - kein Blockieren, kein Absturz.
 //!
-//! Durch direktes Schreiben in den Shared Memory können wir:
-//! - Die Kamera umschalten (Kamera-Gruppe + Kamera-Index)
-//! - Den Fahrzeug-Fokus setzen (Ziel-Fahrzeug-Slot)
-//! - Die aktuelle Kamera-Konfiguration auslesen
-//!
-//! ## Vorteil gegenüber Tastatursimulation
-//! Shared Memory ist der "Königsweg" für LMU/rFactor 2 Tools:
-//! - Kein Fenster-Fokus nötig (funktioniert im Hintergrund)
-//! - Kein Terminal-Flash
-//! - Kein SendInput/PostMessage
-//! - Sofortige Reaktion (kein Thread-Sleep)
-//! - Auch von anderen Tools wie Broadcast Control UK verwendet
+//! ## Verwendung
+//! ```rust
+//! if let Some(sm) = shared_memory::try_open() {
+//!     sm.set_camera("TV").ok();
+//! }
+//! ```
 
 use std::ptr;
 use std::sync::Mutex;
@@ -51,22 +44,7 @@ extern "system" {
     fn WaitForSingleObject(h_handle: HANDLE, dw_milliseconds: DWORD) -> DWORD;
 }
 
-// ─── Shared Memory Layout (rFactor 2) ─────────────────────────────────
-//
-// Offset  | Größe | Typ    | Feld
-// --------|-------|--------|------------------------------------------
-// 0x0000  | 4     | DWORD  | mVersion
-// 0x0004  | 4     | DWORD  | mBuildVersion
-// 0x0008  | 4     | DWORD  | mStatus
-// 0x000C  | 4     | DWORD  | mSession
-// 0x0010  | 4     | float  | mCurrentTime
-// 0x0014  | 4     | float  | mStartTime
-// 0x0018  | 4     | float  | mEndTime
-// 0x001C  | 4     | DWORD  | mSessionLength
-// 0x0020  | 4     | float  | mCompletedLaps
-// 0x0024  | 4     | DWORD  | mCameraGroup    ← Kamera-Gruppe
-// 0x0028  | 4     | DWORD  | mCurrentCamera  ← Kamera-ID
-// 0x002C  | 4     | DWORD  | mTargetVehicle  ← Ziel-Fahrzeug
+// ─── Shared Memory Layout ─────────────────────────────────────────────
 
 const OFFSET_CAMERA_GROUP: usize = 0x24;
 const OFFSET_CURRENT_CAMERA: usize = 0x28;
@@ -94,21 +72,20 @@ fn get_camera_mapping(cam_id: &str) -> Option<CameraMapping> {
     }
 }
 
-// ─── Wrapper für Send/Sync (da *mut u8 weder Send noch Sync ist) ──────
+// ─── Shared Memory View ───────────────────────────────────────────────
 
-struct SharedMemoryView {
+pub struct SharedMemoryView {
     view: *mut u8,
     view_size: usize,
     mapping: HANDLE,
 }
 
-// `*mut u8` ist weder Send noch Sync, aber wir schützen den Zugriff
-// durch einen Mutex. Daher ist es sicher, Send/Sync zu implementieren.
 unsafe impl Send for SharedMemoryView {}
 unsafe impl Sync for SharedMemoryView {}
 
 impl SharedMemoryView {
-    fn open() -> Option<Self> {
+    /// Öffnet den Shared Memory. Gibt `None` zurück, wenn LMU nicht läuft.
+    pub fn open() -> Option<Self> {
         unsafe {
             let name: Vec<u16> = SHARED_MEMORY_NAME
                 .encode_utf16()
@@ -117,37 +94,23 @@ impl SharedMemoryView {
 
             let mapping = OpenFileMappingW(FILE_MAP_ALL_ACCESS, 0, name.as_ptr());
             if mapping == 0 {
-                println!("[shared_memory] LMU Shared Memory nicht gefunden (läuft LMU?)");
                 return None;
             }
 
             let view_size: usize = 4096;
             let view = MapViewOfFile(mapping, FILE_MAP_ALL_ACCESS, 0, 0, view_size);
             if view.is_null() {
-                println!("[shared_memory] MapViewOfFile fehlgeschlagen");
                 CloseHandle(mapping);
                 return None;
             }
 
-            println!("[shared_memory] LMU Shared Memory geöffnet");
             Some(SharedMemoryView { view, view_size, mapping })
         }
     }
 
-    fn read_u32(&self, offset: usize) -> Option<u32> {
-        if offset + 4 > self.view_size {
-            return None;
-        }
-        unsafe {
-            let ptr = self.view.add(offset) as *const u32;
-            Some(ptr::read_unaligned(ptr))
-        }
-    }
-
-    fn write_u32(&self, offset: usize, value: u32) -> bool {
-        if offset + 4 > self.view_size {
-            return false;
-        }
+    pub fn set_camera(&self, cam_id: &str) -> Result<(), String> {
+        let mapping = get_camera_mapping(cam_id)
+            .ok_or_else(|| format!("Unbekannte Kamera-ID: {}", cam_id))?;
 
         let mutex_name: Vec<u16> = MUTEX_NAME
             .encode_utf16()
@@ -157,26 +120,20 @@ impl SharedMemoryView {
         unsafe {
             let mutex = OpenMutexW(0x1F0001, 0, mutex_name.as_ptr());
             if mutex != 0 {
-                WaitForSingleObject(mutex, 1000);
+                WaitForSingleObject(mutex, 100);
             }
 
-            let ptr = self.view.add(offset) as *mut u32;
-            ptr::write_unaligned(ptr, value);
+            let ptr_group = self.view.add(OFFSET_CAMERA_GROUP) as *mut u32;
+            ptr::write_unaligned(ptr_group, mapping.group);
+
+            let ptr_cam = self.view.add(OFFSET_CURRENT_CAMERA) as *mut u32;
+            ptr::write_unaligned(ptr_cam, mapping.camera);
 
             if mutex != 0 {
                 ReleaseMutex(mutex);
                 CloseHandle(mutex);
             }
         }
-        true
-    }
-
-    fn set_camera(&self, cam_id: &str) -> Result<(), String> {
-        let mapping = get_camera_mapping(cam_id)
-            .ok_or_else(|| format!("Unbekannte Kamera-ID: {}", cam_id))?;
-
-        self.write_u32(OFFSET_CAMERA_GROUP, mapping.group);
-        self.write_u32(OFFSET_CURRENT_CAMERA, mapping.camera);
 
         println!(
             "[shared_memory] Kamera gewechselt: {} (Gruppe={}, Kamera={})",
@@ -185,8 +142,27 @@ impl SharedMemoryView {
         Ok(())
     }
 
-    fn focus_vehicle(&self, target_slot: u32) -> Result<(), String> {
-        self.write_u32(OFFSET_TARGET_VEHICLE, target_slot);
+    pub fn focus_vehicle(&self, target_slot: u32) -> Result<(), String> {
+        let mutex_name: Vec<u16> = MUTEX_NAME
+            .encode_utf16()
+            .chain(std::iter::once(0))
+            .collect();
+
+        unsafe {
+            let mutex = OpenMutexW(0x1F0001, 0, mutex_name.as_ptr());
+            if mutex != 0 {
+                WaitForSingleObject(mutex, 100);
+            }
+
+            let ptr = self.view.add(OFFSET_TARGET_VEHICLE) as *mut u32;
+            ptr::write_unaligned(ptr, target_slot);
+
+            if mutex != 0 {
+                ReleaseMutex(mutex);
+                CloseHandle(mutex);
+            }
+        }
+
         println!("[shared_memory] Fahrzeug-Fokus auf Slot {} gesetzt", target_slot);
         Ok(())
     }
@@ -202,47 +178,13 @@ impl Drop for SharedMemoryView {
                 CloseHandle(self.mapping);
             }
         }
-        println!("[shared_memory] LMU Shared Memory geschlossen");
     }
 }
 
-// ─── Globaler Singleton (thread-safe via Mutex) ───────────────────────
+// ─── Öffentliche API ───────────────────────────────────────────────────
 
-use std::sync::OnceLock;
-
-static SHARED_MEMORY_INSTANCE: OnceLock<Mutex<Option<SharedMemoryView>>> = OnceLock::new();
-
-fn get_shared_memory() -> &'static Mutex<Option<SharedMemoryView>> {
-    SHARED_MEMORY_INSTANCE.get_or_init(|| {
-        println!("[shared_memory] Versuche, LMU Shared Memory zu öffnen...");
-        Mutex::new(SharedMemoryView::open())
-    })
-}
-
-/// Prüft, ob Shared Memory verfügbar ist (LMU läuft?).
-pub fn is_available() -> bool {
-    get_shared_memory()
-        .lock()
-        .unwrap()
-        .is_some()
-}
-
-/// Schaltet die LMU-Kamera über Shared Memory um.
-/// Gibt einen Fehler zurück, wenn Shared Memory nicht verfügbar ist.
-pub fn switch_camera_sm(cam_id: &str) -> Result<(), String> {
-    let guard = get_shared_memory().lock().unwrap();
-    match guard.as_ref() {
-        Some(sm) => sm.set_camera(cam_id),
-        None => Err("Shared Memory nicht verfügbar (LMU läuft nicht?)".to_string()),
-    }
-}
-
-/// Fokussiert ein Fahrzeug über Shared Memory.
-/// `slot_id` ist die LMU-Slot-ID (nicht die Startnummer!).
-pub fn focus_vehicle_sm(slot_id: u32) -> Result<(), String> {
-    let guard = get_shared_memory().lock().unwrap();
-    match guard.as_ref() {
-        Some(sm) => sm.focus_vehicle(slot_id),
-        None => Err("Shared Memory nicht verfügbar (LMU läuft nicht?)".to_string()),
-    }
+/// Versucht, den Shared Memory zu öffnen. Gibt `None` zurück, wenn LMU
+/// nicht läuft. Blockiert NICHT beim Start.
+pub fn try_open() -> Option<SharedMemoryView> {
+    SharedMemoryView::open()
 }
