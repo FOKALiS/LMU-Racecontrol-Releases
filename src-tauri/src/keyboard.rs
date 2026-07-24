@@ -180,16 +180,26 @@ impl KeyboardThread {
     }
 
     fn find_lmu() -> Option<HWND> {
-        let titles = ["Le Mans Ultimate", "LMU", "rFactor 2"];
+        // LMU Fenster-Titel: "Le Mans Ultimate" (genau so heißt das Fenster)
+        // Zusätzlich suchen wir nach Teilstrings, falls der Titel abweicht
+        let titles = [
+            "Le Mans Ultimate",
+            "LMU",
+            "rFactor 2",
+            "LMU -",
+            "Le Mans Ultimate -",
+        ];
         for title in &titles {
             let wide: Vec<u16> = title.encode_utf16().chain(std::iter::once(0)).collect();
             unsafe {
                 let hwnd = FindWindowW(ptr::null(), wide.as_ptr());
                 if hwnd != 0 {
+                    println!("[keyboard] LMU-Fenster gefunden: '{}' (HWND={})", title, hwnd);
                     return Some(hwnd);
                 }
             }
         }
+        println!("[keyboard] LMU-Fenster NICHT gefunden! Gesucht: {:?}", titles);
         None
     }
 

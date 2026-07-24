@@ -333,23 +333,10 @@ async fn poll_loop(app: tauri::AppHandle, state: Arc<AppState>) {
                     .map(|t| t.elapsed().as_secs_f64())
                     .unwrap_or(0.0);
 
-                // 1) Automatische Verdachtserkennung (rot/gelb/weiß)
-                {
-                    let mut detector = state.detector.lock().await;
-                    let ctx = DetectionContext {
-                        session_time_s,
-                        track_name: &session.track_name,
-                    };
-                    for incident in detector.analyze(&standings, &ctx) {
-                        let mut incident = incident;
-                        if state.db.insert(&mut incident).is_ok() {
-                            let _ = app.emit("new-incident", NewIncidentEvent { incident });
-                        }
-                    }
-                }
-
-                // 2) FCY-Geschwindigkeitsüberwachung
-                if state.fcy.current_phase() == FcyPhase::Active {
+                // 1) FCY-Geschwindigkeitsüberwachung (VOR der Heuristik, damit
+                //    FCY-Verstöße priorisiert werden)
+                let fcy_active = state.fcy.current_phase() == FcyPhase::Active;
+                if fcy_active {
                     let limit = state.settings.lock().await.fcy_speed_limit_kmh;
                     let tolerance = 3.0; // +3 km/h Toleranz
                     let threshold = limit + tolerance;
@@ -364,6 +351,23 @@ async fn poll_loop(app: tauri::AppHandle, state: Arc<AppState>) {
                             if state.db.insert(&mut incident).is_ok() {
                                 let _ = app.emit("new-incident", NewIncidentEvent { incident });
                             }
+                        }
+                    }
+                }
+
+                // 2) Automatische Verdachtserkennung (rot/gelb/weiß)
+                //    Während FCY pausiert, da alle Fahrzeuge langsam sind
+                //    und die Heuristik tausende falsche Vorfälle erzeugen würde.
+                if !fcy_active {
+                    let mut detector = state.detector.lock().await;
+                    let ctx = DetectionContext {
+                        session_time_s,
+                        track_name: &session.track_name,
+                    };
+                    for incident in detector.analyze(&standings, &ctx) {
+                        let mut incident = incident;
+                        if state.db.insert(&mut incident).is_ok() {
+                            let _ = app.emit("new-incident", NewIncidentEvent { incident });
                         }
                     }
                 }

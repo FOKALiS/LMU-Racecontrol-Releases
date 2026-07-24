@@ -142,18 +142,44 @@ impl LmuClient {
 /// Domänenmodell um. Bewusst tolerant gegenüber fehlenden/zusätzlichen
 /// Feldern, da die exakte LMU-JSON-Struktur je nach Version variieren kann.
 fn parse_standings(raw: &Value) -> Result<Vec<CarStanding>> {
-    // Debug: Die ersten 2000 Zeichen der API-Antwort ausgeben
+    // Debug: ALLE Feldnamen des ersten Eintrags ausgeben, damit wir die
+    // exakte JSON-Struktur von LMU sehen (insb. für speed_kmh)
     if let Some(arr) = raw.as_array() {
         if let Some(first) = arr.first() {
-            println!("[lmu_client] Erster Eintrag aus standings: {}", 
-                serde_json::to_string(first).unwrap_or_default());
+            if let Some(obj) = first.as_object() {
+                println!("[lmu_client] === ALLE FELDER des ersten Fahrzeugs ===");
+                for (key, val) in obj.iter() {
+                    println!("  {} = {}", key, val);
+                }
+                println!("[lmu_client] ===========================================");
+            }
         }
         println!("[lmu_client] Anzahl Fahrzeuge: {}", arr.len());
     } else if let Some(cars) = raw.get("cars").and_then(|v| v.as_array()) {
         if let Some(first) = cars.first() {
-            println!("[lmu_client] Erster Eintrag aus standings.cars: {}", 
-                serde_json::to_string(first).unwrap_or_default());
+            if let Some(obj) = first.as_object() {
+                println!("[lmu_client] === ALLE FELDER des ersten Fahrzeugs (cars) ===");
+                for (key, val) in obj.iter() {
+                    println!("  {} = {}", key, val);
+                }
+                println!("[lmu_client] =================================================");
+            }
         }
+    } else if let Some(vehicles) = raw.get("vehicles").and_then(|v| v.as_array()) {
+        if let Some(first) = vehicles.first() {
+            if let Some(obj) = first.as_object() {
+                println!("[lmu_client] === ALLE FELDER des ersten Fahrzeugs (vehicles) ===");
+                for (key, val) in obj.iter() {
+                    println!("  {} = {}", key, val);
+                }
+                println!("[lmu_client] =====================================================");
+            }
+        }
+    } else {
+        // Fallback: Zeige die gesamte rohe JSON-Antwort (gekürzt auf 5000 Zeichen)
+        let raw_str = serde_json::to_string(raw).unwrap_or_default();
+        let preview = if raw_str.len() > 5000 { &raw_str[..5000] } else { &raw_str };
+        println!("[lmu_client] RAW JSON (erste 5000 Zeichen):\n{}", preview);
     }
 
     let list = raw

@@ -1,8 +1,8 @@
-//! Zugriff auf den rFactor 2 / LMU Shared Memory (optional).
+//! Shared Memory Zugriff für rFactor 2 / LMU.
 //!
-//! WARNUNG: Dieser Code wird beim Start NICHT ausgeführt. Der Shared Memory
-//! wird nur bei Bedarf geöffnet (lazy). Wenn LMU nicht läuft, wird einfach
-//! `None` zurückgegeben - kein Blockieren, kein Absturz.
+//! WICHTIG: Dieser Code wird NUR bei Bedarf ausgeführt (lazy).
+//! Wenn LMU nicht läuft oder der Shared Memory nicht verfügbar ist,
+//! wird einfach `None` zurückgegeben - kein Blockieren, kein Absturz.
 //!
 //! ## Verwendung
 //! ```rust
@@ -12,7 +12,6 @@
 //! ```
 
 use std::ptr;
-use std::sync::Mutex;
 
 // ─── Win32 Shared Memory API ──────────────────────────────────────────
 
@@ -48,10 +47,6 @@ extern "system" {
 
 const OFFSET_CAMERA_GROUP: usize = 0x24;
 const OFFSET_CURRENT_CAMERA: usize = 0x28;
-const OFFSET_TARGET_VEHICLE: usize = 0x2C;
-
-const SHARED_MEMORY_NAME: &str = "Local\\rFactor2SharedMemory";
-const MUTEX_NAME: &str = "Local\\rFactor2SharedMemoryMutex";
 
 // ─── Kamera-Mapping ───────────────────────────────────────────────────
 
@@ -76,7 +71,6 @@ fn get_camera_mapping(cam_id: &str) -> Option<CameraMapping> {
 
 pub struct SharedMemoryView {
     view: *mut u8,
-    view_size: usize,
     mapping: HANDLE,
 }
 
@@ -87,83 +81,45 @@ impl SharedMemoryView {
     /// Öffnet den Shared Memory. Gibt `None` zurück, wenn LMU nicht läuft.
     pub fn open() -> Option<Self> {
         unsafe {
-            let name: Vec<u16> = SHARED_MEMORY_NAME
-                .encode_utf16()
-                .chain(std::iter::once(0))
-                .collect();
+            // Versuche mehrere mögliche Shared Memory Namen
+            let names = [
+                "Local\\rFactor2SharedMemory",
+                "Local\\LMUSharedMemory",
+                "Global\\rFactor2SharedMemory",
+            ];
 
-            let mapping = OpenFileMappingW(FILE_MAP_ALL_ACCESS, 0, name.as_ptr());
-            if mapping == 0 {
-                return None;
+            for name in &names {
+                let wide: Vec<u16> = name.encode_utf16().chain(std::iter::once(0)).collect();
+                let mapping = OpenFileMappingW(FILE_MAP_ALL_ACCESS, 0, wide.as_ptr());
+                if mapping != 0 {
+                    let view = MapViewOfFile(mapping, FILE_MAP_ALL_ACCESS, 0, 0, 4096);
+                    if !view.is_null() {
+                        println!("[shared_memory] Geöffnet: {}", name);
+                        return Some(SharedMemoryView { view: view as *mut u8, mapping });
+                    }
+                    CloseHandle(mapping);
+                }
             }
-
-            let view_size: usize = 4096;
-            let view = MapViewOfFile(mapping, FILE_MAP_ALL_ACCESS, 0, 0, view_size);
-            if view.is_null() {
-                CloseHandle(mapping);
-                return None;
-            }
-
-            Some(SharedMemoryView { view, view_size, mapping })
         }
+        None
     }
 
     pub fn set_camera(&self, cam_id: &str) -> Result<(), String> {
         let mapping = get_camera_mapping(cam_id)
             .ok_or_else(|| format!("Unbekannte Kamera-ID: {}", cam_id))?;
 
-        let mutex_name: Vec<u16> = MUTEX_NAME
-            .encode_utf16()
-            .chain(std::iter::once(0))
-            .collect();
-
         unsafe {
-            let mutex = OpenMutexW(0x1F0001, 0, mutex_name.as_ptr());
-            if mutex != 0 {
-                WaitForSingleObject(mutex, 100);
-            }
-
             let ptr_group = self.view.add(OFFSET_CAMERA_GROUP) as *mut u32;
             ptr::write_unaligned(ptr_group, mapping.group);
 
             let ptr_cam = self.view.add(OFFSET_CURRENT_CAMERA) as *mut u32;
             ptr::write_unaligned(ptr_cam, mapping.camera);
-
-            if mutex != 0 {
-                ReleaseMutex(mutex);
-                CloseHandle(mutex);
-            }
         }
 
         println!(
             "[shared_memory] Kamera gewechselt: {} (Gruppe={}, Kamera={})",
             cam_id, mapping.group, mapping.camera
         );
-        Ok(())
-    }
-
-    pub fn focus_vehicle(&self, target_slot: u32) -> Result<(), String> {
-        let mutex_name: Vec<u16> = MUTEX_NAME
-            .encode_utf16()
-            .chain(std::iter::once(0))
-            .collect();
-
-        unsafe {
-            let mutex = OpenMutexW(0x1F0001, 0, mutex_name.as_ptr());
-            if mutex != 0 {
-                WaitForSingleObject(mutex, 100);
-            }
-
-            let ptr = self.view.add(OFFSET_TARGET_VEHICLE) as *mut u32;
-            ptr::write_unaligned(ptr, target_slot);
-
-            if mutex != 0 {
-                ReleaseMutex(mutex);
-                CloseHandle(mutex);
-            }
-        }
-
-        println!("[shared_memory] Fahrzeug-Fokus auf Slot {} gesetzt", target_slot);
         Ok(())
     }
 }
