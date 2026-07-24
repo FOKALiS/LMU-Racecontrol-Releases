@@ -9,10 +9,11 @@ import { invoke } from "@tauri-apps/api/core";
 interface Props {
   incidents: Incident[];
   onReplay: (incident: Incident) => void;
+  selectedCam?: string;
   onCamSelect?: (cam: string) => void;
 }
 
-export default function ArchivView({ incidents, onReplay, onCamSelect }: Props) {
+export default function ArchivView({ incidents, onReplay, selectedCam = "TV", onCamSelect }: Props) {
   const { t } = useLanguage();
   const [imageMode, setImageMode] = useState<"live" | "replay">("live");
 
@@ -33,7 +34,7 @@ export default function ArchivView({ incidents, onReplay, onCamSelect }: Props) 
     <div className="view-archiv">
       <div className="view-header-row">
         <h1>{t("archiv_title")}</h1>
-        <TopToolbar imageMode={imageMode} onImageModeChange={handleImageModeChange} onCamSelect={onCamSelect} />
+        <TopToolbar imageMode={imageMode} onImageModeChange={handleImageModeChange} selectedCam={selectedCam} onCamSelect={onCamSelect} />
       </div>
 
       <div className="table-scroll">

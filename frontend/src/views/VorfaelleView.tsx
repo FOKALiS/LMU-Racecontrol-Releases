@@ -16,6 +16,7 @@ interface Props {
   onReplay?: (incident: Incident) => void;
   onGoToArchiv: () => void;
   onFcyClick: () => void;
+  selectedCam?: string;
   onCamSelect?: (cam: string) => void;
 }
 
@@ -29,6 +30,7 @@ export default function VorfaelleView({
   onReplay,
   onGoToArchiv,
   onFcyClick,
+  selectedCam = "TV",
   onCamSelect,
 }: Props) {
   const { t } = useLanguage();
@@ -47,7 +49,7 @@ export default function VorfaelleView({
     <div className="view-vorfaelle">
       <div className="view-header-row">
         <h1>{t("vorfaelle_title")}</h1>
-        <TopToolbar imageMode={imageMode} onImageModeChange={handleImageModeChange} onCamSelect={onCamSelect} />
+        <TopToolbar imageMode={imageMode} onImageModeChange={handleImageModeChange} selectedCam={selectedCam} onCamSelect={onCamSelect} />
       </div>
 
       <div className="toolbar-row-secondary">

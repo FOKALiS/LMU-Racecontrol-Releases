@@ -1,6 +1,6 @@
 [package]
 name = "lmu-race-control"
-version = "0.6.4"
+version = "0.6.5"
 description = "LIVE Rennkommission Tool für Le Mans Ultimate – Vorfallserkennung und -dokumentation"
 authors = ["Your Race Control Team"]
 edition = "2021"
@@ -34,8 +34,8 @@ tauri-plugin-process = "2"
 
 # Tastatursimulation für die LMU-Kamera-Steuerung
 # LMU/rFactor2 verwendet keine REST-API für Kamerasteuerung, daher simulieren
-# wir die entsprechenden Tastendrücke (F1-F6 und Strg+F) via enigo.
-enigo = { version = "0.2", features = ["serde"] }
+# wir die entsprechenden Tastendrücke (F1-F6 und Strg+F) via Win32 SendInput API.
+# Kein externes Crate nötig – die Win32-API wird direkt per FFI aufgerufen.
 
 [[bin]]
 name = "lmu-race-control"

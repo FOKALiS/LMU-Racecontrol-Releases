@@ -4,6 +4,20 @@ Alle nennenswerten Änderungen an LMU Race Control werden hier dokumentiert.
 Format angelehnt an [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
 
+## [0.6.5] - 24.07.2026 (Tastatur-Steuerung neu: Win32 SendInput, kein PowerShell-Flash, Fahrerfeld-Sortierung, Kamera-Auswahl aktiv)
+
+### Behoben
+- **Terminal-Fenster-Flash beim Fokussieren von LMU beseitigt**: PowerShell `AppActivate` durch native Win32 `FindWindowW`/`SetForegroundWindow` ersetzt – kein aufblitzendes Terminal mehr
+- **Tastaturbefehle zuverlässiger**: `enigo`-Crate entfernt, stattdessen direkte Win32 `SendInput`-API mit Hintergrund-Thread-Architektur
+- **Async-Blockierung behoben**: `std::thread::sleep` durch `tokio::time::sleep` in `focus_driver` ersetzt
+
+### Geändert
+- **Fahrerfeld wird jetzt nach Position sortiert** (1., 2., 3., ...) via `useMemo`
+- **Kamera-Auswahl wird aktiv dargestellt**: Zentraler `selectedCam`-State in `App.tsx`, view-übergreifend an alle Views weitergegeben
+- **`enigo`-Abhängigkeit entfernt**: `Cargo.toml` bereinigt
+- **`keyboard.rs` komplett neu geschrieben**: Win32-API, Hintergrund-Thread, Eingabe-Puffer-Flush
+- **Version**: 0.6.4 → 0.6.5
+
 ## [0.6.4] - 24.07.2026 (Icon-Größe: Logo auf Desktop/Taskleiste vergrößert)
 
 ### Behoben

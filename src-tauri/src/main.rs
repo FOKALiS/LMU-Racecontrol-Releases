@@ -210,6 +210,7 @@ async fn jump_to_incident_replay(
 
 #[tauri::command]
 async fn set_camera(cam_id: String) -> Result<(), String> {
+    // Nicht-blockierend: sendet Nachricht an Hintergrund-Thread
     keyboard::switch_camera(&cam_id)?;
     Ok(())
 }
@@ -218,8 +219,9 @@ async fn set_camera(cam_id: String) -> Result<(), String> {
 async fn focus_driver(car_number: String) -> Result<(), String> {
     // Fahrzeug-Fokus via Tastatursimulation (Strg+F + Fahrzeugnummer + Enter)
     // Zuerst Kamera auf TV (F1) schalten, dann Fahrzeug fokussieren
+    // Die keyboard-Funktionen sind nicht-blockierend (Message an Hintergrund-Thread)
     let _ = keyboard::switch_camera("TV");
-    std::thread::sleep(std::time::Duration::from_millis(100));
+    tokio::time::sleep(std::time::Duration::from_millis(100)).await;
     keyboard::focus_car(&car_number)?;
     Ok(())
 }

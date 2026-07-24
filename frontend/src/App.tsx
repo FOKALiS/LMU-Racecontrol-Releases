@@ -46,6 +46,7 @@ export default function App() {
 
   const [preRoll, setPreRoll] = useState(20);
   const [postRoll, setPostRoll] = useState(20);
+  const [selectedCam, setSelectedCam] = useState<string>("TV");
 
   const [modalDraft, setModalDraft] = useState<IncidentDraft | null>(null);
 
@@ -225,6 +226,7 @@ export default function App() {
   }
 
   async function selectCamera(cam: string) {
+    setSelectedCam(cam);
     try {
       await invoke("set_camera", { camId: cam });
     } catch (err) {
@@ -266,6 +268,7 @@ export default function App() {
             pendingIncidents={pendingIncidents}
             onInvestigate={openInvestigateModal}
             onFocusDriver={focusDriver}
+            selectedCam={selectedCam}
             onCamSelect={selectCamera}
             onReplay={jumpToReplay}
           />
@@ -284,12 +287,13 @@ export default function App() {
             onInvestigate={openInvestigateModal}
             onGoToArchiv={() => setView("archiv")}
             onFcyClick={handleFcyClick}
+            selectedCam={selectedCam}
             onCamSelect={selectCamera}
           />
         )}
 
         {license?.licensed && view === "archiv" && (
-          <ArchivView incidents={archivedIncidents} onReplay={jumpToReplay} onCamSelect={selectCamera} />
+          <ArchivView incidents={archivedIncidents} onReplay={jumpToReplay} selectedCam={selectedCam} onCamSelect={selectCamera} />
         )}
 
         {license?.licensed && view === "einstellungen" && (

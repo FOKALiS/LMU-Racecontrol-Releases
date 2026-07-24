@@ -1,11 +1,11 @@
 {
-  "version": "0.6.1",
-  "notes": "Installer-Fix: ERR_CONNECTION_REFUSED behoben, Schriftarten lokal eingebettet, Sidebar-Steuerung korrigiert\n\n## Behoben\n- ERR_CONNECTION_REFUSED beim Start: Dem Hauptfenster fehlte \"url\": \"index.html\"\n- Schriftarten (Michroma/Inter) werden jetzt lokal eingebettet – kein Internet nötig\n\n## Geändert\n- Sidebar-Steuerung an drei Zustände angepasst (ohne Lizenz / lizenziert + nicht verbunden / lizenziert + verbunden)\n- beforeBuildCommand auf npm --prefix frontend run build umgestellt",
-  "pub_date": "2026-07-22T22:00:00+02:00",
+  "version": "0.6.5",
+  "notes": "Tastatur-Steuerung neu geschrieben: Win32 SendInput statt enigo, kein PowerShell-Flash mehr, Fahrerfeld-Sortierung, Kamera-Auswahl aktiv dargestellt\n\n## Behoben\n- Terminal-Fenster-Flash beim Fokussieren von LMU beseitigt (Win32 FindWindowW/SetForegroundWindow statt PowerShell)\n- Tastaturbefehle zuverlässiger durch direkte Win32 SendInput-API (statt enigo-Crate)\n- Async-Blockierung behoben (std::thread::sleep durch tokio::time::sleep ersetzt)\n\n## Geändert\n- Fahrerfeld wird jetzt nach Position sortiert (1., 2., 3., ...)\n- Kamera-Auswahl wird aktiv dargestellt (selectedCam-State zentral in App.tsx)\n- enigo-Crate entfernt, Cargo.toml bereinigt\n- keyboard.rs komplett neu geschrieben mit Hintergrund-Thread-Architektur",
+  "pub_date": "2026-07-24T09:00:00+02:00",
   "platforms": {
     "windows-x86_64": {
       "signature": "",
-      "url": "https://github.com/FOKALiS/LMU-Racecontrol/releases/download/v0.6.1/LMU-Racecontrol_0.6.1_x64-setup.exe"
+      "url": "https://github.com/FOKALiS/LMU-Racecontrol/releases/download/v0.6.5/LMU-Racecontrol_0.6.5_x64-setup.exe"
     }
   }
 }

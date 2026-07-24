@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import type { CarStanding, Incident } from "../types";
 import TopToolbar from "../components/TopToolbar";
 import EyeIcon from "../components/EyeIcon";
@@ -11,6 +11,7 @@ interface Props {
   pendingIncidents: Incident[];
   onInvestigate: (incident: Incident) => void;
   onFocusDriver: (carNumber: string) => void;
+  selectedCam?: string;
   onCamSelect?: (cam: string) => void;
   onReplay?: (incident: Incident) => void;
 }
@@ -20,11 +21,17 @@ export default function FahrerfeldView({
   pendingIncidents,
   onInvestigate,
   onFocusDriver,
+  selectedCam = "TV",
   onCamSelect,
   onReplay,
 }: Props) {
   const { t } = useLanguage();
   const [imageMode, setImageMode] = useState<"live" | "replay">("live");
+
+  // Sortierung nach Position (1., 2., 3., ...)
+  const sortedStandings = useMemo(() => {
+    return [...standings].sort((a, b) => a.position - b.position);
+  }, [standings]);
 
   function handleImageModeChange(mode: "live" | "replay") {
     setImageMode(mode);
@@ -33,6 +40,10 @@ export default function FahrerfeldView({
     } else {
       invoke("switch_to_replay").catch(console.error);
     }
+  }
+
+  function handleCamSelect(cam: string) {
+    onCamSelect?.(cam);
   }
 
   function pendingFor(carNumber: string): Incident | undefined {
@@ -45,7 +56,12 @@ export default function FahrerfeldView({
     <div className="view-fahrerfeld">
       <div className="view-header-row">
         <h1>{t("fahrerfeld_title")}</h1>
-        <TopToolbar imageMode={imageMode} onImageModeChange={handleImageModeChange} onCamSelect={onCamSelect} />
+        <TopToolbar
+          imageMode={imageMode}
+          onImageModeChange={handleImageModeChange}
+          selectedCam={selectedCam}
+          onCamSelect={handleCamSelect}
+        />
       </div>
 
       <div className="table-scroll">
@@ -64,14 +80,14 @@ export default function FahrerfeldView({
             </tr>
           </thead>
           <tbody>
-            {standings.length === 0 && (
+            {sortedStandings.length === 0 && (
               <tr>
                 <td colSpan={9} className="empty-row">
                   {t("fahrerfeld_no_data")}
                 </td>
               </tr>
             )}
-            {standings.map((car) => {
+            {sortedStandings.map((car) => {
               const pending = pendingFor(car.car_number);
               return (
                 <tr key={car.slot_id} onClick={() => onFocusDriver(car.car_number)}>
