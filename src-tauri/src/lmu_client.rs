@@ -136,6 +136,18 @@ impl LmuClient {
     pub async fn switch_to_replay(&self) -> Result<()> {
         self.put("/rest/watch/replayCommand/replay").await
     }
+
+    /// Fokussiert die Kamera auf ein bestimmtes Fahrzeug per Slot-ID.
+    /// Wird von Broadcast Control UK genauso verwendet - funktioniert!
+    pub async fn focus_slot(&self, slot_id: i64) -> Result<()> {
+        let path = format!("/rest/watch/focus/{}", slot_id);
+        self.put(&path).await
+    }
+
+    /// Löscht den Fahrzeug-Fokus (zurück zur freien Kamera).
+    pub async fn clear_focus(&self) -> Result<()> {
+        self.put("/rest/watch/focus/clear").await
+    }
 }
 
 /// Wandelt die rohe JSON-Struktur von `/rest/watch/standings` in unser

@@ -1,8 +1,7 @@
-//! Shared Memory Zugriff für rFactor 2 / LMU.
+//! Zugriff auf den LMU Shared Memory.
 //!
-//! WICHTIG: Dieser Code wird NUR bei Bedarf ausgeführt (lazy).
-//! Wenn LMU nicht läuft oder der Shared Memory nicht verfügbar ist,
-//! wird einfach `None` zurückgegeben - kein Blockieren, kein Absturz.
+//! Broadcast Control UK hat gezeigt: Der korrekte Shared Memory Name
+//! in LMU ist **LMU_Data** (nicht `rFactor2SharedMemory`!).
 //!
 //! ## Verwendung
 //! ```rust
@@ -38,17 +37,26 @@ extern "system" {
     ) -> LPVOID;
     fn UnmapViewOfFile(lp_base_address: LPVOID) -> BOOL;
     fn CloseHandle(h_object: HANDLE) -> BOOL;
-    fn OpenMutexW(dw_desired_access: DWORD, b_inherit_handle: BOOL, lp_name: LPCWSTR) -> HANDLE;
-    fn ReleaseMutex(h_mutex: HANDLE) -> BOOL;
-    fn WaitForSingleObject(h_handle: HANDLE, dw_milliseconds: DWORD) -> DWORD;
 }
 
-// ─── Shared Memory Layout ─────────────────────────────────────────────
+// ─── Shared Memory Name (LMU-spezifisch!) ─────────────────────────────
+//
+// Broadcast Control UK verwendet "LMU_Data". Das ist der korrekte Name
+// für Le Mans Ultimate (abweichend von rFactor 2).
+
+const LMU_DATA_NAME: &str = "LMU_Data";
+
+// ─── Kamera-Offsets (gleiche Positionen wie rFactor 2 Shared Memory) ───
 
 const OFFSET_CAMERA_GROUP: usize = 0x24;
 const OFFSET_CURRENT_CAMERA: usize = 0x28;
 
 // ─── Kamera-Mapping ───────────────────────────────────────────────────
+//
+// Broadcast Control UK verwendet:
+//   TV Cycle  -> Gruppe 4 (Trackside-Zyklus)
+//   Onboard   -> Gruppe 6 (Onboard-Kameras)
+// Wir nutzen die Standard-rFactor2-Gruppen als Basis:
 
 struct CameraMapping {
     group: u32,
@@ -78,30 +86,28 @@ unsafe impl Send for SharedMemoryView {}
 unsafe impl Sync for SharedMemoryView {}
 
 impl SharedMemoryView {
-    /// Öffnet den Shared Memory. Gibt `None` zurück, wenn LMU nicht läuft.
+    /// Öffnet den LMU Shared Memory. Gibt `None` zurück, wenn LMU nicht läuft.
     pub fn open() -> Option<Self> {
         unsafe {
-            // Versuche mehrere mögliche Shared Memory Namen
-            let names = [
-                "Local\\rFactor2SharedMemory",
-                "Local\\LMUSharedMemory",
-                "Global\\rFactor2SharedMemory",
-            ];
+            let wide: Vec<u16> = LMU_DATA_NAME
+                .encode_utf16()
+                .chain(std::iter::once(0))
+                .collect();
 
-            for name in &names {
-                let wide: Vec<u16> = name.encode_utf16().chain(std::iter::once(0)).collect();
-                let mapping = OpenFileMappingW(FILE_MAP_ALL_ACCESS, 0, wide.as_ptr());
-                if mapping != 0 {
-                    let view = MapViewOfFile(mapping, FILE_MAP_ALL_ACCESS, 0, 0, 4096);
-                    if !view.is_null() {
-                        println!("[shared_memory] Geöffnet: {}", name);
-                        return Some(SharedMemoryView { view: view as *mut u8, mapping });
-                    }
-                    CloseHandle(mapping);
-                }
+            let mapping = OpenFileMappingW(FILE_MAP_ALL_ACCESS, 0, wide.as_ptr());
+            if mapping == 0 {
+                return None;
             }
+
+            let view = MapViewOfFile(mapping, FILE_MAP_ALL_ACCESS, 0, 0, 4096);
+            if view.is_null() {
+                CloseHandle(mapping);
+                return None;
+            }
+
+            println!("[shared_memory] LMU_Data geöffnet");
+            Some(SharedMemoryView { view: view as *mut u8, mapping })
         }
-        None
     }
 
     pub fn set_camera(&self, cam_id: &str) -> Result<(), String> {
@@ -136,8 +142,6 @@ impl Drop for SharedMemoryView {
         }
     }
 }
-
-// ─── Öffentliche API ───────────────────────────────────────────────────
 
 /// Versucht, den Shared Memory zu öffnen. Gibt `None` zurück, wenn LMU
 /// nicht läuft. Blockiert NICHT beim Start.

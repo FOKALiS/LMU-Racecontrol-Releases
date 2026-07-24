@@ -225,14 +225,35 @@ async fn set_camera(cam_id: String) -> Result<(), String> {
 }
 
 #[tauri::command]
-async fn focus_driver(car_number: String) -> Result<(), String> {
-    // Zuerst Kamera auf TV schalten
-    set_camera("TV".to_string()).await?;
-    tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+async fn focus_driver(car_number: String, state: State<'_, AppState>) -> Result<(), String> {
+    // Slot-ID aus den aktuellen Standings ermitteln
+    // (die API braucht slotId, nicht die Fahrzeugnummer)
+    let standings = state.lmu.get_standings().await.map_err(|e| e.to_string())?;
+    let slot = standings.iter().find(|c| c.car_number == car_number).map(|c| c.slot_id);
     
-    // Fahrzeug-Fokus via Tastatursimulation (Strg+F + Fahrzeugnummer + Enter)
-    keyboard::focus_car(&car_number)?;
-    Ok(())
+    if let Some(slot_id) = slot {
+        println!("[focus_driver] Fokussiere Slot {} (Fahrzeug #{})", slot_id, car_number);
+        state.lmu.focus_slot(slot_id).await.map_err(|e| e.to_string())?;
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+        Ok(())
+    } else {
+        // Fallback: Tastatur-Simulation, wenn Slot nicht gefunden
+        println!("[focus_driver] Slot für #{} nicht gefunden, Fallback auf Tastatur", car_number);
+        set_camera("TV".to_string()).await?;
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+        keyboard::focus_car(&car_number)?;
+        Ok(())
+    }
+}
+
+#[tauri::command]
+async fn focus_slot(slot_id: i64, state: State<'_, AppState>) -> Result<(), String> {
+    state.lmu.focus_slot(slot_id).await.map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn clear_focus(state: State<'_, AppState>) -> Result<(), String> {
+    state.lmu.clear_focus().await.map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -488,6 +509,8 @@ fn main() {
             jump_to_incident_replay,
             set_camera,
             focus_driver,
+            focus_slot,
+            clear_focus,
             check_lmu_connection,
             switch_to_live,
             switch_to_replay,

@@ -1,11 +1,11 @@
 {
-  "version": "0.6.7",
-  "notes": "Shared Memory, Flag-Filter, Connect/Disconnect, FCY +3km/h\n\n## Neu\n- Shared Memory: Direkter Zugriff auf LMU Shared Memory - Kamera-Wechsel und Fahrzeug-Fokus OHNE Fenster-Fokus (wie Broadcast Control UK)\n- Flag-Filter: Wähle in Fahrerfeld und Vorfälle, welche Vorfälle angezeigt werden (Crash/Gelb/Langsam)\n- Connect/Disconnect Hover: Mouseover ändert Button zu \"Disconnect\" (rot)\n\n## Behoben\n- FCY-Überwachung: +3 km/h Toleranz (Limit 60 km/h → Verstoß bei 63+ km/h)\n- Debug-Logging: API-Antwort wird ausgegeben, um die echten Feldnamen für speed_kmh zu finden\n\n## Geändert\n- shared_memory.rs: Neues Modul - schreibt Kamera-Werte direkt in LMU Shared Memory\n- FlagFilter.tsx: Neue Komponente (3 Filter-Buttons)\n- FahrerfeldView + VorfaelleView: Flag-Filter eingebaut\n- keyboard.rs: Nur noch Fallback, wenn Shared Memory nicht verfügbar\n- lmu_client.rs: groundSpeed als zusätzlicher Feldname für speed_kmh\n- App.tsx + Sidebar.tsx: Connect/Disconnect mit Hover-Effekt\n- Version: 0.6.6 → 0.6.7",
-  "pub_date": "2026-07-24T12:43:00+02:00",
+  "version": "0.6.8",
+  "notes": "Broadcast Control UK Analyse: LMU_Data Shared Memory, REST focus_slot, API-Debug\n\n## Neu\n- Broadcast Control UK (DLLs) analysiert: Shared Memory heißt LMU_Data (nicht rFactor2SharedMemory!)\n- REST-API-Endpunkte: focus_slot (slot), clear_focus, focus_slot per Nummer\n- Debug-Logging: ALLE Feldnamen der API-Antwort werden ausgegeben (finde speed_kmh)\n\n## Behoben\n- FCY-Überwachung: pausiert Heuristik während FCY (keine tausenden weißen Flaggen mehr)\n- Shared Memory: Jetzt korrekt mit LMU_Data - klappt wie bei Broadcast Control UK\n- Fahrzeug-Fokus: Nutzt REST-API statt Tastatur (funktioniert sofort, kein Fenster-Fokus nötig)\n- App startet sofort - kein Blockieren mehr durch Shared Memory Init\n\n## Geändert\n- shared_memory.rs: Nur LMU_Data (lazy, blockiert nicht beim Start)\n- lmu_client.rs: focus_slot, clear_focus Methoden\n- main.rs: focus_driver nutzt REST-API + Fallback auf Tastatur\n- main.rs: FCY-Überwachung vor Heuristik, Heuristik pausiert bei FCY\n- keyboard.rs: Robuster (5 Fenster-Titel), nur noch Fallback\n- Version: 0.6.7 → 0.6.8",
+  "pub_date": "2026-07-24T15:07:00+02:00",
   "platforms": {
     "windows-x86_64": {
       "signature": "",
-      "url": "https://github.com/FOKALiS/LMU-Racecontrol/releases/download/v0.6.7/LMU-Racecontrol_0.6.7_x64-setup.exe"
+      "url": "https://github.com/FOKALiS/LMU-Racecontrol/releases/download/v0.6.8/LMU-Racecontrol_0.6.8_x64-setup.exe"
     }
   }
 }
