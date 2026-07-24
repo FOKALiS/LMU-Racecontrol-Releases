@@ -210,16 +210,15 @@ fn parse_standings(raw: &Value) -> Result<Vec<CarStanding>> {
 
     let mut out = Vec::with_capacity(list.len());
     for (idx, entry) in list.iter().enumerate() {
-        // Geschwindigkeit: LMU liefert `speed` in m/s (Meter pro Sekunde).
-        // Konvertiere in km/h (* 3.6) für FCY-Überwachung.
-        // Werte über 200 km/h sind bereits in km/h (z.B. topSpeed).
-        let speed_mps = field_f64(entry, &["speed", "currentSpeed", "speedKmh", "kmh", "groundSpeed"])
+        // Geschwindigkeit: LMU liefert `carVelocity.velocity` in m/s (aus typedefs.js bestätigt).
+        // Werte wie 87.4 m/s = 314 km/h. Konvertiere * 3.6 für km/h.
+        let speed_mps = entry
+            .get("carVelocity")
+            .and_then(|v| v.get("velocity"))
+            .and_then(|v| v.as_f64())
+            .or_else(|| field_f64(entry, &["speed", "currentSpeed", "speedKmh", "kmh", "groundSpeed"]))
             .unwrap_or(0.0);
-        let speed_kmh = if speed_mps > 0.0 && speed_mps < 200.0 {
-            speed_mps * 3.6 // m/s → km/h
-        } else {
-            speed_mps // bereits km/h oder 0
-        };
+        let speed_kmh = speed_mps * 3.6;
 
         out.push(CarStanding {
             // slotID (großes D) ist der offizielle LMU-Name (aus typedefs.js)
