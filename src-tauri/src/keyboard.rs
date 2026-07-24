@@ -3,31 +3,19 @@
 //! LMU (Le Mans Ultimate) / rFactor2 verwendet standardmäßig die F1-F6 Tasten
 //! zum Umschalten zwischen Kameraperspektiven. Da die LMU-REST-API KEINEN
 //! Endpunkt für die Kamera-Steuerung bietet, simulieren wir die entsprechenden
-//! Tastendrücke via Win32 `SendInput` API.
+//! Tastendrücke.
 //!
 //! ## Wichtig: Fenster-Fokus
-//! `SendInput` sendet Tastendrücke an das **aktuell fokussierte** Fenster.
-//! Da LMU oft auf einem anderen Monitor läuft, MUSS LMU zuerst in den
-//! Vordergrund geholt werden. Dafür verwenden wir `AttachThreadInput`,
-//! um die Windows-UIPI-Beschränkung zu umgehen und den Fokus zuverlässig
-//! auf LMU zu setzen.
+//! Spiele wie LMU/rFactor2 verwenden DirectInput/Raw Input für die Tastatur,
+//! nicht die Windows Message Queue. Daher funktioniert `PostMessageW` mit
+//! WM_KEYDOWN/WM_KEYUP NICHT - die Nachrichten landen in der Windows-Message-
+//! Queue, aber das Spiel liest dort nicht.
 //!
-//! ## Scancodes statt virtuelle Tastencodes
-//! Spiele (wie LMU/rFactor2) verwenden typischerweise Scancodes für ihre
-//! Tastenbelegung, daher senden wir `KEYEVENTF_SCANCODE` statt der
-//! standardmäßigen virtuellen Tastencodes.
-//!
-//! ## Tastenbelegung (rFactor2/LMU-Standard)
-//! - F1 = TV/Broadcast Cam
-//! - F2 = Helmet Cam (Bord/Onboard)
-//! - F3 = Front (Bumper) Cam
-//! - F4 = Rear (Chase) Cam
-//! - F5 = Top/Bonnet Cam
-//! - F6 = Behind/Free Cam
-//!
-//! ## Fahrzeug-Fokus
-//! Strg+F öffnet den Fahrzeug-Fokus-Dialog, dann wird die Fahrzeugnummer
-//! eingegeben und mit Enter bestätigt.
+//! Stattdessen verwenden wir `SendInput` mit `KEYEVENTF_SCANCODE`, das in den
+//! systemweiten Raw Input Stream injiziert. Damit das Spiel die Tasten
+//! empfängt, MUSS es im Vordergrund sein. Dafür verwenden wir:
+//! - `SwitchToThisWindow` (aggressiver als SetForegroundWindow)
+//! - `AttachThreadInput` (umgeht Windows-UIPI)
 
 use std::mem;
 use std::ptr;
@@ -46,6 +34,7 @@ type DWORD = u32;
 type LONG = i32;
 
 const SW_RESTORE: i32 = 9;
+const SW_SHOW: i32 = 5;
 
 // ─── Win32-Strukturen ──────────────────────────────────────────────────
 
@@ -100,8 +89,6 @@ const KEYEVENTF_KEYUP: DWORD = 0x0002;
 const KEYEVENTF_SCANCODE: DWORD = 0x0008;
 
 // ─── Scancodes (IBM PC/AT) ─────────────────────────────────────────────
-// Spiele verwenden Scancodes statt virtueller Tastencodes für die
-// Tastenbelegung. Daher senden wir Scancodes via KEYEVENTF_SCANCODE.
 
 const SC_F1: WORD = 0x3B;
 const SC_F2: WORD = 0x3C;
@@ -111,19 +98,19 @@ const SC_F5: WORD = 0x3F;
 const SC_F6: WORD = 0x40;
 const SC_ENTER: WORD = 0x1C;
 const SC_LCONTROL: WORD = 0x1D;
-const SC_F_KEY: WORD = 0x21; // Buchstabe 'F'
-const SC_0: WORD = 0x0B; // Ziffer 0
-const SC_1: WORD = 0x02; // Ziffer 1
-const SC_2: WORD = 0x03; // Ziffer 2
-const SC_3: WORD = 0x04; // Ziffer 3
-const SC_4: WORD = 0x05; // Ziffer 4
-const SC_5: WORD = 0x06; // Ziffer 5
-const SC_6: WORD = 0x07; // Ziffer 6
-const SC_7: WORD = 0x08; // Ziffer 7
-const SC_8: WORD = 0x09; // Ziffer 8
-const SC_9: WORD = 0x0A; // Ziffer 9
+const SC_F_KEY: WORD = 0x21;
+const SC_0: WORD = 0x0B;
+const SC_1: WORD = 0x02;
+const SC_2: WORD = 0x03;
+const SC_3: WORD = 0x04;
+const SC_4: WORD = 0x05;
+const SC_5: WORD = 0x06;
+const SC_6: WORD = 0x07;
+const SC_7: WORD = 0x08;
+const SC_8: WORD = 0x09;
+const SC_9: WORD = 0x0A;
 
-// ─── Win32-Funktionen (extern "system") ────────────────────────────────
+// ─── Win32-Funktionen ──────────────────────────────────────────────────
 
 extern "system" {
     fn FindWindowW(lp_class_name: LPCWSTR, lp_window_name: LPCWSTR) -> HWND;
@@ -136,7 +123,7 @@ extern "system" {
     fn GetWindowThreadProcessId(h_wnd: HWND, lpdw_process_id: *mut DWORD) -> DWORD;
     fn GetCurrentThreadId() -> DWORD;
     fn BringWindowToTop(h_wnd: HWND) -> BOOL;
-    fn SetFocus(h_wnd: HWND) -> HWND;
+    fn SwitchToThisWindow(h_wnd: HWND, f_unknown: BOOL);
 }
 
 // ─── Nachrichten für den Hintergrund-Thread ────────────────────────────
@@ -147,7 +134,7 @@ enum KeyCommand {
     Shutdown,
 }
 
-// ─── Hintergrund-Thread für Tastatursimulation ────────────────────────
+// ─── Hintergrund-Thread ───────────────────────────────────────────────
 
 struct KeyboardThread {
     sender: mpsc::Sender<KeyCommand>,
@@ -164,25 +151,22 @@ impl KeyboardThread {
                         KeyCommand::SwitchCamera { scancode } => {
                             if let Some(hwnd) = Self::find_lmu() {
                                 Self::force_foreground(hwnd);
-                                Self::send_scancode(hwnd, scancode);
+                                Self::send_scancode(scancode);
                             }
                         }
                         KeyCommand::FocusCar { car_number } => {
                             if let Some(hwnd) = Self::find_lmu() {
                                 Self::force_foreground(hwnd);
-                                // Strg+F
-                                Self::send_scancode_with_modifier(hwnd, SC_LCONTROL, SC_F_KEY);
+                                Self::send_scancode_with_modifier(SC_LCONTROL, SC_F_KEY);
                                 thread::sleep(Duration::from_millis(500));
-                                // Ziffern eingeben
                                 for c in car_number.chars() {
                                     if let Some(sc) = char_to_scancode(c) {
-                                        Self::send_scancode(hwnd, sc);
+                                        Self::send_scancode(sc);
                                         thread::sleep(Duration::from_millis(50));
                                     }
                                 }
                                 thread::sleep(Duration::from_millis(100));
-                                // Enter
-                                Self::send_scancode(hwnd, SC_ENTER);
+                                Self::send_scancode(SC_ENTER);
                             }
                         }
                         KeyCommand::Shutdown => break,
@@ -195,7 +179,6 @@ impl KeyboardThread {
         KeyboardThread { sender: tx }
     }
 
-    /// Findet das LMU-Fenster anhand des Fenstertitels.
     fn find_lmu() -> Option<HWND> {
         let titles = ["Le Mans Ultimate", "LMU", "rFactor 2"];
         for title in &titles {
@@ -211,48 +194,36 @@ impl KeyboardThread {
     }
 
     /// Erzwingt, dass LMU in den Vordergrund kommt.
-    ///
-    /// Verwendet `AttachThreadInput`, um die Windows-UIPI-Beschränkung zu
-    /// umgehen. Ohne diesen Schritt kann ein Prozess (Tauri-App) nicht
-    /// zuverlässig den Fokus auf ein Fenster eines anderen Prozesses (LMU)
-    /// setzen.
+    /// Verwendet SwitchToThisWindow (aggressiver) + AttachThreadInput.
     fn force_foreground(hwnd: HWND) {
         unsafe {
-            // Fenster wiederherstellen, falls minimiert
             if IsIconic(hwnd) != 0 {
                 ShowWindow(hwnd, SW_RESTORE);
             }
 
-            // Input-Threads verbinden, um UIPI zu umgehen
             let target_thread = GetWindowThreadProcessId(hwnd, ptr::null_mut());
             let current_thread = GetCurrentThreadId();
 
             if target_thread != current_thread && target_thread != 0 {
-                AttachThreadInput(current_thread, target_thread, 1); // TRUE
+                AttachThreadInput(current_thread, target_thread, 1);
             }
 
-            // Fenster in den Vordergrund bringen
+            // SwitchToThisWindow ist aggressiver als SetForegroundWindow
+            SwitchToThisWindow(hwnd, 1);
             SetForegroundWindow(hwnd);
             BringWindowToTop(hwnd);
-            SetFocus(hwnd);
 
-            // Input-Threads trennen
             if target_thread != current_thread && target_thread != 0 {
-                AttachThreadInput(current_thread, target_thread, 0); // FALSE
+                AttachThreadInput(current_thread, target_thread, 0);
             }
 
-            // Kurz warten, damit das Fenster Zeit hat, sich zu aktualisieren
-            Sleep(100);
+            // Lange genug warten, damit der Fokus-Wechsel wirkt
+            Sleep(300);
         }
     }
 
-    /// Sendet einen Tastendruck via `SendInput` mit Scancode.
-    fn send_scancode(hwnd: HWND, scancode: WORD) {
+    fn send_scancode(scancode: WORD) {
         unsafe {
-            // Nochmal sicherstellen, dass LMU im Vordergrund ist
-            SetForegroundWindow(hwnd);
-            Sleep(20);
-
             let input_down = INPUT {
                 type_: INPUT_KEYBOARD,
                 _padding: 0,
@@ -267,7 +238,7 @@ impl KeyboardThread {
                 },
             };
             SendInput(1, &input_down, mem::size_of::<INPUT>() as i32);
-            Sleep(30);
+            Sleep(50);
 
             let input_up = INPUT {
                 type_: INPUT_KEYBOARD,
@@ -286,14 +257,8 @@ impl KeyboardThread {
         }
     }
 
-    /// Sendet einen Tastendruck mit Modifikator-Taste (z.B. Strg+F).
-    fn send_scancode_with_modifier(hwnd: HWND, mod_scancode: WORD, key_scancode: WORD) {
+    fn send_scancode_with_modifier(mod_scancode: WORD, key_scancode: WORD) {
         unsafe {
-            // Nochmal sicherstellen, dass LMU im Vordergrund ist
-            SetForegroundWindow(hwnd);
-            Sleep(20);
-
-            // Modifier down
             let mod_down = INPUT {
                 type_: INPUT_KEYBOARD,
                 _padding: 0,
@@ -308,9 +273,8 @@ impl KeyboardThread {
                 },
             };
             SendInput(1, &mod_down, mem::size_of::<INPUT>() as i32);
-            Sleep(30);
+            Sleep(50);
 
-            // Key down + up
             let key_down = INPUT {
                 type_: INPUT_KEYBOARD,
                 _padding: 0,
@@ -325,7 +289,7 @@ impl KeyboardThread {
                 },
             };
             SendInput(1, &key_down, mem::size_of::<INPUT>() as i32);
-            Sleep(30);
+            Sleep(50);
 
             let key_up = INPUT {
                 type_: INPUT_KEYBOARD,
@@ -341,9 +305,8 @@ impl KeyboardThread {
                 },
             };
             SendInput(1, &key_up, mem::size_of::<INPUT>() as i32);
-            Sleep(30);
+            Sleep(50);
 
-            // Modifier up
             let mod_up = INPUT {
                 type_: INPUT_KEYBOARD,
                 _padding: 0,
@@ -395,10 +358,6 @@ fn keyboard_thread() -> &'static KeyboardThread {
 // ─── Öffentliche API ───────────────────────────────────────────────────
 
 /// Schaltet die LMU-Kamera auf die angegebene Kamera-ID um.
-///
-/// Verfügbare Kameras: TV, Helmet, Front, Heck/Rear, Top, Behind
-/// Ein erneuter Aufruf mit derselben Kamera-ID schaltet innerhalb des
-/// Kameramodus weiter (z.B. Heck → seitlich hinten → Heck).
 pub fn switch_camera(cam_id: &str) -> Result<(), String> {
     let scancode = match cam_id {
         "TV" => SC_F1,
@@ -423,9 +382,6 @@ pub fn switch_camera(cam_id: &str) -> Result<(), String> {
 }
 
 /// Fokussiert die Kamera auf ein bestimmtes Fahrzeug.
-///
-/// Verwendet Strg+F → Fahrzeugnummer eingeben → Enter.
-/// Sendet die Tastendrücke direkt an das LMU-Fenster via Scancodes.
 pub fn focus_car(car_number: &str) -> Result<(), String> {
     let thread = keyboard_thread();
     thread

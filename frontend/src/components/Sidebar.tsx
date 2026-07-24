@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import type { View, FcyPhase } from "../types";
 import { useLanguage } from "../i18n/LanguageContext";
 import { getVersion } from "@tauri-apps/api/app";
@@ -33,10 +33,17 @@ export default function Sidebar({
   const { t } = useLanguage();
   const [helpOpen, setHelpOpen] = useState(false);
   const [appVersion, setAppVersion] = useState("");
+  const [isHoveringConnect, setIsHoveringConnect] = useState(false);
 
   useEffect(() => {
     getVersion().then(setAppVersion).catch(console.error);
   }, []);
+
+  function getConnectLabel() {
+    if (!connected) return t("connect_to_server");
+    if (isHoveringConnect) return t("server_disconnect");
+    return t("server_connected");
+  }
 
   return (
     <aside className="sidebar">
@@ -51,8 +58,10 @@ export default function Sidebar({
             <button
               className={`nav-btn nav-btn-connect ${connected ? "is-connected" : ""}`}
               onClick={onConnect}
+              onMouseEnter={() => setIsHoveringConnect(true)}
+              onMouseLeave={() => setIsHoveringConnect(false)}
             >
-              {connected ? t("server_connected") : t("connect_to_server")}
+              {getConnectLabel()}
             </button>
           </div>
 

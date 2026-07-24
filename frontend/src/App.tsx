@@ -130,10 +130,16 @@ export default function App() {
   }, [refreshIncidents]);
 
   async function handleConnect() {
-    const ok = await invoke<boolean>("connect_to_server");
-    setConnected(ok);
-    if (ok) setView("fahrerfeld");
-    else alert(t("alert_connect_failed"));
+    if (connected) {
+      await invoke("disconnect_from_server");
+      setConnected(false);
+      setView("home");
+    } else {
+      const ok = await invoke<boolean>("connect_to_server");
+      setConnected(ok);
+      if (ok) setView("fahrerfeld");
+      else alert(t("alert_connect_failed"));
+    }
   }
 
   async function handleFcyClick() {

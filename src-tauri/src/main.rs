@@ -8,6 +8,7 @@ mod keyboard;
 mod license;
 mod lmu_client;
 mod settings;
+mod shared_memory;
 
 use db::{Db, Incident};
 use fcy::{FcyPhase, FcyState};
@@ -210,18 +211,25 @@ async fn jump_to_incident_replay(
 
 #[tauri::command]
 async fn set_camera(cam_id: String) -> Result<(), String> {
-    // Nicht-blockierend: sendet Nachricht an Hintergrund-Thread
-    keyboard::switch_camera(&cam_id)?;
+    // Shared Memory ist der zuverlässigere Weg (kein Fokus nötig)
+    // Fallback auf Tastatursimulation, falls Shared Memory nicht verfügbar
+    if let Err(e) = shared_memory::switch_camera_sm(&cam_id) {
+        println!("[set_camera] Shared Memory nicht verfügbar ({}), Fallback auf Tastatur", e);
+        keyboard::switch_camera(&cam_id)?;
+    }
     Ok(())
 }
 
 #[tauri::command]
 async fn focus_driver(car_number: String) -> Result<(), String> {
-    // Fahrzeug-Fokus via Tastatursimulation (Strg+F + Fahrzeugnummer + Enter)
-    // Zuerst Kamera auf TV (F1) schalten, dann Fahrzeug fokussieren
-    // Die keyboard-Funktionen sind nicht-blockierend (Message an Hintergrund-Thread)
-    let _ = keyboard::switch_camera("TV");
+    // Shared Memory ist der zuverlässigere Weg (kein Fokus nötig)
+    // Zuerst Kamera auf TV schalten (via Shared Memory oder Tastatur)
+    set_camera("TV".to_string()).await?;
     tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+    
+    // Shared Memory für Fahrzeug-Fokus: wir brauchen die Slot-ID, nicht die Startnummer
+    // Die CarStandings haben slot_id - aber wir bekommen hier nur die car_number
+    // Für jetzt: Tastatur-Fallback (da wir die Slot-ID nicht haben)
     keyboard::focus_car(&car_number)?;
     Ok(())
 }
@@ -342,12 +350,15 @@ async fn poll_loop(app: tauri::AppHandle, state: Arc<AppState>) {
                 // 2) FCY-Geschwindigkeitsüberwachung
                 if state.fcy.current_phase() == FcyPhase::Active {
                     let limit = state.settings.lock().await.fcy_speed_limit_kmh;
+                    let tolerance = 3.0; // +3 km/h Toleranz
+                    let threshold = limit + tolerance;
                     let ctx = DetectionContext {
                         session_time_s,
                         track_name: &session.track_name,
                     };
                     for car in &standings {
-                        if car.speed_kmh > limit && state.fcy.should_flag(car.slot_id) {
+                        // Prüfe: speed_kmh > (Limit + Toleranz)
+                        if car.speed_kmh > threshold && state.fcy.should_flag(car.slot_id) {
                             let mut incident = incidents::make_fcy_violation(&ctx, car, limit);
                             if state.db.insert(&mut incident).is_ok() {
                                 let _ = app.emit("new-incident", NewIncidentEvent { incident });
