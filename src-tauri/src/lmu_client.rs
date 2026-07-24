@@ -149,6 +149,27 @@ impl LmuClient {
     pub async fn clear_focus(&self) -> Result<()> {
         self.put("/rest/watch/focus/clear").await
     }
+
+    /// Wählt eine Kamera via REST-API.
+    ///
+    /// Basierend auf der offiziellen LMU-UI (Studio 397) `BroadcastService.js`:
+    /// `PUT /rest/watch/focus/{type}/{trackSideGroup}/{shouldAdvance}`
+    ///
+    /// Kamera-Typen (aus `getCameras()`):
+    /// - `SCV_COCKPIT`   → index 0 = On-board, index 1 = Cockpit
+    /// - `SCV_NOSECAM`   → index 2 = Nose
+    /// - `SCV_SWINGMAN`  → index 3 = Rear / Swingman
+    /// - `SCV_TRACKSIDE` → index 4 = Trackside
+    /// - `SCV_SPECTATOR` → index 5 = Spectator / TV-Zyklus
+    ///
+    /// **Wichtig:** LMU verwendet NICHT die rFactor2 Shared Memory Offsets
+    /// 0x24/0x28 für die Kamera-Steuerung! Die Kamera-Steuerung erfolgt
+    /// ausschließlich über die REST-API.
+    pub async fn select_camera(&self, cam_type: &str, track_side_group: u32, should_advance: bool) -> Result<()> {
+        let advance_flag = if should_advance { 1 } else { 0 };
+        let path = format!("/rest/watch/focus/{}/{}/{}", cam_type, track_side_group, advance_flag);
+        self.put(&path).await
+    }
 }
 
 /// Wandelt die rohe JSON-Struktur von `/rest/watch/standings` in unser

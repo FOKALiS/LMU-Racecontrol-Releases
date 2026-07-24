@@ -203,32 +203,24 @@ impl KeyboardThread {
         None
     }
 
-    /// Erzwingt, dass LMU in den Vordergrund kommt.
-    /// Verwendet SwitchToThisWindow (aggressiver) + AttachThreadInput.
+    /// Versucht, LMU in den Vordergrund zu bringen.
+    /// Verwendet SetForegroundWindow (sanfter) + minimale Verzögerung.
+    /// SwitchToThisWindow + AttachThreadInput wurde entfernt, da es
+    /// das LMU-Fenster aggressiv aufpoppen lässt.
     fn force_foreground(hwnd: HWND) {
         unsafe {
             if IsIconic(hwnd) != 0 {
                 ShowWindow(hwnd, SW_RESTORE);
             }
 
-            let target_thread = GetWindowThreadProcessId(hwnd, ptr::null_mut());
-            let current_thread = GetCurrentThreadId();
-
-            if target_thread != current_thread && target_thread != 0 {
-                AttachThreadInput(current_thread, target_thread, 1);
-            }
-
-            // SwitchToThisWindow ist aggressiver als SetForegroundWindow
-            SwitchToThisWindow(hwnd, 1);
+            // Sanftere Methode: nur SetForegroundWindow + BringWindowToTop
+            // ohne AttachThreadInput/SwitchToThisWindow, um das
+            // unerwünschte Aufpoppen des LMU-Fensters zu vermeiden.
             SetForegroundWindow(hwnd);
             BringWindowToTop(hwnd);
 
-            if target_thread != current_thread && target_thread != 0 {
-                AttachThreadInput(current_thread, target_thread, 0);
-            }
-
-            // Lange genug warten, damit der Fokus-Wechsel wirkt
-            Sleep(300);
+            // Minimale Verzögerung für den Fokus-Wechsel
+            Sleep(50);
         }
     }
 

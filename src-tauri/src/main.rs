@@ -210,16 +210,35 @@ async fn jump_to_incident_replay(
 }
 
 #[tauri::command]
-async fn set_camera(cam_id: String) -> Result<(), String> {
-    // Shared Memory ist der zuverlässigere Weg (kein Fokus nötig)
-    // Öffne Shared Memory NUR bei Bedarf - blockiert nicht beim Start
-    if let Some(sm) = shared_memory::try_open() {
-        if sm.set_camera(&cam_id).is_ok() {
-            return Ok(());
-        }
+async fn set_camera(cam_id: String, state: State<'_, AppState>) -> Result<(), String> {
+    // LMU REST-API für Kamera-Steuerung (bestätigt durch BC UK & lmu-ui Analyse)
+    // Die rFactor2 Shared Memory Offsets 0x24/0x28 sind für LMU ungültig!
+    //
+    // Kamera-Mapping basierend auf offizieller LMU-UI (Studio 397) BroadcastService.js:
+    // - SCV_COCKPIT   (index 0) = On-board
+    // - SCV_COCKPIT   (index 1) = Cockpit
+    // - SCV_NOSECAM   (index 2) = Nose
+    // - SCV_SWINGMAN  (index 3) = Rear / Swingman
+    // - SCV_TRACKSIDE (index 4) = Trackside
+    // - SCV_SPECTATOR (index 5) = Spectator / TV-Zyklus
+    let (cam_type, group, advance) = match cam_id.as_str() {
+        "TV" => ("SCV_SPECTATOR", 0u32, true),
+        "Helmet" => ("SCV_COCKPIT", 0u32, true),
+        "Front" => ("SCV_NOSECAM", 0u32, false),
+        "Heck" | "Rear" => ("SCV_SWINGMAN", 0u32, true),
+        "Top" => ("SCV_SPECTATOR", 1u32, false),
+        "Behind" => ("SCV_TRACKSIDE", 0u32, true),
+        _ => return Err(format!("Unbekannte Kamera-ID: {}", cam_id)),
+    };
+
+    // Versuche zuerst REST-API (kein Fokus nötig!)
+    if state.lmu.select_camera(cam_type, group, advance).await.is_ok() {
+        println!("[set_camera] Kamera via REST-API: {} ({}/{}/{})", cam_id, cam_type, group, advance);
+        return Ok(());
     }
+
     // Fallback: Tastatursimulation (funktioniert immer, braucht aber Fokus)
-    println!("[set_camera] Fallback auf Tastatur-Simulation");
+    println!("[set_camera] REST-API fehlgeschlagen, Fallback auf Tastatur-Simulation");
     keyboard::switch_camera(&cam_id)?;
     Ok(())
 }
@@ -239,7 +258,7 @@ async fn focus_driver(car_number: String, state: State<'_, AppState>) -> Result<
     } else {
         // Fallback: Tastatur-Simulation, wenn Slot nicht gefunden
         println!("[focus_driver] Slot für #{} nicht gefunden, Fallback auf Tastatur", car_number);
-        set_camera("TV".to_string()).await?;
+        set_camera("TV".to_string(), state).await?;
         tokio::time::sleep(std::time::Duration::from_millis(100)).await;
         keyboard::focus_car(&car_number)?;
         Ok(())

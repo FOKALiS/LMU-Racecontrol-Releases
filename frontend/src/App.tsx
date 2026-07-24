@@ -217,6 +217,9 @@ export default function App() {
       if (targetCar) {
         await new Promise(r => setTimeout(r, 300));
         await invoke("focus_driver", { carNumber: targetCar });
+        // Nach dem Fokus auch die ausgewählte Kamera setzen
+        await new Promise(r => setTimeout(r, 200));
+        await invoke("set_camera", { camId: selectedCam });
       }
     } catch (err) {
       alert(t("alert_replay_failed", { error: String(err) }));

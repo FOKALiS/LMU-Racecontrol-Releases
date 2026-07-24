@@ -1,12 +1,18 @@
-//! Zugriff auf den LMU Shared Memory.
+//! Zugriff auf den LMU Shared Memory (LMU_Data).
 //!
-//! Broadcast Control UK hat gezeigt: Der korrekte Shared Memory Name
-//! in LMU ist **LMU_Data** (nicht `rFactor2SharedMemory`!).
+//! Broadcast Control UK hat bestätigt: Der korrekte Shared Memory Name
+//! in LMU ist **LMU_Data**.
 //!
-//! ## Verwendung
+//! WICHTIG: Der LMU Shared Memory wird NICHT für die Kamera-Steuerung
+//! verwendet! Die Kamera-Steuerung erfolgt über die LMU REST-API
+//! (PUT /rest/watch/focus/{type}/{group}/{advance}). Die rFactor2-Offsets
+//! 0x24/0x28 sind für LMU ungültig - LMU hat eine komplett andere
+//! Shared Memory Struktur als rFactor2.
+//!
+//! ## Verwendung (nur Read-Access)
 //! ```rust
 //! if let Some(sm) = shared_memory::try_open() {
-//!     sm.set_camera("TV").ok();
+//!     // Nur Lesen von Shared Memory Daten, KEINE Kamera-Steuerung!
 //! }
 //! ```
 
@@ -40,42 +46,10 @@ extern "system" {
 }
 
 // ─── Shared Memory Name (LMU-spezifisch!) ─────────────────────────────
-//
-// Broadcast Control UK verwendet "LMU_Data". Das ist der korrekte Name
-// für Le Mans Ultimate (abweichend von rFactor 2).
 
 const LMU_DATA_NAME: &str = "LMU_Data";
 
-// ─── Kamera-Offsets (gleiche Positionen wie rFactor 2 Shared Memory) ───
-
-const OFFSET_CAMERA_GROUP: usize = 0x24;
-const OFFSET_CURRENT_CAMERA: usize = 0x28;
-
-// ─── Kamera-Mapping ───────────────────────────────────────────────────
-//
-// Broadcast Control UK verwendet:
-//   TV Cycle  -> Gruppe 4 (Trackside-Zyklus)
-//   Onboard   -> Gruppe 6 (Onboard-Kameras)
-// Wir nutzen die Standard-rFactor2-Gruppen als Basis:
-
-struct CameraMapping {
-    group: u32,
-    camera: u32,
-}
-
-fn get_camera_mapping(cam_id: &str) -> Option<CameraMapping> {
-    match cam_id {
-        "TV" => Some(CameraMapping { group: 0, camera: 0 }),
-        "Helmet" => Some(CameraMapping { group: 2, camera: 0 }),
-        "Front" => Some(CameraMapping { group: 3, camera: 0 }),
-        "Heck" | "Rear" => Some(CameraMapping { group: 4, camera: 0 }),
-        "Top" => Some(CameraMapping { group: 5, camera: 0 }),
-        "Behind" => Some(CameraMapping { group: 6, camera: 0 }),
-        _ => None,
-    }
-}
-
-// ─── Shared Memory View ───────────────────────────────────────────────
+// ─── Shared Memory View (nur lesen) ───────────────────────────────────
 
 pub struct SharedMemoryView {
     view: *mut u8,
@@ -110,23 +84,20 @@ impl SharedMemoryView {
         }
     }
 
-    pub fn set_camera(&self, cam_id: &str) -> Result<(), String> {
-        let mapping = get_camera_mapping(cam_id)
-            .ok_or_else(|| format!("Unbekannte Kamera-ID: {}", cam_id))?;
-
+    /// Liest einen u32-Wert an einem bestimmten Offset.
+    pub fn read_u32(&self, offset: usize) -> u32 {
         unsafe {
-            let ptr_group = self.view.add(OFFSET_CAMERA_GROUP) as *mut u32;
-            ptr::write_unaligned(ptr_group, mapping.group);
-
-            let ptr_cam = self.view.add(OFFSET_CURRENT_CAMERA) as *mut u32;
-            ptr::write_unaligned(ptr_cam, mapping.camera);
+            let ptr = self.view.add(offset) as *mut u32;
+            ptr::read_unaligned(ptr)
         }
+    }
 
-        println!(
-            "[shared_memory] Kamera gewechselt: {} (Gruppe={}, Kamera={})",
-            cam_id, mapping.group, mapping.camera
-        );
-        Ok(())
+    /// Liest einen f32-Wert an einem bestimmten Offset.
+    pub fn read_f32(&self, offset: usize) -> f32 {
+        unsafe {
+            let ptr = self.view.add(offset) as *mut f32;
+            ptr::read_unaligned(ptr)
+        }
     }
 }
 
