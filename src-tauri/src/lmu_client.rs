@@ -35,8 +35,8 @@ pub struct CarStanding {
     pub slot_id: i64,
     pub position: i32,
     pub car_number: String,
-    pub team: String,
     pub driver: String,
+    pub team: String,
     pub class: String,
     pub car_model: String,
     pub class_position: i32,
@@ -48,7 +48,8 @@ pub struct CarStanding {
     pub sector2_s: f64,
     pub sector3_s: f64,
     pub top_speed_kmh: f64,
-    /// Aktuelle Momentan-Geschwindigkeit (für FCY-Überwachung)
+    /// Aktuelle Momentan-Geschwindigkeit in km/h.
+    /// LMU liefert `speed` in m/s → wir konvertieren intern.
     pub speed_kmh: f64,
     pub in_pits: bool,
 }
@@ -209,28 +210,46 @@ fn parse_standings(raw: &Value) -> Result<Vec<CarStanding>> {
 
     let mut out = Vec::with_capacity(list.len());
     for (idx, entry) in list.iter().enumerate() {
+        // Geschwindigkeit: LMU liefert `speed` in m/s (Meter pro Sekunde).
+        // Konvertiere in km/h (* 3.6) für FCY-Überwachung.
+        // Werte über 200 km/h sind bereits in km/h (z.B. topSpeed).
+        let speed_mps = field_f64(entry, &["speed", "currentSpeed", "speedKmh", "kmh", "groundSpeed"])
+            .unwrap_or(0.0);
+        let speed_kmh = if speed_mps > 0.0 && speed_mps < 200.0 {
+            speed_mps * 3.6 // m/s → km/h
+        } else {
+            speed_mps // bereits km/h oder 0
+        };
+
         out.push(CarStanding {
-            slot_id: field_i64(entry, &["slotId", "slotID", "id", "vehicleId"])
+            // slotID (großes D) ist der offizielle LMU-Name (aus typedefs.js)
+            slot_id: field_i64(entry, &["slotID", "slotId", "id", "vehicleId"])
                 .unwrap_or(idx as i64),
             position: field_i64(entry, &["position", "place", "pos"]).unwrap_or(0) as i32,
             car_number: field_string(entry, &["carNumber", "number", "carNum"]),
-            team: field_string(entry, &["team", "teamName"]),
-            driver: field_string(entry, &["driver", "driverName", "name"]),
-            class: field_string(entry, &["class", "vehicleClass", "carClass"]),
+            // fullTeamName ist der offizielle LMU-Name (aus typedefs.js)
+            team: field_string(entry, &["fullTeamName", "team", "teamName"]),
+            // driverName ist der offizielle LMU-Name (aus typedefs.js)
+            driver: field_string(entry, &["driverName", "driver", "name"]),
+            // carClass ist der offizielle LMU-Name (aus typedefs.js)
+            class: field_string(entry, &["carClass", "class", "vehicleClass"]),
             car_model: field_string(entry, &["vehicleName", "carModel", "vehicle", "carType"]),
             class_position: field_i64(entry, &["classPosition", "picPosition", "pic"])
                 .unwrap_or(0) as i32,
-            laps: field_i64(entry, &["laps", "totalLaps", "lapsCompleted"]).unwrap_or(0) as i32,
+            // lapsCompleted ist der offizielle LMU-Name (aus typedefs.js)
+            laps: field_i64(entry, &["lapsCompleted", "laps", "totalLaps"]).unwrap_or(0) as i32,
             gap: field_string(entry, &["gap", "gapToLeader"]),
-            last_lap_s: field_f64(entry, &["lastLap", "lastLapTime"]).unwrap_or(0.0),
-            best_lap_s: field_f64(entry, &["bestLap", "bestLapTime"]).unwrap_or(0.0),
+            // lastLapTime ist der offizielle LMU-Name (aus typedefs.js)
+            last_lap_s: field_f64(entry, &["lastLapTime", "lastLap"]).unwrap_or(0.0),
+            // bestLapTime ist der offizielle LMU-Name (aus typedefs.js)
+            best_lap_s: field_f64(entry, &["bestLapTime", "bestLap"]).unwrap_or(0.0),
             sector1_s: field_f64(entry, &["sector1", "s1", "sector1Time"]).unwrap_or(0.0),
             sector2_s: field_f64(entry, &["sector2", "s2", "sector2Time"]).unwrap_or(0.0),
             sector3_s: field_f64(entry, &["sector3", "s3", "sector3Time"]).unwrap_or(0.0),
             top_speed_kmh: field_f64(entry, &["topSpeed", "vmax", "maxSpeed"]).unwrap_or(0.0),
-            speed_kmh: field_f64(entry, &["speed", "currentSpeed", "speedKmh", "kmh", "groundSpeed"])
-                .unwrap_or(0.0),
-            in_pits: field_bool(entry, &["inPits", "isInPit", "pit"]).unwrap_or(false),
+            speed_kmh,
+            // pitting ist der offizielle LMU-Name (aus typedefs.js)
+            in_pits: field_bool(entry, &["pitting", "inPits", "isInPit", "pit"]).unwrap_or(false),
         });
     }
     Ok(out)
