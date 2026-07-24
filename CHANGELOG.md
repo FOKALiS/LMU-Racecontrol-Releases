@@ -4,6 +4,18 @@ Alle nennenswerten Änderungen an LMU Race Control werden hier dokumentiert.
 Format angelehnt an [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
 
+## [0.6.6] - 24.07.2026 (Tastatur-Steuerung: Scancodes, AttachThreadInput für LMU-Fokus auf anderem Monitor)
+
+### Behoben
+- **Tastendrücke landen jetzt zuverlässig in LMU (nicht in der Tauri-App)**: Scancodes via `KEYEVENTF_SCANCODE` statt virtueller Tastencodes – Spiele verwenden Scancodes für ihre Tastenbelegung
+- **LMU-Fokus auch über mehrere Monitore hinweg**: `AttachThreadInput` umgeht Windows-UIPI, sodass der Fokus zuverlässig auf LMU gesetzt werden kann
+- **Zusätzliche Fokus-Sicherheit**: `BringWindowToTop` + `SetFocus` nach dem Vordergrund-Holen
+
+### Geändert
+- `keyboard.rs`: Scancodes (F1=0x3B, F2=0x3C, ...) statt virtuelle Tastencodes (VK_F1 etc.)
+- `force_foreground()`: `AttachThreadInput` + `BringWindowToTop` + `SetFocus`
+- **Version**: 0.6.5 → 0.6.6
+
 ## [0.6.5] - 24.07.2026 (Tastatur-Steuerung neu: Win32 SendInput, kein PowerShell-Flash, Fahrerfeld-Sortierung, Kamera-Auswahl aktiv)
 
 ### Behoben

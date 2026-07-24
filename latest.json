@@ -1,11 +1,11 @@
 {
-  "version": "0.6.5",
-  "notes": "Tastatur-Steuerung neu geschrieben: Win32 SendInput statt enigo, kein PowerShell-Flash mehr, Fahrerfeld-Sortierung, Kamera-Auswahl aktiv dargestellt\n\n## Behoben\n- Terminal-Fenster-Flash beim Fokussieren von LMU beseitigt (Win32 FindWindowW/SetForegroundWindow statt PowerShell)\n- Tastaturbefehle zuverlässiger durch direkte Win32 SendInput-API (statt enigo-Crate)\n- Async-Blockierung behoben (std::thread::sleep durch tokio::time::sleep ersetzt)\n\n## Geändert\n- Fahrerfeld wird jetzt nach Position sortiert (1., 2., 3., ...)\n- Kamera-Auswahl wird aktiv dargestellt (selectedCam-State zentral in App.tsx)\n- enigo-Crate entfernt, Cargo.toml bereinigt\n- keyboard.rs komplett neu geschrieben mit Hintergrund-Thread-Architektur",
-  "pub_date": "2026-07-24T09:00:00+02:00",
+  "version": "0.6.6",
+  "notes": "Tastatur-Steuerung: Scancodes statt virtuelle Tastencodes, AttachThreadInput für Fokus auf LMU auf anderem Monitor\n\n## Behoben\n- Tastendrücke landen jetzt zuverlässig in LMU (nicht mehr in der Tauri-App): Scancodes via KEYEVENTF_SCANCODE statt virtueller Tastencodes\n- LMU-Fokus auch über mehrere Monitore hinweg: AttachThreadInput umgeht Windows-UIPI\n- BringWindowToTop + SetFocus für zusätzliche Fokus-Sicherheit\n\n## Geändert\n- keyboard.rs: Scancodes (F1=0x3B, F2=0x3C, ...) statt virtuelle Tastencodes (VK_F1 etc.)\n- force_foreground(): AttachThreadInput + BringWindowToTop + SetFocus\n- Version: 0.6.5 → 0.6.6",
+  "pub_date": "2026-07-24T10:00:00+02:00",
   "platforms": {
     "windows-x86_64": {
       "signature": "",
-      "url": "https://github.com/FOKALiS/LMU-Racecontrol/releases/download/v0.6.5/LMU-Racecontrol_0.6.5_x64-setup.exe"
+      "url": "https://github.com/FOKALiS/LMU-Racecontrol/releases/download/v0.6.6/LMU-Racecontrol_0.6.6_x64-setup.exe"
     }
   }
 }
