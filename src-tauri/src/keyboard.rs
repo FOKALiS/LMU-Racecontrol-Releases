@@ -5,17 +5,14 @@
 //! Endpunkt für die Kamera-Steuerung bietet, simulieren wir die entsprechenden
 //! Tastendrücke.
 //!
-//! ## Wichtig: Fenster-Fokus
-//! Spiele wie LMU/rFactor2 verwenden DirectInput/Raw Input für die Tastatur,
-//! nicht die Windows Message Queue. Daher funktioniert `PostMessageW` mit
-//! WM_KEYDOWN/WM_KEYUP NICHT - die Nachrichten landen in der Windows-Message-
-//! Queue, aber das Spiel liest dort nicht.
+//! ## Strategie: Kein Fenster-Fokus nötig!
+//! Wir verwenden einen zweistufigen Ansatz:
+//! 1. Zuerst `PostMessageW` mit WM_KEYDOWN/WM_KEYUP (benötigt KEINEN Fokus)
+//! 2. Falls das nicht funktioniert, Fallback auf `SendInput` + Fokus
 //!
-//! Stattdessen verwenden wir `SendInput` mit `KEYEVENTF_SCANCODE`, das in den
-//! systemweiten Raw Input Stream injiziert. Damit das Spiel die Tasten
-//! empfängt, MUSS es im Vordergrund sein. Dafür verwenden wir:
-//! - `SwitchToThisWindow` (aggressiver als SetForegroundWindow)
-//! - `AttachThreadInput` (umgeht Windows-UIPI)
+//! Die LMU-EXE verwendet `PeekMessageW`/`GetMessageW` in ihrer Message-Pump,
+//! daher werden WM_KEYDOWN/WM_KEYUP Nachrichten auch ohne Fokus verarbeitet.
+//! Dies ist anders als bei rFactor2, das DirectInput verwendet.
 
 use std::mem;
 use std::ptr;

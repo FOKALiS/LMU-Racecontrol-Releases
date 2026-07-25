@@ -6,7 +6,6 @@ src = os.path.join(path, 'LMU RC - Icon.png')
 img = Image.open(src).convert("RGBA")
 
 # 10% Padding hinzufügen, damit Windows das Icon nicht abschneidet
-# Bei 1024x1024 → 102px Padding auf jeder Seite
 padding = int(img.width * 0.10)  # 10%
 new_size = img.width + 2 * padding
 
@@ -42,4 +41,4 @@ print('icon.ico -> 16x16..256x256 OK')
 canvas.save(os.path.join(path, 'icon-source.png'), 'PNG')
 print('icon-source.png aktualisiert')
 
-print('\nALLE ICONS GENERIERT! 🎉')
+print('\nALLE ICONS GENERIERT!')

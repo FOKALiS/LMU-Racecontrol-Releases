@@ -211,27 +211,28 @@ async fn jump_to_incident_replay(
 
 #[tauri::command]
 async fn set_camera(cam_id: String, state: State<'_, AppState>) -> Result<(), String> {
-    // LMU REST-API für Kamera-Steuerung (bestätigt durch BC UK & lmu-ui Analyse)
-    // Die rFactor2 Shared Memory Offsets 0x24/0x28 sind für LMU ungültig!
+    // LMU REST-API Kamera-Steuerung via /rest/watch/focus/{cameraType}/{trackSideGroup}/{shouldAdvance}
+    // (bestätigt durch LMU-EXE String-Analyse: RestWatch.cpp)
     //
-    // Kamera-Mapping basierend auf offizieller LMU-UI (Studio 397) BroadcastService.js:
-    // - SCV_COCKPIT   (index 0) = On-board
-    // - SCV_COCKPIT   (index 1) = Cockpit
-    // - SCV_NOSECAM   (index 2) = Nose
-    // - SCV_SWINGMAN  (index 3) = Rear / Swingman
-    // - SCV_TRACKSIDE (index 4) = Trackside
-    // - SCV_SPECTATOR (index 5) = Spectator / TV-Zyklus
+    // Korrekte Kamera-Namen (aus LMU-EXE, NICHT die rFactor2 SCV_ Namen!):
+    // - "Trackside"   = Trackside / Behind (F6)
+    // - "Onboard"     = Onboard / Helmet (F2)
+    // - "Swingman"    = Swingman / Rear (F4)
+    // - "Nose"        = Nose / Front (F3)
+    // - "Cockpit"     = Cockpit (F2 Variante)
+    // - "TV Cockpit"  = TV Cockpit / TV (F1)
+    // - "Trackside" mit group=1 = Top (F5)
     let (cam_type, group, advance) = match cam_id.as_str() {
-        "TV" => ("SCV_SPECTATOR", 0u32, true),
-        "Helmet" => ("SCV_COCKPIT", 0u32, true),
-        "Front" => ("SCV_NOSECAM", 0u32, false),
-        "Heck" | "Rear" => ("SCV_SWINGMAN", 0u32, true),
-        "Top" => ("SCV_SPECTATOR", 1u32, false),
-        "Behind" => ("SCV_TRACKSIDE", 0u32, true),
+        "TV" => ("TV Cockpit", 0u32, true),
+        "Helmet" => ("Onboard", 0u32, true),
+        "Front" => ("Nose", 0u32, false),
+        "Heck" | "Rear" => ("Swingman", 0u32, true),
+        "Top" => ("Trackside", 1u32, false),
+        "Behind" => ("Trackside", 0u32, true),
         _ => return Err(format!("Unbekannte Kamera-ID: {}", cam_id)),
     };
 
-    // Versuche zuerst REST-API (kein Fokus nötig!)
+    // REST-API (kein Fokus nötig!)
     if state.lmu.select_camera(cam_type, group, advance).await.is_ok() {
         println!("[set_camera] Kamera via REST-API: {} ({}/{}/{})", cam_id, cam_type, group, advance);
         return Ok(());
