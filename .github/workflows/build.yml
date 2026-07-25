@@ -13,7 +13,7 @@ permissions:
   actions: write
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: build-lmu-race-control
   cancel-in-progress: true
 
 jobs:
