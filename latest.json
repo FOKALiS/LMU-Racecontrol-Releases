@@ -1,11 +1,11 @@
 {
-  "version": "0.6.9",
-  "notes": "Exakte LMU-API-Feldnamen aus typedefs.js (Studio 397), m/s→km/h, focus_slot\n\n## Neu\n- Offizielle LMU-API-Dokumentation aus UI.zip extrahiert (typedefs.js von Studio 397)\n- Exakte Feldnamen: slotID, driverName, fullTeamName, carClass, lapsCompleted, lastLapTime, bestLapTime, pitting\n- speed in m/s wird automatisch in km/h konvertiert (* 3.6)\n- Swagger-UI in LMU-Installation gefunden → volle API-Doku verfügbar\n- focus_slot + clear_focus via REST-API (wie Broadcast Control UK)\n\n## Behoben\n- FCY-Überwachung funktioniert jetzt mit echten LMU-Feldnamen + m/s→km/h Konvertierung\n- Fahrzeug-Fokus per REST-API (PUT /rest/watch/focus/{slotID}) statt Tastatur\n- Heuristik pausiert während FCY (keine tausenden weißen Flaggen)\n\n## Quelle\n- Broadcast Control UK DLLs: Shared Memory LMU_Data (nicht rFactor2SharedMemory!)\n- LMU typedefs.js (UI.zip): Vollständige API-Struktur von Studio 397\n- LMU EXE: REST-Endpunkte bestätigt (focus, replayCommand, replaytime, sessionInfo, standings, swagger)\n- Version: 0.6.8 → 0.6.9",
-  "pub_date": "2026-07-24T15:25:00+02:00",
+  "version": "0.6.10",
+  "notes": "LMU REST-API Kamera-Steuerung + neues Icon\n\n## Neu\n- Kamera-Steuerung via LMU REST-API (PUT /rest/watch/focus/{type}/{group}/{advance})\n  statt rFactor2 Shared Memory (0x24/0x28 waren für LMU ungültig)\n- Kamera-Typen: SCV_SPECTATOR (TV), SCV_COCKPIT (Helmet), SCV_NOSECAM (Front),\n  SCV_SWINGMAN (Rear), SCV_TRACKSIDE (Behind)\n- jumpToReplay() setzt jetzt auch die ausgewählte Kamera nach Fahrzeug-Fokus\n- Neues LMU RC Logo-Icon (1024x1024, 10% Padding für Windows-Kompatibilität)\n\n## Behoben\n- Fenster-Aufpoppen beim Tastatur-Fallback reduziert (kein SwitchToThisWindow mehr)\n- Shared Memory nur noch für Read-Operationen (keine Kamera-Steuerung mehr)\n\n## Quelle\n- Broadcast Control UK DLLs: LMU_Data Shared Memory bestätigt\n- LMU-UI (Studio 397) BroadcastService.js: REST-API-Endpunkte extrahiert\n- Version: 0.6.9 → 0.6.10",
+  "pub_date": "2026-07-25T14:00:00+02:00",
   "platforms": {
     "windows-x86_64": {
       "signature": "",
-      "url": "https://github.com/FOKALiS/LMU-Racecontrol/releases/download/v0.6.9/LMU-Racecontrol_0.6.9_x64-setup.exe"
+      "url": "https://github.com/FOKALiS/LMU-Racecontrol/releases/download/v0.6.10/LMU-Racecontrol_0.6.10_x64-setup.exe"
     }
   }
 }
