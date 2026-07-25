@@ -211,37 +211,40 @@ async fn jump_to_incident_replay(
 
 #[tauri::command]
 async fn set_camera(cam_id: String, state: State<'_, AppState>) -> Result<(), String> {
-    // LMU REST-API Kamera-Steuerung via /rest/watch/focus/{cameraType}/{trackSideGroup}/{shouldAdvance}
-    // (bestätigt durch LMU-EXE String-Analyse: RestWatch.cpp)
+    // LMU REST-API Kamera-Steuerung via /rest/watch/focus/{cameraType}
     //
-    // Korrekte Kamera-Namen (aus LMU-EXE, NICHT die rFactor2 SCV_ Namen!):
-    // - "Trackside"   = Trackside / Behind (F6)
-    // - "Onboard"     = Onboard / Helmet (F2)
-    // - "Swingman"    = Swingman / Rear (F4)
-    // - "Nose"        = Nose / Front (F3)
-    // - "Cockpit"     = Cockpit (F2 Variante)
-    // - "TV Cockpit"  = TV Cockpit / TV (F1)
-    // - "Trackside" mit group=1 = Top (F5)
-    let (cam_type, group, advance) = match cam_id.as_str() {
-        "TV" => ("TV Cockpit", 0u32, true),
-        "Helmet" => ("Onboard", 0u32, true),
-        "Front" => ("Nose", 0u32, false),
-        "Heck" | "Rear" => ("Swingman", 0u32, true),
-        "Top" => ("Trackside", 1u32, false),
-        "Behind" => ("Trackside", 0u32, true),
+    // curl-getestete, funktionierende Kamera-Namen (✅ HTTP 200):
+    // - "TV"       = TV Cockpit (F1)
+    // - "Onboard"  = Onboard / Helmet (F2)
+    // - "Heli"     = Helikopter (F7/F8)
+    //
+    // Diese sind die direkten LMU-Kamera-Namen, NICHT die rFactor2-Varianten!
+    // Der Endpunkt /rest/watch/focus/{name}/{group}/{advance} wird von LMU NICHT
+    // unterstützt (curl-Test ergab HTTP 400).
+    let cam_type = match cam_id.as_str() {
+        "TV" => "TV",
+        "Helmet" => "Onboard",
+        "Front" => "Nose",
+        "Heck" | "Rear" => "Swingman",
+        "Top" => "Trackside",
+        "Behind" => "Trackside",
         _ => return Err(format!("Unbekannte Kamera-ID: {}", cam_id)),
     };
 
-    // REST-API (kein Fokus nötig!)
-    if state.lmu.select_camera(cam_type, group, advance).await.is_ok() {
-        println!("[set_camera] Kamera via REST-API: {} ({}/{}/{})", cam_id, cam_type, group, advance);
-        return Ok(());
+    // REST-API (funktioniert ohne LMU-Fenster-Fokus!)
+    match state.lmu.select_camera(cam_type).await {
+        Ok(_) => {
+            println!("[set_camera] ✅ Kamera via REST-API: {} -> {}", cam_id, cam_type);
+            Ok(())
+        }
+        Err(e) => {
+            println!("[set_camera] ❌ REST-API fehlgeschlagen: {:?}", e);
+            // Fallback: Tastatursimulation (funktioniert immer, braucht aber LMU-Fokus)
+            println!("[set_camera] Fallback auf Tastatur-Simulation für {}", cam_id);
+            keyboard::switch_camera(&cam_id)?;
+            Ok(())
+        }
     }
-
-    // Fallback: Tastatursimulation (funktioniert immer, braucht aber Fokus)
-    println!("[set_camera] REST-API fehlgeschlagen, Fallback auf Tastatur-Simulation");
-    keyboard::switch_camera(&cam_id)?;
-    Ok(())
 }
 
 #[tauri::command]

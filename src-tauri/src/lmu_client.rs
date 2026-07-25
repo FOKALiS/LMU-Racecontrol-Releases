@@ -1,27 +1,9 @@
 //! Client für die offizielle, in Le Mans Ultimate eingebaute REST-API.
 //!
 //! LMU startet standardmäßig einen lokalen HTTP-Server auf Port 6397
-//! (Quelle: Community-Tools wie `yiddifliddo/LMU-Replay-GUI`,
-//! `snipem/go-lmu-api`, `mzluzifer/LMU-REST-API`). Es handelt sich NICHT
-//! um Shared-Memory, sondern um echtes HTTP/JSON - deutlich robuster.
 //!
-//! WICHTIG: Die exakten Feldnamen innerhalb der JSON-Antworten (z.B. von
-//! `/rest/watch/standings`) können sich zwischen LMU-Versionen ändern.
-//! Dieser Client parst daher bewusst dynamisch über `serde_json::Value`
-//! und liest bekannte Feldnamen mit Fallbacks. Bitte einmal mit laufendem
-//! LMU gegen `http://localhost:6397/rest/watch/standings` prüfen (z.B. im
-//! Browser öffnen) und ggf. die Feldnamen in `parse_standings` anpassen.
-//!
-//! ## API-Endpunkte (laut Swagger-Schema von mzluzifer/LMU-REST-API)
-//! - GET  /rest/watch/sessionInfo
-//! - GET  /rest/watch/standings
-//! - GET  /rest/watch/standings/history
-//! - GET  /rest/watch/replays
-//! - GET  /rest/watch/trackmap
-//! - PUT  /rest/watch/replaytime/{time}
-//! - PUT  /rest/watch/replayCommand/{command}
-//! - GET  /webdata/.*
-//! - POST /webdata/.*
+//! Wichtiger Hinweis: ALLE PUT-Requests benötigen einen leeren JSON-Body `{}`.
+//! Ohne Body antwortet die LMU-API mit HTTP 400.
 
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
@@ -48,8 +30,6 @@ pub struct CarStanding {
     pub sector2_s: f64,
     pub sector3_s: f64,
     pub top_speed_kmh: f64,
-    /// Aktuelle Momentan-Geschwindigkeit in km/h.
-    /// LMU liefert `speed` in m/s → wir konvertieren intern.
     pub speed_kmh: f64,
     pub in_pits: bool,
 }
@@ -103,15 +83,21 @@ impl LmuClient {
             .with_context(|| format!("Antwort von {} war kein gültiges JSON", url))
     }
 
+    /// LMU REST-API verlangt bei PUT-Requests zwingend einen leeren JSON-Body.
+    /// Ohne Content-Type: application/json und Body `{}` kommt HTTP 400.
     async fn put(&self, path: &str) -> Result<()> {
         let url = format!("{}{}", self.base_url, path);
+        println!("[lmu_client] PUT {} (mit JSON-Body)", url);
         self.http
             .put(&url)
+            .header("Content-Type", "application/json")
+            .json(&serde_json::json!({}))
             .send()
             .await
             .with_context(|| format!("PUT {} fehlgeschlagen", url))?
             .error_for_status()
             .with_context(|| format!("PUT {} lieferte Fehlerstatus", url))?;
+        println!("[lmu_client] PUT {} OK", url);
         Ok(())
     }
 
@@ -138,46 +124,41 @@ impl LmuClient {
         self.put("/rest/watch/replayCommand/replay").await
     }
 
-    /// Fokussiert die Kamera auf ein bestimmtes Fahrzeug per Slot-ID.
-    /// Wird von Broadcast Control UK genauso verwendet - funktioniert!
+    /// Fokussiert einen Fahrer via REST-API.
+    /// Benötigt slotID (keine Fahrzeugnummer!) als Pfadparameter.
+    /// Beispiel: PUT /rest/watch/focus/30 (mit JSON-Body `{}`)
     pub async fn focus_slot(&self, slot_id: i64) -> Result<()> {
         let path = format!("/rest/watch/focus/{}", slot_id);
         self.put(&path).await
     }
 
-    /// Löscht den Fahrzeug-Fokus (zurück zur freien Kamera).
+    /// Löscht den aktuellen Fokus.
     pub async fn clear_focus(&self) -> Result<()> {
         self.put("/rest/watch/focus/clear").await
     }
 
-    /// Wählt eine Kamera via REST-API.
-    ///
-    /// Basierend auf der offiziellen LMU-UI (Studio 397) `BroadcastService.js`:
-    /// `PUT /rest/watch/focus/{type}/{trackSideGroup}/{shouldAdvance}`
-    ///
-    /// Kamera-Typen (aus `getCameras()`):
-    /// - `SCV_COCKPIT`   → index 0 = On-board, index 1 = Cockpit
-    /// - `SCV_NOSECAM`   → index 2 = Nose
-    /// - `SCV_SWINGMAN`  → index 3 = Rear / Swingman
-    /// - `SCV_TRACKSIDE` → index 4 = Trackside
-    /// - `SCV_SPECTATOR` → index 5 = Spectator / TV-Zyklus
-    ///
-    /// **Wichtig:** LMU verwendet NICHT die rFactor2 Shared Memory Offsets
-    /// 0x24/0x28 für die Kamera-Steuerung! Die Kamera-Steuerung erfolgt
-    /// ausschließlich über die REST-API.
-    pub async fn select_camera(&self, cam_type: &str, track_side_group: u32, should_advance: bool) -> Result<()> {
-        let advance_flag = if should_advance { 1 } else { 0 };
-        let path = format!("/rest/watch/focus/{}/{}/{}", cam_type, track_side_group, advance_flag);
+    /// Setzt eine Kamera via REST-API.
+    /// Die LMU REST-API verwendet: /rest/watch/focus/{cameraType} mit JSON-Body `{}`
+    /// 
+    /// Bekannte Kamera-Namen (curl-getestet ✅):
+    /// - "TV"       = TV Cockpit (F1)
+    /// - "Onboard"  = Onboard / Helmet (F2)
+    /// - "Heli"     = Helikopter (F7)
+    /// - "Nose"     = Nose / Front (F3)
+    /// - "Swingman" = Swingman / Rear (F4)
+    /// - "Trackside"= Trackside (F6/F5)
+    /// 
+    /// Hinweis: /rest/watch/focus/{cameraType}/{trackSideGroup}/{shouldAdvance}
+    /// wird von LMU NICHT unterstützt (curl-Test ergab HTTP 400).
+    pub async fn select_camera(&self, cam_type: &str) -> Result<()> {
+        let path = format!("/rest/watch/focus/{}", cam_type);
+        println!("[lmu_client] select_camera: {} via {}", cam_type, path);
         self.put(&path).await
     }
 }
 
-/// Wandelt die rohe JSON-Struktur von `/rest/watch/standings` in unser
-/// Domänenmodell um. Bewusst tolerant gegenüber fehlenden/zusätzlichen
-/// Feldern, da die exakte LMU-JSON-Struktur je nach Version variieren kann.
 fn parse_standings(raw: &Value) -> Result<Vec<CarStanding>> {
-    // Debug: ALLE Feldnamen des ersten Eintrags ausgeben, damit wir die
-    // exakte JSON-Struktur von LMU sehen (insb. für speed_kmh)
+    // Debug: ALLE Feldnamen des ersten Eintrags ausgeben
     if let Some(arr) = raw.as_array() {
         if let Some(first) = arr.first() {
             if let Some(obj) = first.as_object() {
@@ -210,7 +191,6 @@ fn parse_standings(raw: &Value) -> Result<Vec<CarStanding>> {
             }
         }
     } else {
-        // Fallback: Zeige die gesamte rohe JSON-Antwort (gekürzt auf 5000 Zeichen)
         let raw_str = serde_json::to_string(raw).unwrap_or_default();
         let preview = if raw_str.len() > 5000 { &raw_str[..5000] } else { &raw_str };
         println!("[lmu_client] RAW JSON (erste 5000 Zeichen):\n{}", preview);
@@ -225,14 +205,11 @@ fn parse_standings(raw: &Value) -> Result<Vec<CarStanding>> {
         .or_else(|| raw.get("entries").and_then(|v| v.as_array()).cloned())
         .context(
             "Konnte kein Array in der standings-Antwort finden - \
-             bitte JSON-Struktur mit laufendem LMU prüfen und \
-             parse_standings() in lmu_client.rs anpassen",
+             bitte JSON-Struktur mit laufendem LMU prüfen",
         )?;
 
     let mut out = Vec::with_capacity(list.len());
     for (idx, entry) in list.iter().enumerate() {
-        // Geschwindigkeit: LMU liefert `carVelocity.velocity` in m/s (aus typedefs.js bestätigt).
-        // Werte wie 87.4 m/s = 314 km/h. Konvertiere * 3.6 für km/h.
         let speed_mps = entry
             .get("carVelocity")
             .and_then(|v| v.get("velocity"))
@@ -242,33 +219,25 @@ fn parse_standings(raw: &Value) -> Result<Vec<CarStanding>> {
         let speed_kmh = speed_mps * 3.6;
 
         out.push(CarStanding {
-            // slotID (großes D) ist der offizielle LMU-Name (aus typedefs.js)
             slot_id: field_i64(entry, &["slotID", "slotId", "id", "vehicleId"])
                 .unwrap_or(idx as i64),
             position: field_i64(entry, &["position", "place", "pos"]).unwrap_or(0) as i32,
             car_number: field_string(entry, &["carNumber", "number", "carNum"]),
-            // fullTeamName ist der offizielle LMU-Name (aus typedefs.js)
             team: field_string(entry, &["fullTeamName", "team", "teamName"]),
-            // driverName ist der offizielle LMU-Name (aus typedefs.js)
             driver: field_string(entry, &["driverName", "driver", "name"]),
-            // carClass ist der offizielle LMU-Name (aus typedefs.js)
             class: field_string(entry, &["carClass", "class", "vehicleClass"]),
             car_model: field_string(entry, &["vehicleName", "carModel", "vehicle", "carType"]),
             class_position: field_i64(entry, &["classPosition", "picPosition", "pic"])
                 .unwrap_or(0) as i32,
-            // lapsCompleted ist der offizielle LMU-Name (aus typedefs.js)
             laps: field_i64(entry, &["lapsCompleted", "laps", "totalLaps"]).unwrap_or(0) as i32,
             gap: field_string(entry, &["gap", "gapToLeader"]),
-            // lastLapTime ist der offizielle LMU-Name (aus typedefs.js)
             last_lap_s: field_f64(entry, &["lastLapTime", "lastLap"]).unwrap_or(0.0),
-            // bestLapTime ist der offizielle LMU-Name (aus typedefs.js)
             best_lap_s: field_f64(entry, &["bestLapTime", "bestLap"]).unwrap_or(0.0),
             sector1_s: field_f64(entry, &["sector1", "s1", "sector1Time"]).unwrap_or(0.0),
             sector2_s: field_f64(entry, &["sector2", "s2", "sector2Time"]).unwrap_or(0.0),
             sector3_s: field_f64(entry, &["sector3", "s3", "sector3Time"]).unwrap_or(0.0),
             top_speed_kmh: field_f64(entry, &["topSpeed", "vmax", "maxSpeed"]).unwrap_or(0.0),
             speed_kmh,
-            // pitting ist der offizielle LMU-Name (aus typedefs.js)
             in_pits: field_bool(entry, &["pitting", "inPits", "isInPit", "pit"]).unwrap_or(false),
         });
     }

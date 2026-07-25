@@ -4,6 +4,21 @@ Alle nennenswerten Änderungen an LMU Race Control werden hier dokumentiert.
 Format angelehnt an [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
 
+## [0.6.11] - 25.07.2026 (REST-API PUT-Body Fix + Kamera-Key-Fix)
+### Behoben
+- **Alle PUT-Requests schlugen fehl (HTTP 400)**: Die LMU REST-API verlangt bei PUT
+  zwingend einen leeren JSON-Body `{}` mit `Content-Type: application/json`. Ohne
+  Body kam HTTP 400 – betroffen waren: focus, camera, replaytime, switch_to_live/replay
+- **Kamera-Steuerung funktioniert jetzt zuverlässig via REST-API**: `/rest/watch/focus/TV`,
+  `/rest/watch/focus/Onboard`, `/rest/watch/focus/Heli` u.a. sind per curl bestätigt ✅
+  Der Endpunkt `/rest/watch/focus/{name}/{group}/{advance}` wird von LMU NICHT
+  unterstützt (HTTP 400) und wurde aus dem Code entfernt.
+
+### Quelle
+- curl-Tests gegen laufende LMU-Instanz (localhost:6397) während aktiver Session
+- JSON-Struktur von `/rest/watch/standings` bestätigt (alle Feldnamen korrekt)
+- Version: 0.6.10 → 0.6.11
+
 ## [0.6.7] - 24.07.2026 (Shared Memory, Connect/Disconnect, FCY +3 km/h Toleranz)
 
 ### Neu
