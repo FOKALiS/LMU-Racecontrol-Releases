@@ -80,8 +80,6 @@ async fn get_settings(state: State<'_, AppState>) -> Result<Settings, String> {
     Ok(state.settings.lock().await.clone())
 }
 
-/// Aktuellen Lizenzstatus liefern (wird beim App-Start abgefragt, um zu
-/// entscheiden, ob die volle Oberfläche freigeschaltet wird).
 #[derive(Serialize, Clone)]
 struct LicenseStatusResponse {
     licensed: bool,
@@ -96,7 +94,6 @@ async fn get_license_status(state: State<'_, AppState>) -> Result<LicenseStatusR
     Ok(LicenseStatusResponse { licensed, data })
 }
 
-/// Aktiviert einen neu eingegebenen Lizenzschlüssel für diese Installation.
 #[tauri::command]
 async fn activate_license(state: State<'_, AppState>, license_key: String) -> Result<LicenseStatusResponse, String> {
     let existing_fingerprint = {
@@ -139,9 +136,6 @@ async fn list_archived_incidents(state: State<'_, AppState>) -> Result<Vec<Incid
     state.db.list_archived().map_err(|e| e.to_string())
 }
 
-/// Legt bei Bedarf einen neuen Vorfall an (falls `id` leer ist) und trägt
-/// direkt die Entscheidung der Kommission ein -> Vorfall wandert damit
-/// automatisch ins Archiv. Löst anschließend die Discord-Benachrichtigung aus.
 #[allow(clippy::too_many_arguments)]
 #[tauri::command]
 async fn submit_incident_decision(
@@ -192,13 +186,14 @@ async fn submit_incident_decision(
 
     let webhook_url = state.settings.lock().await.discord_webhook_url.clone();
     if let Err(e) = discord::send_incident_decision(&webhook_url, &updated).await {
-        // Discord-Fehler soll das Archivieren nicht blockieren, aber sichtbar sein.
         eprintln!("Discord-Webhook fehlgeschlagen: {e:#}");
     }
 
     Ok(updated)
 }
 
+/// Springt zur Replay-Zeit eines Vorfalls.
+/// WIE BCUK: 1) Replay aktivieren, 2) 2s warten (settle), 3) Zeitsprung, 4) Kamera setzen
 #[tauri::command]
 async fn jump_to_incident_replay(
     state: State<'_, AppState>,
@@ -206,21 +201,31 @@ async fn jump_to_incident_replay(
     pre_roll_seconds: f64,
 ) -> Result<(), String> {
     let target = (session_time_s - pre_roll_seconds).max(0.0);
-    state.lmu.seek_replay_to(target).await.map_err(|e| e.to_string())
+    
+    println!("[jump_to_replay] 🔄 Wechsle in Replay-Modus...");
+    state.lmu.switch_to_replay().await.map_err(|e| e.to_string())?;
+    println!("[jump_to_replay] ✅ Replay-Modus aktiviert");
+    
+    // BCUK wartet 2s nach Replay-Aktivierung (settle time)
+    tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+    
+    println!("[jump_to_replay] 🔄 Zeitsprung zu {:.1}s...", target);
+    state.lmu.seek_replay_to(target).await.map_err(|e| e.to_string())?;
+    println!("[jump_to_replay] ✅ Zeitsprung zu {:.1}s", target);
+    
+    // Kurz warten damit der Zeitsprung verarbeitet wird
+    tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+    
+    // TV-Kamera setzen (CameraController funktioniert NUR im Replay-Modus)
+    println!("[jump_to_replay] 🔄 Setze TV-Kamera...");
+    state.lmu.select_camera("TV").await.map_err(|e| e.to_string())?;
+    println!("[jump_to_replay] ✅ TV-Kamera gesetzt");
+    
+    Ok(())
 }
 
 #[tauri::command]
 async fn set_camera(cam_id: String, state: State<'_, AppState>) -> Result<(), String> {
-    // LMU REST-API Kamera-Steuerung via /rest/watch/focus/{cameraType}
-    //
-    // curl-getestete, funktionierende Kamera-Namen (✅ HTTP 200):
-    // - "TV"       = TV Cockpit (F1)
-    // - "Onboard"  = Onboard / Helmet (F2)
-    // - "Heli"     = Helikopter (F7/F8)
-    //
-    // Diese sind die direkten LMU-Kamera-Namen, NICHT die rFactor2-Varianten!
-    // Der Endpunkt /rest/watch/focus/{name}/{group}/{advance} wird von LMU NICHT
-    // unterstützt (curl-Test ergab HTTP 400).
     let cam_type = match cam_id.as_str() {
         "TV" => "TV",
         "Helmet" => "Onboard",
@@ -231,39 +236,65 @@ async fn set_camera(cam_id: String, state: State<'_, AppState>) -> Result<(), St
         _ => return Err(format!("Unbekannte Kamera-ID: {}", cam_id)),
     };
 
-    // REST-API (funktioniert ohne LMU-Fenster-Fokus!)
+    println!("[set_camera] 🔄 Kamera {} -> {}...", cam_id, cam_type);
+    
+    // CameraController funktioniert NUR im Replay-Modus.
+    // Deshalb: 1) Replay aktivieren, 2) Kamera setzen, 3) zurück zu Live
+    // (wie BCUK es auch macht)
+    
+    // 1. Replay-Modus aktivieren
+    println!("[set_camera] 🔄 Replay-Modus aktivieren...");
+    if let Err(e) = state.lmu.switch_to_replay().await {
+        println!("[set_camera] ⚠️ Replay: {:?} (trotzdem Kamera versuchen)", e);
+    }
+    
+    // 2. Warten bis Replay bereit ist (BCUK wartet 2s)
+    tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+    
+    // 3. Kamera setzen via CameraController
+    println!("[set_camera] 🔄 Setze Kamera {} via CameraController...", cam_type);
     match state.lmu.select_camera(cam_type).await {
         Ok(_) => {
-            println!("[set_camera] ✅ Kamera via REST-API: {} -> {}", cam_id, cam_type);
+            println!("[set_camera] ✅ Kamera {} gesetzt", cam_type);
+            
+            // 4. Zurück zu Live (wenn wir im Live-Modus waren)
+            println!("[set_camera] 🔄 Zurück zu Live...");
+            if let Err(e) = state.lmu.switch_to_live().await {
+                println!("[set_camera] ⚠️ Live: {:?}", e);
+            }
+            
             Ok(())
         }
         Err(e) => {
-            println!("[set_camera] ❌ REST-API fehlgeschlagen: {:?}", e);
-            // Fallback: Tastatursimulation (funktioniert immer, braucht aber LMU-Fokus)
-            println!("[set_camera] Fallback auf Tastatur-Simulation für {}", cam_id);
+            println!("[set_camera] ❌ CameraController fehlgeschlagen: {:?}", e);
+            
+            // 4. Zurück zu Live
+            let _ = state.lmu.switch_to_live().await;
+            
+            // Fallback: Tastatur-Simulation
+            println!("[set_camera] ⚠️ Fallback auf Tastatur-Simulation für {}", cam_id);
             keyboard::switch_camera(&cam_id)?;
             Ok(())
         }
     }
 }
 
+/// Fokussiert einen Fahrer.
+/// WICHTIG: KEINE Kamera setzen! Das macht App.tsx separat nach dem Fokus.
+/// 'fokus_driver' setzt NUR den Fahrer-Fokus, damit der Fokus-Wechsel
+/// zwischen Fahrern (Klick auf verschiedene Zeilen) sauber funktioniert.
 #[tauri::command]
 async fn focus_driver(car_number: String, state: State<'_, AppState>) -> Result<(), String> {
-    // Slot-ID aus den aktuellen Standings ermitteln
-    // (die API braucht slotId, nicht die Fahrzeugnummer)
     let standings = state.lmu.get_standings().await.map_err(|e| e.to_string())?;
     let slot = standings.iter().find(|c| c.car_number == car_number).map(|c| c.slot_id);
     
     if let Some(slot_id) = slot {
-        println!("[focus_driver] Fokussiere Slot {} (Fahrzeug #{})", slot_id, car_number);
+        println!("[focus_driver] 🔄 Fokussiere Slot {} (Fahrzeug #{})", slot_id, car_number);
         state.lmu.focus_slot(slot_id).await.map_err(|e| e.to_string())?;
-        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+        println!("[focus_driver] ✅ Fokus auf Slot {} gesendet", slot_id);
         Ok(())
     } else {
-        // Fallback: Tastatur-Simulation, wenn Slot nicht gefunden
-        println!("[focus_driver] Slot für #{} nicht gefunden, Fallback auf Tastatur", car_number);
-        set_camera("TV".to_string(), state).await?;
-        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+        println!("[focus_driver] ⚠️ Slot für #{} nicht gefunden, Fallback auf Tastatur", car_number);
         keyboard::focus_car(&car_number)?;
         Ok(())
     }
@@ -297,7 +328,7 @@ async fn check_lmu_connection(state: State<'_, AppState>) -> Result<bool, String
 #[tauri::command]
 async fn start_fcy(app: tauri::AppHandle, state: State<'_, AppState>) -> Result<(), String> {
     if state.fcy.current_phase() != FcyPhase::Idle {
-        return Ok(()); // läuft schon
+        return Ok(());
     }
     let countdown_from = state.settings.lock().await.fcy_countdown_seconds;
     state.fcy.set_phase(FcyPhase::Countdown);
@@ -327,9 +358,6 @@ async fn clear_fcy(app: tauri::AppHandle, state: State<'_, AppState>) -> Result<
     Ok(())
 }
 
-/// Wird vom Splashscreen-Fenster aufgerufen, sobald der Countdown/die
-/// Update-Prüfung abgeschlossen ist: zeigt das (bereits im Hintergrund
-/// geladene) Hauptfenster maximiert an und schließt den Splashscreen.
 #[tauri::command]
 async fn show_main_window(app: tauri::AppHandle) -> Result<(), String> {
     if let Some(main) = app.get_webview_window("main") {
@@ -377,19 +405,16 @@ async fn poll_loop(app: tauri::AppHandle, state: Arc<AppState>) {
                     .map(|t| t.elapsed().as_secs_f64())
                     .unwrap_or(0.0);
 
-                // 1) FCY-Geschwindigkeitsüberwachung (VOR der Heuristik, damit
-                //    FCY-Verstöße priorisiert werden)
                 let fcy_active = state.fcy.current_phase() == FcyPhase::Active;
                 if fcy_active {
                     let limit = state.settings.lock().await.fcy_speed_limit_kmh;
-                    let tolerance = 3.0; // +3 km/h Toleranz
+                    let tolerance = 3.0;
                     let threshold = limit + tolerance;
                     let ctx = DetectionContext {
                         session_time_s,
                         track_name: &session.track_name,
                     };
                     for car in &standings {
-                        // Prüfe: speed_kmh > (Limit + Toleranz)
                         if car.speed_kmh > threshold && state.fcy.should_flag(car.slot_id) {
                             let mut incident = incidents::make_fcy_violation(&ctx, car, limit);
                             if state.db.insert(&mut incident).is_ok() {
@@ -399,9 +424,6 @@ async fn poll_loop(app: tauri::AppHandle, state: Arc<AppState>) {
                     }
                 }
 
-                // 2) Automatische Verdachtserkennung (rot/gelb/weiß)
-                //    Während FCY pausiert, da alle Fahrzeuge langsam sind
-                //    und die Heuristik tausende falsche Vorfälle erzeugen würde.
                 if !fcy_active {
                     let mut detector = state.detector.lock().await;
                     let ctx = DetectionContext {
@@ -445,10 +467,6 @@ async fn revalidate_license_on_startup(store: Arc<LicenseStore>, license: Arc<As
             let _ = store.save(&data);
         }
         Err(e) => {
-            // Kein Internet oder Server nicht erreichbar -> NICHT sofort
-            // sperren, sondern die zwischengespeicherte Kulanzfrist greifen
-            // lassen (siehe LicenseData::is_currently_licensed). Nur den
-            // Fehlertext fürs UI aktualisieren.
             let mut data = license.lock().await;
             data.last_error = Some(e.to_string());
             let _ = store.save(&data);
@@ -511,10 +529,6 @@ fn main() {
             let app_handle = app.handle().clone();
             tauri::async_runtime::spawn(poll_loop(app_handle, state));
 
-            // Beim Start einmalig die gespeicherte Lizenz online nachprüfen
-            // (falls eine hinterlegt ist). Läuft im Hintergrund, blockiert
-            // den Programmstart nicht - die zwischengespeicherte Gültigkeit
-            // (inkl. Offline-Kulanzfrist) gilt bis das Ergebnis da ist.
             tauri::async_runtime::spawn(revalidate_license_on_startup(license_store, license));
 
             Ok(())

@@ -1,11 +1,11 @@
 {
-  "version": "0.6.10",
-  "notes": "LMU REST-API Kamera-Steuerung + neues Icon\n\n## Neu\n- Kamera-Steuerung via LMU REST-API (PUT /rest/watch/focus/{type}/{group}/{advance})\n  statt rFactor2 Shared Memory (0x24/0x28 waren für LMU ungültig)\n- Kamera-Typen: SCV_SPECTATOR (TV), SCV_COCKPIT (Helmet), SCV_NOSECAM (Front),\n  SCV_SWINGMAN (Rear), SCV_TRACKSIDE (Behind)\n- jumpToReplay() setzt jetzt auch die ausgewählte Kamera nach Fahrzeug-Fokus\n- Neues LMU RC Logo-Icon (1024x1024, 10% Padding für Windows-Kompatibilität)\n\n## Behoben\n- Fenster-Aufpoppen beim Tastatur-Fallback reduziert (kein SwitchToThisWindow mehr)\n- Shared Memory nur noch für Read-Operationen (keine Kamera-Steuerung mehr)\n\n## Quelle\n- Broadcast Control UK DLLs: LMU_Data Shared Memory bestätigt\n- LMU-UI (Studio 397) BroadcastService.js: REST-API-Endpunkte extrahiert\n- Version: 0.6.9 → 0.6.10",
-  "pub_date": "2026-07-25T14:00:00+02:00",
+  "version": "0.6.12",
+  "notes": "Cam Control + Replay-Steuerung Fix: jumpToReplay setzt jetzt Kamera, Replay-Modus wird vor Zeitsprung aktiviert, längere Pausen zwischen Kommandos, focus_driver setzt TV-Kamera",
+  "pub_date": "2026-07-26T17:56:00+02:00",
   "platforms": {
     "windows-x86_64": {
       "signature": "",
-      "url": "https://github.com/FOKALiS/LMU-Racecontrol/releases/download/v0.6.10/LMU-Racecontrol_0.6.10_x64-setup.exe"
+      "url": "https://github.com/FOKALiS/LMU-Racecontrol/releases/download/v0.6.12/LMU.RACECONTROL_0.6.12_x64-setup.exe"
     }
   }
 }

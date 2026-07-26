@@ -4,6 +4,19 @@ Alle nennenswerten Änderungen an LMU Race Control werden hier dokumentiert.
 Format angelehnt an [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
 
+## [0.6.12] - 26.07.2026 (Cam Control + Replay-Steuerung Fix)
+### Behoben
+- **jumpToReplay setzt jetzt auch Kamera**: Nach dem Replay-Zeitsprung wird automatisch die TV-Kamera gesetzt (via REST-API). Vorher sprang der Replay an die richtige Zeit, aber der Nutzer sah nur die vorherige Kameraeinstellung.
+- **Replay-Modus wird vor Zeitsprung aktiviert**: LMU braucht zwingend den Replay-Modus, damit Kamera-Befehle wirken. `switch_to_replay` wird jetzt vor dem Zeitsprung aufgerufen.
+- **Längere Pausen zwischen Kommandos**: 200ms nach Modus-Wechsel, 500ms nach Zeitsprung – damit LMU genug Zeit hat, die Befehle zu verarbeiten.
+- **focus_driver setzt jetzt auch TV-Kamera**: Nach dem Fahrer-Fokus wird die TV-Kamera aktiviert, damit der Nutzer sofort das Fahrzeug sieht.
+- **Verbessertes Debug-Logging**: Alle Schritte werden jetzt mit Emoji und Zeitstempel geloggt, damit Fehler leichter nachvollziehbar sind.
+
+### Quelle
+- Analyse von BCUK (Broadcast Control UK) auf dem Desktop bestätigt: BCUK verwendet exakt denselben REST-API-Ansatz (`/rest/watch/focus/{name}`) – der Unterschied ist die **Reihenfolge**: erst Replay-Modus + Zeitsprung, dann Kamera.
+- BCUK-Plugin-JS (Stream Deck) zeigt: Kamera-Steuerung läuft über `POST /api/control` mit Aktionen wie `setTv`, `setNose`, `setCockpit`, `setOnboard`, `setOnCockpit`, `setOnDash`, `setOnRear` – die LMU-intern auf `/rest/watch/focus/{name}` gemappt werden.
+- Version: 0.6.11 → 0.6.12
+
 ## [0.6.11] - 25.07.2026 (REST-API PUT-Body Fix + Kamera-Key-Fix)
 ### Behoben
 - **Alle PUT-Requests schlugen fehl (HTTP 400)**: Die LMU REST-API verlangt bei PUT

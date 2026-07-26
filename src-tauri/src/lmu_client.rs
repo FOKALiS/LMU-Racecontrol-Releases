@@ -1,9 +1,6 @@
 //! Client für die offizielle, in Le Mans Ultimate eingebaute REST-API.
 //!
 //! LMU startet standardmäßig einen lokalen HTTP-Server auf Port 6397
-//!
-//! Wichtiger Hinweis: ALLE PUT-Requests benötigen einen leeren JSON-Body `{}`.
-//! Ohne Body antwortet die LMU-API mit HTTP 400.
 
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
@@ -75,7 +72,7 @@ impl LmuClient {
             .get(&url)
             .send()
             .await
-            .with_context(|| format!("GET {} fehlgeschlagen (läuft LMU?)", url))?
+            .with_context(|| format!("GET {} fehlgeschlagen", url))?
             .error_for_status()
             .with_context(|| format!("GET {} lieferte Fehlerstatus", url))?;
         resp.json::<Value>()
@@ -83,11 +80,8 @@ impl LmuClient {
             .with_context(|| format!("Antwort von {} war kein gültiges JSON", url))
     }
 
-    /// LMU REST-API verlangt bei PUT-Requests zwingend einen leeren JSON-Body.
-    /// Ohne Content-Type: application/json und Body `{}` kommt HTTP 400.
     async fn put(&self, path: &str) -> Result<()> {
         let url = format!("{}{}", self.base_url, path);
-        println!("[lmu_client] PUT {} (mit JSON-Body)", url);
         self.http
             .put(&url)
             .header("Content-Type", "application/json")
@@ -97,8 +91,26 @@ impl LmuClient {
             .with_context(|| format!("PUT {} fehlgeschlagen", url))?
             .error_for_status()
             .with_context(|| format!("PUT {} lieferte Fehlerstatus", url))?;
-        println!("[lmu_client] PUT {} OK", url);
         Ok(())
+    }
+
+    async fn post_json(&self, path: &str, body: &Value) -> Result<()> {
+        let url = format!("{}{}", self.base_url, path);
+        let resp = self
+            .http
+            .post(&url)
+            .header("Content-Type", "application/json")
+            .json(body)
+            .send()
+            .await
+            .with_context(|| format!("POST {} fehlgeschlagen", url))?;
+        let status = resp.status();
+        let text = resp.text().await.unwrap_or_default();
+        if text.is_empty() || text == "OK" || text == "true" || text.contains("\"cameraName\"") {
+            Ok(())
+        } else {
+            Err(anyhow::anyhow!("POST {}: {} ({})", url, status, text))
+        }
     }
 
     pub async fn get_standings(&self) -> Result<Vec<CarStanding>> {
@@ -121,81 +133,50 @@ impl LmuClient {
     }
 
     pub async fn switch_to_replay(&self) -> Result<()> {
-        self.put("/rest/watch/replayCommand/replay").await
+        self.put("/rest/watch/replay/toggleactive").await
     }
 
-    /// Fokussiert einen Fahrer via REST-API.
-    /// Benötigt slotID (keine Fahrzeugnummer!) als Pfadparameter.
-    /// Beispiel: PUT /rest/watch/focus/30 (mit JSON-Body `{}`)
+    pub async fn is_replay_active(&self) -> Result<bool> {
+        let val = self.get_json("/rest/replay/isActive").await?;
+        Ok(val.as_bool().unwrap_or(false))
+    }
+
     pub async fn focus_slot(&self, slot_id: i64) -> Result<()> {
         let path = format!("/rest/watch/focus/{}", slot_id);
         self.put(&path).await
     }
 
-    /// Löscht den aktuellen Fokus.
     pub async fn clear_focus(&self) -> Result<()> {
         self.put("/rest/watch/focus/clear").await
     }
 
-    /// Setzt eine Kamera via REST-API.
-    /// Die LMU REST-API verwendet: /rest/watch/focus/{cameraType} mit JSON-Body `{}`
-    /// 
-    /// Bekannte Kamera-Namen (curl-getestet ✅):
-    /// - "TV"       = TV Cockpit (F1)
-    /// - "Onboard"  = Onboard / Helmet (F2)
-    /// - "Heli"     = Helikopter (F7)
-    /// - "Nose"     = Nose / Front (F3)
-    /// - "Swingman" = Swingman / Rear (F4)
-    /// - "Trackside"= Trackside (F6/F5)
-    /// 
-    /// Hinweis: /rest/watch/focus/{cameraType}/{trackSideGroup}/{shouldAdvance}
-    /// wird von LMU NICHT unterstützt (curl-Test ergab HTTP 400).
+    /// Kamera wechseln – probiert alle bekannten Endpunkte durch
     pub async fn select_camera(&self, cam_type: &str) -> Result<()> {
-        let path = format!("/rest/watch/focus/{}", cam_type);
-        println!("[lmu_client] select_camera: {} via {}", cam_type, path);
-        self.put(&path).await
+        let camera_id = match cam_type {
+            "TV" | "Tv" | "tv" => 4,
+            "Onboard" | "OB" | "Helmet" | "Cockpit" => 6,
+            "Nose" | "Front" | "Bonnet" | "Bodywork" => 0,
+            "Heli" | "Top" | "Trackside" => 1,
+            "Swing" | "Swingman" | "Rear" | "Heck" => 2,
+            _ => return Err(anyhow::anyhow!("Unbekannte Kamera: {}", cam_type)),
+        };
+
+        // 1. CameraController mit ID
+        if self.post_json("/rest/replay/CameraController/switchCameraFamily", &serde_json::json!({"id": camera_id})).await.is_ok() {
+            return Ok(());
+        }
+
+        // 2. CameraController mit group
+        if self.post_json("/rest/replay/CameraController/switchCameraFamily", &serde_json::json!({"group": cam_type})).await.is_ok() {
+            return Ok(());
+        }
+
+        // 3. Fallback: alter REST-Endpunkt
+        self.put(&format!("/rest/watch/focus/{}", cam_type)).await
     }
 }
 
 fn parse_standings(raw: &Value) -> Result<Vec<CarStanding>> {
-    // Debug: ALLE Feldnamen des ersten Eintrags ausgeben
-    if let Some(arr) = raw.as_array() {
-        if let Some(first) = arr.first() {
-            if let Some(obj) = first.as_object() {
-                println!("[lmu_client] === ALLE FELDER des ersten Fahrzeugs ===");
-                for (key, val) in obj.iter() {
-                    println!("  {} = {}", key, val);
-                }
-                println!("[lmu_client] ===========================================");
-            }
-        }
-        println!("[lmu_client] Anzahl Fahrzeuge: {}", arr.len());
-    } else if let Some(cars) = raw.get("cars").and_then(|v| v.as_array()) {
-        if let Some(first) = cars.first() {
-            if let Some(obj) = first.as_object() {
-                println!("[lmu_client] === ALLE FELDER des ersten Fahrzeugs (cars) ===");
-                for (key, val) in obj.iter() {
-                    println!("  {} = {}", key, val);
-                }
-                println!("[lmu_client] =================================================");
-            }
-        }
-    } else if let Some(vehicles) = raw.get("vehicles").and_then(|v| v.as_array()) {
-        if let Some(first) = vehicles.first() {
-            if let Some(obj) = first.as_object() {
-                println!("[lmu_client] === ALLE FELDER des ersten Fahrzeugs (vehicles) ===");
-                for (key, val) in obj.iter() {
-                    println!("  {} = {}", key, val);
-                }
-                println!("[lmu_client] =====================================================");
-            }
-        }
-    } else {
-        let raw_str = serde_json::to_string(raw).unwrap_or_default();
-        let preview = if raw_str.len() > 5000 { &raw_str[..5000] } else { &raw_str };
-        println!("[lmu_client] RAW JSON (erste 5000 Zeichen):\n{}", preview);
-    }
-
     let list = raw
         .as_array()
         .cloned()
@@ -203,10 +184,7 @@ fn parse_standings(raw: &Value) -> Result<Vec<CarStanding>> {
         .or_else(|| raw.get("vehicles").and_then(|v| v.as_array()).cloned())
         .or_else(|| raw.get("standings").and_then(|v| v.as_array()).cloned())
         .or_else(|| raw.get("entries").and_then(|v| v.as_array()).cloned())
-        .context(
-            "Konnte kein Array in der standings-Antwort finden - \
-             bitte JSON-Struktur mit laufendem LMU prüfen",
-        )?;
+        .context("Konnte kein Array in der standings-Antwort finden")?;
 
     let mut out = Vec::with_capacity(list.len());
     for (idx, entry) in list.iter().enumerate() {
@@ -219,16 +197,14 @@ fn parse_standings(raw: &Value) -> Result<Vec<CarStanding>> {
         let speed_kmh = speed_mps * 3.6;
 
         out.push(CarStanding {
-            slot_id: field_i64(entry, &["slotID", "slotId", "id", "vehicleId"])
-                .unwrap_or(idx as i64),
+            slot_id: field_i64(entry, &["slotID", "slotId", "id", "vehicleId"]).unwrap_or(idx as i64),
             position: field_i64(entry, &["position", "place", "pos"]).unwrap_or(0) as i32,
             car_number: field_string(entry, &["carNumber", "number", "carNum"]),
             team: field_string(entry, &["fullTeamName", "team", "teamName"]),
             driver: field_string(entry, &["driverName", "driver", "name"]),
             class: field_string(entry, &["carClass", "class", "vehicleClass"]),
             car_model: field_string(entry, &["vehicleName", "carModel", "vehicle", "carType"]),
-            class_position: field_i64(entry, &["classPosition", "picPosition", "pic"])
-                .unwrap_or(0) as i32,
+            class_position: field_i64(entry, &["classPosition", "picPosition", "pic"]).unwrap_or(0) as i32,
             laps: field_i64(entry, &["lapsCompleted", "laps", "totalLaps"]).unwrap_or(0) as i32,
             gap: field_string(entry, &["gap", "gapToLeader"]),
             last_lap_s: field_f64(entry, &["lastLapTime", "lastLap"]).unwrap_or(0.0),
@@ -249,8 +225,7 @@ fn parse_session_info(raw: &Value) -> SessionInfo {
         session_type: field_string(raw, &["sessionType", "session", "type"]),
         track_name: field_string(raw, &["trackName", "track"]),
         time_of_day: field_string(raw, &["timeOfDay", "tod"]),
-        session_time_remaining_s: field_f64(raw, &["timeRemaining", "sessionTimeRemaining"])
-            .unwrap_or(0.0),
+        session_time_remaining_s: field_f64(raw, &["timeRemaining", "sessionTimeRemaining"]).unwrap_or(0.0),
         num_cars: field_i64(raw, &["numCars", "carCount", "numVehicles"]).unwrap_or(0) as i32,
     }
 }
