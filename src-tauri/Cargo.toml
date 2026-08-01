@@ -1,6 +1,6 @@
 [package]
 name = "lmu-race-control"
-version = "0.6.12"
+version = "0.8.3"
 description = "LIVE Rennkommission Tool für Le Mans Ultimate – Vorfallserkennung und -dokumentation"
 authors = ["Your Race Control Team"]
 edition = "2021"
@@ -22,20 +22,16 @@ anyhow = "1"
 thiserror = "1"
 
 # HTTP-Client für die offizielle LMU REST-API (localhost:6397)
-# Wird sowohl zum Polling der Live-Timing-Daten als auch zum Auslösen des
-# Replay-Zeitsprungs (/rest/watch/replaytime/{seconds}) verwendet - kein
-# Shared-Memory-Hack und keine simulierten Tastatureingaben nötig.
+once_cell = "1"
 reqwest = { version = "0.12", features = ["json"] }
 
-# Auto-Update-Funktion (Splashscreen prüft beim Start auf neue Version und
-# kann sie per Klick automatisch herunterladen und installieren)
+# WebSocket-Client für LMU Replay-Metrics (ws://localhost:6398/websocket/replaymetrics)
+tokio-tungstenite = "0.24"
+futures-util = "0.3"
+
+# Auto-Update-Funktion
 tauri-plugin-updater = "2"
 tauri-plugin-process = "2"
-
-# Tastatursimulation für die LMU-Kamera-Steuerung
-# LMU/rFactor2 verwendet keine REST-API für Kamerasteuerung, daher simulieren
-# wir die entsprechenden Tastendrücke (F1-F6 und Strg+F) via Win32 SendInput API.
-# Kein externes Crate nötig – die Win32-API wird direkt per FFI aufgerufen.
 
 [[bin]]
 name = "lmu-race-control"

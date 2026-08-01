@@ -48,7 +48,7 @@ export default function Sidebar({
   return (
     <aside className="sidebar">
       <div className="sidebar-logo">
-        <img src="/logo.png" alt="LMU Racecontrol" />
+        <img src="/logo.png" alt="LMU Racecontrol" className="sidebar-logo-img" />
       </div>
 
       {licensed && (
@@ -135,10 +135,8 @@ export default function Sidebar({
 
       <div className="sidebar-footer">
         {t("footer_copyright")}
-        <br />
-        {t("footer_product")}
-        <br />
-        Version {appVersion}
+        <span className="sidebar-footer-product">{t("footer_product")}</span>
+        <span className="sidebar-footer-version">Version {appVersion}</span>
       </div>
 
       {helpOpen && <HelpModal onClose={() => setHelpOpen(false)} />}

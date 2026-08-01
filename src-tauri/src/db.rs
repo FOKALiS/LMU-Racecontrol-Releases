@@ -156,6 +156,28 @@ impl Db {
         Ok(())
     }
 
+    /// Löscht ALLE Vorfälle (offene + archivierte).
+    /// Wird über den Button "Datenbank leeren" in den Einstellungen aufgerufen.
+    pub fn clear_all(&self) -> Result<()> {
+        let conn = self.0.lock().unwrap();
+        conn.execute("DELETE FROM incidents", [])?;
+        Ok(())
+    }
+
+    /// Löscht alle Vorfälle, die älter als `hours` Stunden sind.
+    /// Wird beim App-Start aufgerufen, damit die Datenbank nicht überläuft
+    /// (z. B. 26h = Wettkampfwochenende-Aufbewahrung).
+    pub fn purge_older_than(&self, hours: u32) -> Result<()> {
+        let conn = self.0.lock().unwrap();
+        let cutoff = Utc::now() - chrono::Duration::hours(hours.into());
+        let cutoff_str = cutoff.to_rfc3339();
+        conn.execute(
+            "DELETE FROM incidents WHERE created_at < ?1",
+            params![cutoff_str],
+        )?;
+        Ok(())
+    }
+
     /// Trägt die Entscheidung der Kommission ein und verschiebt den Vorfall
     /// damit automatisch ins Archiv (archived = true).
     pub fn decide(

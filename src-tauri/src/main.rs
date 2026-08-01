@@ -7,6 +7,7 @@ mod incidents;
 mod keyboard;
 mod license;
 mod lmu_client;
+mod lmu_ws;
 mod settings;
 mod shared_memory;
 
@@ -26,6 +27,7 @@ use tokio::time::{sleep, Duration};
 struct AppState {
     db: Arc<Db>,
     lmu: Arc<LmuClient>,
+    lmu_ws: Arc<lmu_ws::LmuWebSocket>,
     detector: Arc<AsyncMutex<IncidentDetector>>,
     fcy: Arc<FcyState>,
     settings_store: Arc<SettingsStore>,
@@ -33,6 +35,10 @@ struct AppState {
     should_poll: Arc<AtomicBool>,
     license_store: Arc<LicenseStore>,
     license: Arc<AsyncMutex<LicenseData>>,
+    /// Cancel-Token für den Replay-Stop-Timer.
+    /// Wird auf `true` gesetzt, wenn `switch_to_live` aufgerufen wird,
+    /// damit der Timer kein F6 mehr sendet.
+    replay_cancel_token: Arc<AtomicBool>,
 }
 
 #[derive(Serialize, Clone)]
@@ -65,6 +71,8 @@ async fn connect_to_server(state: State<'_, AppState>) -> Result<bool, String> {
     let available = state.lmu.is_available().await;
     if available {
         state.should_poll.store(true, Ordering::SeqCst);
+        // WebSocket-Verbindung starten – wichtig für die Replay-API!
+        state.lmu_ws.start().await.map_err(|e| e.to_string())?;
     }
     Ok(available)
 }
@@ -72,6 +80,7 @@ async fn connect_to_server(state: State<'_, AppState>) -> Result<bool, String> {
 #[tauri::command]
 async fn disconnect_from_server(state: State<'_, AppState>) -> Result<(), String> {
     state.should_poll.store(false, Ordering::SeqCst);
+    state.lmu_ws.stop().await;
     Ok(())
 }
 
@@ -136,6 +145,13 @@ async fn list_archived_incidents(state: State<'_, AppState>) -> Result<Vec<Incid
     state.db.list_archived().map_err(|e| e.to_string())
 }
 
+/// Löscht ALLE Vorfälle (offene + archivierte).
+/// Wird über den Button "Datenbank leeren" in den Einstellungen aufgerufen.
+#[tauri::command]
+async fn clear_all_incidents(state: State<'_, AppState>) -> Result<(), String> {
+    state.db.clear_all().map_err(|e| e.to_string())
+}
+
 #[allow(clippy::too_many_arguments)]
 #[tauri::command]
 async fn submit_incident_decision(
@@ -193,108 +209,198 @@ async fn submit_incident_decision(
 }
 
 /// Springt zur Replay-Zeit eines Vorfalls.
-/// WIE BCUK: 1) Replay aktivieren, 2) 2s warten (settle), 3) Zeitsprung, 4) Kamera setzen
+/// KOMBINIERTE STRATEGIE (Tastatur + REST, wie BCUK):
+///   Die REST-API (replayCommand/replay) kann den Replay-Modus NICHT
+///   aus dem Watch-Modus aktivieren. Dafür ist die R-Taste (Tastatur) nötig.
+///   Sobald der Replay-Modus aktiv ist, funktionieren REST-Befehle zuverlässig.
+///
+/// Ablauf:
+///   1) WebSocket sicherstellen (nötig für REST-API)
+///   2) R-Taste (Tastatur) – Replay-Modus aktivieren
+///   3) PreArmReplay (REST) – Replay vorbereiten
+///   4) seek_replay_to (REST) – zur Ziel-Position springen
+///   5) VCRCOMMAND_PLAY (REST) – Play starten
+///   6) seek_replay_to wiederholen (REST) – falls Play auf 0:00 gesetzt hat
+///
+/// Stop: F6 per Tastatur nach pre_roll + post_roll Sekunden
+/// Der Stop-Timer wird via replay_cancel_token gecancelt,
+/// wenn der User über switch_to_live auf "Live" schaltet.
 #[tauri::command]
 async fn jump_to_incident_replay(
     state: State<'_, AppState>,
     session_time_s: f64,
     pre_roll_seconds: f64,
+    car_number: String,
+    driver_name: Option<String>,
 ) -> Result<(), String> {
     let target = (session_time_s - pre_roll_seconds).max(0.0);
     
-    println!("[jump_to_replay] 🔄 Wechsle in Replay-Modus...");
-    state.lmu.switch_to_replay().await.map_err(|e| e.to_string())?;
-    println!("[jump_to_replay] ✅ Replay-Modus aktiviert");
+    println!("[replay] ===== START Replay jump zu {:.1}s (session_time={:.1}s, pre_roll={:.1}s, car=#{}, driver={:?}) =====", target, session_time_s, pre_roll_seconds, car_number, driver_name);
     
-    // BCUK wartet 2s nach Replay-Aktivierung (settle time)
-    tokio::time::sleep(std::time::Duration::from_secs(2)).await;
-    
-    println!("[jump_to_replay] 🔄 Zeitsprung zu {:.1}s...", target);
-    state.lmu.seek_replay_to(target).await.map_err(|e| e.to_string())?;
-    println!("[jump_to_replay] ✅ Zeitsprung zu {:.1}s", target);
-    
-    // Kurz warten damit der Zeitsprung verarbeitet wird
+    // 0) WebSocket-Verbindung sicherstellen (nötig damit REST-API funktioniert)
+    println!("[replay] (0/6) WebSocket sicherstellen...");
+    state.lmu_ws.start().await.map_err(|e| e.to_string())?;
     tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+    println!("[replay] (0/6) WebSocket verbunden");
     
-    // TV-Kamera setzen (CameraController funktioniert NUR im Replay-Modus)
-    println!("[jump_to_replay] 🔄 Setze TV-Kamera...");
-    state.lmu.select_camera("TV").await.map_err(|e| e.to_string())?;
-    println!("[jump_to_replay] ✅ TV-Kamera gesetzt");
+    // 1) Replay-Modus mit R-Taste aktivieren (Tastatur – REST allein kann das nicht!)
+    println!("[replay] (1/6) R-Taste (Tastatur) – Replay-Modus aktivieren...");
+    keyboard::replay_activate()?;
+    println!("[replay] (1/6) R-Taste gesendet, warte 3s auf Replay-Modus...");
+    tokio::time::sleep(std::time::Duration::from_millis(3000)).await;
+    println!("[replay] (1/6) Replay-Modus sollte aktiv sein");
+    
+    // 2) PreArmReplay – Replay vorbereiten (BCUK-Kommandos)
+    println!("[replay] (2/6) PreArmReplay (REST)...");
+    let _ = state.lmu.pre_arm_replay().await; // Fehler ignorieren – funktioniert nicht immer
+    tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+    println!("[replay] (2/6) PreArmReplay gesendet");
+    
+    // 3) Zeitsprung zur Ziel-Position
+    println!("[replay] (3/6) seek zu {:.1}s ...", target);
+    state.lmu.seek_replay_to(target).await.map_err(|e| e.to_string())?;
+    tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+    println!("[replay] (3/6) seek OK auf {:.1}s", target);
+    
+    // 4) Play starten – VCRCOMMAND_PLAY setzt NICHT auf 0:00 zurück
+    println!("[replay] (4/6) VCRCOMMAND_PLAY (REST)...");
+    state.lmu.replay_play().await.map_err(|e| e.to_string())?;
+    tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+    println!("[replay] (4/6) VCRCOMMAND_PLAY OK");
+    
+    // 5) Zeitsprung wiederholen (Failsafe – falls Play doch zurückgesetzt hat)
+    println!("[replay] (5/6) seek wiederholen auf {:.1}s ...", target);
+    state.lmu.seek_replay_to(target).await.map_err(|e| e.to_string())?;
+    tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+    println!("[replay] (5/6) seek wiederholt OK auf {:.1}s", target);
+    
+    // 6) Fahrer-Fokus direkt im Rust-Code setzen (NACH letztem seek)
+    //    Strategie: Erst car_number, bei Mehrdeutigkeit Fahrername, Fallback auf ersten Slot.
+    println!("[replay] (6/6) Fahrer-Fokus #{} ({:?}) (aus Rust, nach letztem seek)...", car_number, driver_name);
+    if let Ok(standings) = state.lmu.get_standings().await {
+        let matching: Vec<_> = standings.iter().filter(|c| c.car_number == car_number).collect();
+        let slot = if matching.len() <= 1 {
+            matching.first().map(|c| c.slot_id)
+        } else if let Some(ref name) = driver_name {
+            matching.iter().find(|c| c.driver == *name).map(|c| c.slot_id)
+                .or_else(|| matching.first().map(|c| c.slot_id))
+        } else {
+            matching.first().map(|c| c.slot_id)
+        };
+        if let Some(slot_id) = slot {
+            println!("[replay] (6/6) Fokussiere Slot {}", slot_id);
+            let _ = state.lmu.focus_slot(slot_id).await;
+            println!("[replay] (6/6) Fokus auf Slot {} gesendet", slot_id);
+        } else {
+            println!("[replay] (6/6) ⚠️ Slot für #{} ({:?}) nicht in Standings gefunden", car_number, driver_name);
+        }
+    } else {
+        println!("[replay] (6/6) ⚠️ Konnte Standings nicht laden für Fokus");
+    }
+    
+    println!("[replay] ===== Replay-Setup ABGESCHLOSSEN =====");
+    
+    // KEINE Kamera setzen – der Rennkommissar behält seine gewählte Kamera!
+    
+    // Timer: Replay automatisch stoppen nach pre_roll + post_roll Sekunden
+    // Das replay_cancel_token aus dem State wird überwacht – switch_to_live setzt es auf true
+    let pre_roll = state.settings.lock().await.pre_roll_seconds;
+    let post_roll = state.settings.lock().await.post_roll_seconds;
+    let total_play_seconds = pre_roll + post_roll;
+    let timer_cancel = state.replay_cancel_token.clone();
+    // Vorheriges Cancel-Token zurücksetzen (falls vom vorherigen Replay noch true)
+    timer_cancel.store(false, Ordering::SeqCst);
+    println!("[replay] Timer: {:.0}s + {:.0}s = {:.0}s total", pre_roll, post_roll, total_play_seconds);
+    tokio::spawn(async move {
+        tokio::time::sleep(std::time::Duration::from_secs_f64(total_play_seconds)).await;
+        if timer_cancel.load(std::sync::atomic::Ordering::SeqCst) {
+            println!("[replay] Timer gecancelt (switch_to_live) – kein Stop");
+            return;
+        }
+        println!("[replay] Replay-Zeit vorbei – sende Pause (F11)...");
+        let _ = keyboard::replay_pause();
+    });
     
     Ok(())
 }
 
 #[tauri::command]
-async fn set_camera(cam_id: String, state: State<'_, AppState>) -> Result<(), String> {
-    let cam_type = match cam_id.as_str() {
-        "TV" => "TV",
-        "Helmet" => "Onboard",
-        "Front" => "Nose",
-        "Heck" | "Rear" => "Swingman",
-        "Top" => "Trackside",
-        "Behind" => "Trackside",
-        _ => return Err(format!("Unbekannte Kamera-ID: {}", cam_id)),
-    };
+async fn zoom_start(direction: String, _state: State<'_, AppState>) -> Result<(), String> {
+    println!("[zoom_start] 🔄 Starte Dauer-Zoom {}...", direction);
+    keyboard::zoom_start(&direction)?;
+    println!("[zoom_start] ✅ Dauer-Zoom {} gestartet", direction);
+    Ok(())
+}
 
-    println!("[set_camera] 🔄 Kamera {} -> {}...", cam_id, cam_type);
+#[tauri::command]
+async fn zoom_stop(_state: State<'_, AppState>) -> Result<(), String> {
+    println!("[zoom_stop] 🔄 Stoppe Dauer-Zoom...");
+    keyboard::zoom_stop();
+    println!("[zoom_stop] ✅ Dauer-Zoom gestoppt");
+    Ok(())
+}
+
+#[tauri::command]
+async fn set_camera(cam_id: String, state: State<'_, AppState>) -> Result<(), String> {
+    println!("[set_camera] 🔄 Setze Kamera {} via Tastatur-Simulation...", cam_id);
     
-    // CameraController funktioniert NUR im Replay-Modus.
-    // Deshalb: 1) Replay aktivieren, 2) Kamera setzen, 3) zurück zu Live
-    // (wie BCUK es auch macht)
+    // CameraController (REST-API) funktioniert NICHT zuverlässig.
+    // Daher verwenden wir direkt die Tastatur-Simulation (Scancodes via SendInput).
+    // Die App holt LMU kurz in den Vordergrund, sendet den Scancode 1x und geht zurück.
+    keyboard::switch_camera(&cam_id)?;
     
-    // 1. Replay-Modus aktivieren
-    println!("[set_camera] 🔄 Replay-Modus aktivieren...");
-    if let Err(e) = state.lmu.switch_to_replay().await {
-        println!("[set_camera] ⚠️ Replay: {:?} (trotzdem Kamera versuchen)", e);
-    }
-    
-    // 2. Warten bis Replay bereit ist (BCUK wartet 2s)
-    tokio::time::sleep(std::time::Duration::from_secs(2)).await;
-    
-    // 3. Kamera setzen via CameraController
-    println!("[set_camera] 🔄 Setze Kamera {} via CameraController...", cam_type);
-    match state.lmu.select_camera(cam_type).await {
-        Ok(_) => {
-            println!("[set_camera] ✅ Kamera {} gesetzt", cam_type);
-            
-            // 4. Zurück zu Live (wenn wir im Live-Modus waren)
-            println!("[set_camera] 🔄 Zurück zu Live...");
-            if let Err(e) = state.lmu.switch_to_live().await {
-                println!("[set_camera] ⚠️ Live: {:?}", e);
-            }
-            
-            Ok(())
-        }
-        Err(e) => {
-            println!("[set_camera] ❌ CameraController fehlgeschlagen: {:?}", e);
-            
-            // 4. Zurück zu Live
-            let _ = state.lmu.switch_to_live().await;
-            
-            // Fallback: Tastatur-Simulation
-            println!("[set_camera] ⚠️ Fallback auf Tastatur-Simulation für {}", cam_id);
-            keyboard::switch_camera(&cam_id)?;
-            Ok(())
-        }
-    }
+    println!("[set_camera] ✅ Tastatur-Simulation für {} gesendet", cam_id);
+    Ok(())
 }
 
 /// Fokussiert einen Fahrer.
 /// WICHTIG: KEINE Kamera setzen! Das macht App.tsx separat nach dem Fokus.
-/// 'fokus_driver' setzt NUR den Fahrer-Fokus, damit der Fokus-Wechsel
-/// zwischen Fahrern (Klick auf verschiedene Zeilen) sauber funktioniert.
+/// Wenn `driver_name` angegeben ist, wird zusätzlich zur Startnummer
+/// auch der Fahrername gematcht (eindeutig bei doppelten Startnummern).
 #[tauri::command]
-async fn focus_driver(car_number: String, state: State<'_, AppState>) -> Result<(), String> {
+async fn focus_driver(
+    car_number: String,
+    driver_name: Option<String>,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
     let standings = state.lmu.get_standings().await.map_err(|e| e.to_string())?;
-    let slot = standings.iter().find(|c| c.car_number == car_number).map(|c| c.slot_id);
+    
+    // Strategie: Erst nach car_number suchen, nur bei Mehrdeutigkeit den Fahrernamen nutzen.
+    // Bei Fahrerwechseln (Endurance) ist der Name möglicherweise anders – dann Fallback auf ersten Treffer.
+    let matching: Vec<_> = standings
+        .iter()
+        .filter(|c| c.car_number == car_number)
+        .collect();
+    
+    let slot = if matching.len() <= 1 {
+        matching.first().map(|c| c.slot_id)
+    } else if let Some(ref name) = driver_name {
+        // Mehrere Slots mit gleicher Nummer → mit Fahrername filtern
+        let by_name = matching.iter().find(|c| c.driver == *name).map(|c| c.slot_id);
+        if by_name.is_some() {
+            println!("[focus_driver] 🔍 Mehrere #{} – Fahrer '{}' gefunden", car_number, name);
+        } else {
+            println!("[focus_driver] ⚠️ Fahrer '{}' bei #{} nicht gefunden (Fahrerwechsel?) – nehme ersten Slot", name, car_number);
+        }
+        by_name.or_else(|| matching.first().map(|c| c.slot_id))
+    } else {
+        // Kein Fahrername angegeben → ersten Slot nehmen
+        matching.first().map(|c| c.slot_id)
+    };
     
     if let Some(slot_id) = slot {
-        println!("[focus_driver] 🔄 Fokussiere Slot {} (Fahrzeug #{})", slot_id, car_number);
+        println!(
+            "[focus_driver] 🔄 Fokussiere Slot {} (Fahrzeug #{}, Fahrer: {:?})",
+            slot_id, car_number, driver_name
+        );
         state.lmu.focus_slot(slot_id).await.map_err(|e| e.to_string())?;
         println!("[focus_driver] ✅ Fokus auf Slot {} gesendet", slot_id);
         Ok(())
     } else {
-        println!("[focus_driver] ⚠️ Slot für #{} nicht gefunden, Fallback auf Tastatur", car_number);
+        println!(
+            "[focus_driver] ⚠️ Slot für #{} (Fahrer: {:?}) nicht gefunden, Fallback auf Tastatur",
+            car_number, driver_name
+        );
         keyboard::focus_car(&car_number)?;
         Ok(())
     }
@@ -312,7 +418,24 @@ async fn clear_focus(state: State<'_, AppState>) -> Result<(), String> {
 
 #[tauri::command]
 async fn switch_to_live(state: State<'_, AppState>) -> Result<(), String> {
-    state.lmu.switch_to_live().await.map_err(|e| e.to_string())
+    // Cancel-Token setzen, damit der Replay-Stop-Timer kein F11 mehr sendet
+    state.replay_cancel_token.store(true, Ordering::SeqCst);
+    println!("[switch_to_live] Replay-Timer gecancelt, wechsle zu Live...");
+    
+    // Trick: Replay ans Ende springen lassen – LMU schaltet dann automatisch zu Live!
+    // Ein extrem großer Zeitwert (86400s = 24h) bringt das Replay sicher ans Ende.
+    println!("[switch_to_live] Sende seek ans Ende (86400s)...");
+    let _ = state.lmu.seek_replay_to(86400.0).await;
+    
+    // Kurze Pause, damit LMU den Sprung verarbeitet
+    tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+    
+    // Play senden, damit das Replay wieder läuft (und LMU dann auto zu Live schaltet)
+    println!("[switch_to_live] Sende Play...");
+    let _ = state.lmu.replay_play().await;
+    
+    println!("[switch_to_live] Zurück zu Live!");
+    Ok(())
 }
 
 #[tauri::command]
@@ -375,13 +498,15 @@ async fn show_main_window(app: tauri::AppHandle) -> Result<(), String> {
 
 async fn poll_loop(app: tauri::AppHandle, state: Arc<AppState>) {
     let mut was_connected = false;
-    let mut session_start: Option<std::time::Instant> = None;
+    let mut last_session_time_remaining: Option<f64> = None;
+    let mut last_poll_time: Option<std::time::Instant> = None;
 
     loop {
         if !state.should_poll.load(Ordering::SeqCst) {
             if was_connected {
                 was_connected = false;
-                session_start = None;
+                last_session_time_remaining = None;
+                last_poll_time = None;
                 let _ = app.emit("connection-status", ConnectionStatusEvent { connected: false });
             }
             sleep(Duration::from_millis(500)).await;
@@ -393,17 +518,40 @@ async fn poll_loop(app: tauri::AppHandle, state: Arc<AppState>) {
             let _ = app.emit("connection-status", ConnectionStatusEvent { connected: available });
             was_connected = available;
             if available {
-                session_start = Some(std::time::Instant::now());
+                last_poll_time = Some(std::time::Instant::now());
             }
         }
 
         if available {
-            if let (Ok(standings), Ok(session)) =
+            if let (Ok(mut standings), Ok(session)) =
                 (state.lmu.get_standings().await, state.lmu.get_session_info().await)
             {
-                let session_time_s = session_start
-                    .map(|t| t.elapsed().as_secs_f64())
-                    .unwrap_or(0.0);
+                // Impact-Daten aus Shared Memory auslesen und in Standings einfügen
+                let impact_data = shared_memory::read_impact_data();
+                for car in &mut standings {
+                    if let Some(&(impact_et, impact_mag)) = impact_data.get(&car.slot_id) {
+                        car.impact_et = impact_et;
+                        car.impact_mag = impact_mag;
+                    }
+                }
+                // Echte Session-Zeit aus der LMU-API berechnen:
+                // 1. session_time_elapsed_s direkt aus der API (falls vorhanden)
+                // 2. Fallback: session_time_remaining_s + vergangene Zeit seit letztem Poll
+                // 3. Letzter Fallback: Echtzeit seit Verbindungsaufbau
+                let session_time_s = if session.session_time_elapsed_s > 0.0 {
+                    session.session_time_elapsed_s
+                } else if session.session_time_remaining_s > 0.0 {
+                    // Annahme: Session ist ca. 24h (86400s) – daraus elapsed berechnen
+                    let total_estimate = 86400.0;
+                    (total_estimate - session.session_time_remaining_s).max(0.0)
+                } else {
+                    // Fallback: Echtzeit seit Verbindungsaufbau
+                    last_poll_time
+                        .map(|t| t.elapsed().as_secs_f64())
+                        .unwrap_or(0.0)
+                };
+                
+                // Session-Zeit wird jetzt korrekt aus currentEventTime gelesen (lmu_client.rs)
 
                 let fcy_active = state.fcy.current_phase() == FcyPhase::Active;
                 if fcy_active {
@@ -491,7 +639,13 @@ fn main() {
                 Db::open(app_dir.join("incidents.sqlite3").to_str().unwrap())
                     .expect("DB-Init fehlgeschlagen"),
             );
+            // Vorfälle älter als 26 Stunden automatisch entfernen,
+            // damit die Datenbank nicht überläuft. Alles jüngere bleibt erhalten.
+            if let Err(e) = db.purge_older_than(26) {
+                eprintln!("[startup] ⚠️ Konnte alte Vorfälle (>26h) nicht aufräumen: {e}");
+            }
             let lmu = Arc::new(LmuClient::new());
+            let lmu_ws = Arc::new(lmu_ws::LmuWebSocket::new());
             let detector = Arc::new(AsyncMutex::new(IncidentDetector::new()));
             let fcy = Arc::new(FcyState::default());
             let settings_store = Arc::new(SettingsStore::new(&app_dir));
@@ -502,9 +656,12 @@ fn main() {
             let loaded_license = license_store.load();
             let license = Arc::new(AsyncMutex::new(loaded_license));
 
+            let replay_cancel_token = Arc::new(AtomicBool::new(false));
+
             let state = Arc::new(AppState {
                 db: db.clone(),
                 lmu: lmu.clone(),
+                lmu_ws: lmu_ws.clone(),
                 detector: detector.clone(),
                 fcy: fcy.clone(),
                 settings_store: settings_store.clone(),
@@ -512,11 +669,13 @@ fn main() {
                 should_poll: should_poll.clone(),
                 license_store: license_store.clone(),
                 license: license.clone(),
+                replay_cancel_token: replay_cancel_token.clone(),
             });
 
             app.manage(AppState {
                 db,
                 lmu,
+                lmu_ws,
                 detector,
                 fcy,
                 settings_store,
@@ -524,6 +683,7 @@ fn main() {
                 should_poll,
                 license_store: license_store.clone(),
                 license: license.clone(),
+                replay_cancel_token,
             });
 
             let app_handle = app.handle().clone();
@@ -542,8 +702,11 @@ fn main() {
             activate_license,
             list_pending_incidents,
             list_archived_incidents,
+            clear_all_incidents,
             submit_incident_decision,
             jump_to_incident_replay,
+            zoom_start,
+            zoom_stop,
             set_camera,
             focus_driver,
             focus_slot,

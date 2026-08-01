@@ -17,6 +17,7 @@
 //! ```
 
 use std::ptr;
+use std::collections::HashMap;
 
 // ─── Win32 Shared Memory API ──────────────────────────────────────────
 
@@ -26,7 +27,64 @@ type DWORD = u32;
 type LPCWSTR = *const u16;
 type LPVOID = *mut u8;
 
+const FILE_MAP_READ: DWORD = 0x0004;
 const FILE_MAP_ALL_ACCESS: DWORD = 0x000F001F;
+
+// ─── LMU Shared Memory Offsets (aus SM Bridge Log bestätigt) ──────────
+// Siehe bridge_2026-07-27.log:
+//   Scoring=1632, VehScoring=2192, Telemetry=128464, VehTelem=128468
+//   VehicleTelemetrySize=1888
+
+const SCORING_OFFSET: usize = 1632;
+const VEHICLE_TELEMETRY_OFFSET: usize = 128468;
+const VEHICLE_TELEMETRY_SIZE: usize = 1888;
+
+/// Liest für alle Fahrzeuge die Impact-Daten (impactET, impactMag) aus dem Shared Memory.
+/// Gibt eine HashMap<slot_id, (impact_et, impact_mag)> zurück.
+pub fn read_impact_data() -> HashMap<i64, (f64, f64)> {
+    let mut result = HashMap::new();
+    
+    unsafe {
+        let wide: Vec<u16> = "LMU_Data"
+            .encode_utf16()
+            .chain(std::iter::once(0))
+            .collect();
+        
+        let mapping = OpenFileMappingW(FILE_MAP_READ, 0, wide.as_ptr());
+        if mapping == 0 {
+            return result;
+        }
+        
+        let view = MapViewOfFile(mapping, FILE_MAP_READ, 0, 0, 4 * 1024 * 1024);
+        if view.is_null() {
+            CloseHandle(mapping);
+            return result;
+        }
+        
+        // Anzahl Fahrzeuge aus Scoring-Header
+        let num_vehicles = *(view.add(SCORING_OFFSET + 24) as *const i32);
+        let max_vehicles = num_vehicles.min(64).max(0) as usize;
+        
+        for i in 0..max_vehicles {
+            let base = VEHICLE_TELEMETRY_OFFSET + i * VEHICLE_TELEMETRY_SIZE;
+            // slot_id bei Offset 0 (int32)
+            let slot_id = *(view.add(base) as *const i32) as i64;
+            // impactET bei Offset 4 (float)
+            let impact_et = *(view.add(base + 4) as *const f32) as f64;
+            // impactMag bei Offset 8 (float)
+            let impact_mag = *(view.add(base + 8) as *const f32) as f64;
+            
+            if slot_id >= 0 {
+                result.insert(slot_id, (impact_et, impact_mag));
+            }
+        }
+        
+        UnmapViewOfFile(view);
+        CloseHandle(mapping);
+    }
+    
+    result
+}
 
 extern "system" {
     fn OpenFileMappingW(

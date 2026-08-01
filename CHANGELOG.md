@@ -4,6 +4,51 @@ Alle nennenswerten Änderungen an LMU Race Control werden hier dokumentiert.
 Format angelehnt an [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
 
+## [0.8.3] - 01.08.2026 (Figma MCP Integration + Player-Bar Icons)
+### Hinzugefügt
+- **Figma MCP Server** (`figma-developer-mcp` v0.13.2) installiert und konfiguriert
+- **Figma Design "LMU Racecontrol"** importiert: 6 Screens (Home, Fahrerfeld, Vorfälle,
+  Archiv, Einstellungen, Investigation Overlay), 14 Komponenten, Design-Tokens
+- **Design-Daten** in `figma-screens/design-data-complete.json` gespeichert
+- **Logos** aus Figma-Export in `figma-screens/` und `frontend/public/logo.png`
+
+### Geändert
+- **Player-Bar Icons**: Emoji-Platzhalter (⏮⏪▶⏩⏭) durch echte PNG-Icons ersetzt
+  (Slow Rewind, Rewind, Play, Forward, Slow Forward) in allen drei Views
+  (Fahrerfeld, Vorfälle, Archiv)
+- **Icons** aus `C:\Users\Administrator\Documents\AI\Software Entwicklung\LMU Racecontrol\Icons`
+  in `frontend/public/icons/` integriert
+- **CSS-Variablen** um Figma Design-Tokens erweitert (`--text-secondary`, `--text-dim-soft`, `--purple`)
+- **CSS für Player-Icons** hinzugefügt (20x20 Größe, Hover-Effekte, disabled-State)
+- **Sidebar-Duplikat** in Sidebar.tsx behoben
+- **Logo-Höhe** auf `auto` gesetzt für korrekte Proportionen
+
+### Technisch
+- **Version**: 0.8.2 → 0.8.3
+
+## [0.7.0] - 27.07.2026 (Tastatur-Simulation statt Camera-Helper + Turbo-Zoom)
+### Geändert
+- **Camera-Helper entfernt**: Der separate `camera-helper`-Prozess wurde komplett
+  entfernt. Die Kamera-Steuerung läuft jetzt direkt über `SendInput` mit Scancodes
+  aus der Tastenbelegung des Users – kein externer Prozess mehr nötig.
+- **Kamera-Button "Bord" statt "Helmet"**: Passt zur LMU-Standard-Tastenbelegung
+  (Insert = Bordkamera). "Helmet" wird trotzdem als Alias erkannt.
+- **Zoom-Funktion**: Neue Zoom-Buttons (+ / -) neben der Kamera-Steuerung.
+  Gedrückt halten = Dauer-Zoom via Hintergrund-Thread in Rust (kein setInterval).
+  Funktioniert auf allen Seiten (Fahrerfeld, Vorfälle, Archiv).
+- **Zoom-Geschwindigkeit**: ~500 Tastendrücke pro Sekunde (1ms KeyDown, 1ms Pause).
+
+### Behoben
+- **Zoom funktionierte nicht auf Vorfälle/Archiv-Seiten**: `onZoomStart`/`onZoomEnd`
+  Props wurden nicht an `TopToolbar` durchgereicht. Jetzt an `VorfaelleView` und
+  `ArchivView` übergeben.
+
+### Technisch
+- `keyboard.rs`: Komplett überarbeitet – `SendInput` mit Scancodes, kein `enigo`
+  mehr. `zoom_start`/`zoom_stop` mit Hintergrund-Thread und AtomicBool-Flag.
+- `src-tauri/camera-helper/` entfernt (über 100MB Build-Artefakte eingespart).
+- `tauri.conf.json`: `resources` von `camera-helper.exe` auf leer gesetzt.
+
 ## [0.6.12] - 26.07.2026 (Cam Control + Replay-Steuerung Fix)
 ### Behoben
 - **jumpToReplay setzt jetzt auch Kamera**: Nach dem Replay-Zeitsprung wird automatisch die TV-Kamera gesetzt (via REST-API). Vorher sprang der Replay an die richtige Zeit, aber der Nutzer sah nur die vorherige Kameraeinstellung.

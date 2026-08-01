@@ -11,7 +11,7 @@ export default function HomeView({ connected }: Props) {
   return (
     <div className="home-view">
       <img src="/logo.png" alt="LMU Racecontrol" className="home-logo" />
-      <p>
+      <p className="home-welcome-text">
         {t("home_welcome")}
         <br />
         <br />

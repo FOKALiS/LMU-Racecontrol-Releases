@@ -1,129 +1,119 @@
 """
-Shared Memory Diff für LMU_Data
-Findet die Offsets, die BCUK beim Kamerawechsel beschreibt.
-
-Verwendung:
-1. LMU MUSS LAUFEN (mit aktiver Session!)
-2. python scripts/sm_diff.py
-3. In BCUK eine Kamera-Taste drücken
-4. Enter drücken -> zeigt Änderungen
+SM Diff – Vergleicht Bridge-Daten vor/nach Kamerawechsel.
+Starte: python scripts/sm_diff.py
+Dann starte BCUK und klicke auf Kamera-Buttons.
 """
+import json, sys, subprocess, os, time
 
-import ctypes
-import struct
-import sys
+PYTHON_310 = r"C:\Users\Administrator\AppData\Local\Programs\Python\Python310\python.exe"
 
-SM_NAME = "LMU_Data"
-SM_SIZE = 4096
-
-def main():
-    print("=" * 50)
-    print("  LMU Shared Memory Diff")
-    print("=" * 50)
-    print()
-    print("  1. LMU MUSS LAUFEN!")
-    print("  2. BCUK muss verbunden sein")
-    print()
-
-    # Öffne Shared Memory
-    kernel32 = ctypes.windll.kernel32
-    handle = kernel32.OpenFileMappingW(0x000F001F, False, SM_NAME)
-    
-    if not handle:
-        print("❌ Konnte LMU_Data Shared Memory NICHT öffnen!")
-        print()
-        print("   Mögliche Ursachen:")
-        print("   - LMU läuft nicht? (starten und Watch-Modus aktivieren)")
-        print("   - LMU Shared Memory heißt anders?")
-        print("   - Berechtigungsproblem? (als Admin ausführen)")
-        print()
-        input("   Enter drücken zum Beenden...")
-        return
-
-    # Mappe Shared Memory
-    ptr = kernel32.MapViewOfFile(handle, 0x000F001F, 0, 0, SM_SIZE)
-    if not ptr:
-        kernel32.CloseHandle(handle)
-        print("❌ Konnte Shared Memory nicht mappen!")
-        input("   Enter drücken zum Beenden...")
-        return
-
+def import_websocket():
     try:
-        # Ersten Snapshot lesen
-        buf1 = (ctypes.c_ubyte * SM_SIZE).from_address(ptr)
-        before = bytes(buf1)
-        print(f"✅ Snapshot 1: {len(before)} Bytes gelesen")
-        print()
-        print("   Jetzt in BCUK eine KAMERA-TASTE drücken!")
-        print("   (z.B. TV Cycle oder Onboard)")
-        print("   Danach hier Enter drücken...")
-        sys.stdout.flush()
-        input()
+        import websocket
+        return websocket
+    except ImportError:
+        pass
+    try:
+        r = subprocess.run([PYTHON_310, "-c", "import websocket; print('ok')"], capture_output=True, text=True, timeout=5)
+        if r.returncode == 0:
+            sp = subprocess.run([PYTHON_310, "-c", "import site; print(site.getsitepackages()[0])"], capture_output=True, text=True, timeout=5).stdout.strip()
+            if sp:
+                sys.path.insert(0, sp)
+                import websocket
+                return websocket
+    except:
+        pass
+    print("websocket-client nicht gefunden!")
+    sys.exit(1)
 
-        # Zweiten Snapshot lesen
-        buf2 = (ctypes.c_ubyte * SM_SIZE).from_address(ptr)
-        after = bytes(buf2)
-        print(f"✅ Snapshot 2: {len(after)} Bytes gelesen")
-        print()
-        print("   Suche nach Änderungen...")
-        print()
+websocket = import_websocket()
 
-        # Vergleiche Byte-für-Byte
-        changes_found = False
-        
-        # 1-Byte Änderungen
-        changes_1byte = []
-        for i in range(SM_SIZE):
-            if before[i] != after[i]:
-                changes_1byte.append((i, before[i], after[i]))
-        
-        if changes_1byte:
-            changes_found = True
-            print(f"  === 1-Byte Änderungen ({len(changes_1byte)}) ===")
-            for offset, old, new in changes_1byte[:30]:
-                print(f"   0x{offset:04X}: {old:3d} -> {new:3d}")
-        
-        # 2-Byte (16-Bit) Änderungen  
-        changes_2byte = []
-        for i in range(0, SM_SIZE - 1, 2):
-            old_val = struct.unpack('<H', before[i:i+2])[0]
-            new_val = struct.unpack('<H', after[i:i+2])[0]
-            if old_val != new_val:
-                changes_2byte.append((i, old_val, new_val))
-        
-        if changes_2byte:
-            changes_found = True
-            print(f"\n  === 2-Byte Änderungen ({len(changes_2byte)}) ===")
-            for offset, old, new in changes_2byte[:30]:
-                delta = new - old
-                print(f"   0x{offset:04X}: {old:6d} -> {new:6d} (Δ {delta:+d})")
-        
-        # 4-Byte (32-Bit) Änderungen
-        changes_4byte = []
-        for i in range(0, SM_SIZE - 3, 4):
-            old_val = struct.unpack('<I', before[i:i+4])[0]
-            new_val = struct.unpack('<I', after[i:i+4])[0]
-            if old_val != new_val:
-                changes_4byte.append((i, old_val, new_val))
-        
-        if changes_4byte:
-            changes_found = True
-            print(f"\n  === 4-Byte Änderungen ({len(changes_4byte)}) ===")
-            for offset, old, new in changes_4byte[:30]:
-                delta = new - old
-                print(f"   0x{offset:04X}: {old:10d} -> {new:10d} (Δ {delta:+d})")
-        
-        if not changes_found:
-            print("❌ Keine Änderungen gefunden!")
-            print("   War die Kamera-Taste wirklich aktiv?")
-            print("   Hat BCUK sich verbinden können?")
-        
-    finally:
-        kernel32.UnmapViewOfFile(ptr)
-        kernel32.CloseHandle(handle)
-    
-    print()
-    input("   Enter drücken zum Beenden...")
+snapshots = []
+capturing = False
 
-if __name__ == "__main__":
-    main()
+def on_message(ws, message):
+    global snapshots, capturing
+    try:
+        data = json.loads(message)
+        if data.get("t") == "snapshot":
+            snapshots.append(data)
+            
+            if not capturing:
+                print(f"  Snapshot #{data['seq']} empfangen ({len(snapshots)} gespeichert)")
+            
+            if len(snapshots) >= 5 and not capturing:
+                capturing = True
+                print(f"\n{'='*60}")
+                print(f"  5 Snapshots gespeichert!")
+                print(f"  Jetzt in BCUK auf 'TV' klicken (Kamera wechseln)!")
+                print(f"  Dann ENTER drücken...")
+                print(f"{'='*60}")
+                input()
+                
+                # Noch 5 weitere Snapshots sammeln
+                print("  Sammle 5 Snapshots nach Kamerawechsel...")
+                time.sleep(3)
+                
+                # Vergleiche
+                print(f"\n{'='*60}")
+                print(f"  VERGLEICH: Vorher vs Nachher")
+                print(f"{'='*60}")
+                
+                before = snapshots[:5]
+                after = snapshots[-5:]
+                
+                # Vergleiche Scoring
+                b_scoring = before[0].get("data", {}).get("scoring", {})
+                a_scoring = after[0].get("data", {}).get("scoring", {})
+                
+                print(f"\n  Scoring Änderungen:")
+                for key in set(list(b_scoring.keys()) + list(a_scoring.keys())):
+                    bv = b_scoring.get(key)
+                    av = a_scoring.get(key)
+                    if bv != av:
+                        print(f"    {key}: {bv} -> {av}")
+                
+                # Vergleiche Telemetrie (erste 3 Fahrzeuge)
+                b_tele = before[0].get("data", {}).get("telemetry", [])
+                a_tele = after[0].get("data", {}).get("telemetry", [])
+                
+                print(f"\n  Telemetrie Änderungen (erste 3 Fahrzeuge):")
+                for i in range(min(3, len(b_tele), len(a_tele))):
+                    bt = b_tele[i]
+                    at = a_tele[i]
+                    for key in set(list(bt.keys()) + list(at.keys())):
+                        bv = bt.get(key)
+                        av = at.get(key)
+                        if bv != av:
+                            print(f"    Fahrzeug {bt.get('id')}.{key}: {bv} -> {av}")
+                
+                # Vergleiche trackPos
+                b_tp = before[0].get("data", {}).get("trackPos", [])
+                a_tp = after[0].get("data", {}).get("trackPos", [])
+                
+                print(f"\n  trackPos Änderungen (erste 3 Fahrzeuge):")
+                for i in range(min(3, len(b_tp), len(a_tp))):
+                    bt = b_tp[i]
+                    at = a_tp[i]
+                    for key in set(list(bt.keys()) + list(at.keys())):
+                        bv = bt.get(key)
+                        av = at.get(key)
+                        if bv != av:
+                            print(f"    Fahrzeug {bt.get('id')}.{key}: {bv} -> {av}")
+                
+                print(f"\n  Fertig! Keine weiteren Kamera-spezifischen Felder gefunden.")
+                ws.close()
+                
+    except Exception as e:
+        print(f"Fehler: {e}")
+
+def on_open(ws):
+    print("✅ Verbunden! Sammle Snapshots...")
+
+print("=" * 60)
+print("  SM DIFF – Bridge-Daten vor/nach Kamerawechsel")
+print("=" * 60)
+print()
+
+ws = websocket.WebSocketApp("ws://localhost:5200/sm", on_open=on_open, on_message=on_message)
+ws.run_forever()

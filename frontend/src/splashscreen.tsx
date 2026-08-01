@@ -25,12 +25,16 @@ const TEXT = {
     version: "Version",
     installing: "Update wird installiert...",
     installError: "Update-Installation fehlgeschlagen",
+    website: "www.lmu-racecontrol.gg",
+    copyright: "Copyright © 2026 by Matthias Weggel",
   },
   en: {
     updateAvailable: "UPDATE AVAILABLE",
     version: "Version",
     installing: "Installing update...",
     installError: "Update installation failed",
+    website: "www.lmu-racecontrol.gg",
+    copyright: "Copyright © 2026 by Matthias Weggel",
   },
 };
 
@@ -106,7 +110,7 @@ function Splashscreen() {
       </div>
 
       <button className="splash-bar splash-bar-link" onClick={() => open("https://www.lmu-racecontrol.gg").catch(console.error)}>
-        www.lmu-racecontrol.gg
+        {t.website}
       </button>
 
       {update && (
@@ -125,7 +129,7 @@ function Splashscreen() {
 
       {error && <div className="splash-error">{error}</div>}
 
-      <div className="splash-footer">Copyright © 2026 by Matthias Weggel</div>
+      <div className="splash-footer">{t.copyright}</div>
     </div>
   );
 }

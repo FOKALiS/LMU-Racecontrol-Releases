@@ -1,224 +1,373 @@
 //! Tastatursimulation für die LMU-Kamera-Steuerung und Fahrzeug-Fokus.
-//!
-//! Verwendet `PostMessageW` mit WM_KEYDOWN/WM_KEYUP, um Tasten direkt
-//! an das LMU-Fenster zu senden – **ohne Fenster-Fokus**.
-//!
-//! LMU verarbeitet WM_KEYDOWN/WM_KEYUP in seiner `GetMessageW`-Pump,
-//! daher funktioniert dies auch, wenn LMU nicht im Vordergrund ist.
-//!
-//! ## LMU-Standard-Tasten (aus keyboard.json):
-//! - Insert = Driving Cameras (TV Cycle)
-//! - Home = Onboard Cameras
-//! - PageUp = Swingman Camera (Rear/Heck)
-//! - PageDown = Tracking Cameras (Trackside/Top)
-//! - End = Spectator Cameras (Behind)
+//! Verwendet SendInput mit Scancodes (KEIN externer Helper nötig).
 
-use std::ptr;
-use std::sync::mpsc;
 use std::thread;
 use std::time::Duration;
 
-// ─── Win32-Typdefinitionen ─────────────────────────────────────────────
+// ─── Scancodes (Set 1) ──────────────────────────────────────────────────
+// Benutzer-Tastenbelegung:
+// TV = PG_DN (Page Down), Hinten = PG_UP (Page Up), Bord = INSERT
+const SCAN_INSERT: u16 = 0x52;    // INSERT = Bordkamera
+const SCAN_PAGEUP: u16 = 0x49;    // PG_UP = Heck/Rear
+const SCAN_PAGEDOWN: u16 = 0x51;  // PG_DN = TV
+const SCAN_END: u16 = 0x4F;       // END (nicht belegt, aber als Fallback)
+const SCAN_KP7: u16 = 0x47;       // KP 7 = Zoom In (ohne extended)
+const SCAN_KP9: u16 = 0x49;       // KP 9 = Zoom Out (ohne extended – gleicher Scancode wie PageUp, aber extended=false)
+const SCAN_LCONTROL: u16 = 0x1D;
+const SCAN_F: u16 = 0x21;
+const SCAN_RETURN: u16 = 0x1C;
+const SCAN_R: u16 = 0x13;       // R = Sofortwiederholung (Replay)
+const SCAN_F6: u16 = 0x40;      // F6 = Stop
+const SCAN_F7: u16 = 0x41;      // F7 = Zurückspulen
+const SCAN_F8: u16 = 0x42;      // F8 = Schnell zurück
+const SCAN_F9: u16 = 0x43;      // F9 = Vorspulen
+const SCAN_F10: u16 = 0x44;     // F10 = Slow-Motion
+const SCAN_F11: u16 = 0x57;     // F11 = Play/Pause
 
+// ─── Win32 Typen ──────────────────────────────────────────────────────
+type HANDLE = isize;
 type BOOL = i32;
-type HWND = isize;
-type LPCWSTR = *const u16;
-type UINT = u32;
 type DWORD = u32;
+type WORD = u16;
+type LPVOID = *mut std::ffi::c_void;
+type LPCVOID = *const std::ffi::c_void;
+type LPCWSTR = *const u16;
 
-// ─── Windows Messages ──────────────────────────────────────────────────
+const INPUT_KEYBOARD: DWORD = 1;
+const KEYEVENTF_KEYUP: DWORD = 0x0002;
+const KEYEVENTF_SCANCODE: DWORD = 0x0008;
+const KEYEVENTF_EXTENDEDKEY: DWORD = 0x0001;
+const FALSE: BOOL = 0;
 
-const WM_KEYDOWN: UINT = 0x0100;
-const WM_KEYUP: UINT = 0x0101;
+#[repr(C)]
+#[derive(Copy, Clone)]
+struct KEYBDINPUT {
+    wVk: WORD,
+    wScan: WORD,
+    dwFlags: DWORD,
+    time: DWORD,
+    dwExtraInfo: usize,
+}
 
-// ─── Virtual Key Codes (Windows) ──────────────────────────────────────
-// Die keyboard.json verwendet DirectInput-Codes, aber Windows wandelt
-// Tastatureingaben in VK-Codes um. LMU verarbeitet VK-Codes in seiner
-// Message-Pump.
+#[repr(C)]
+union INPUT_UNION {
+    ki: std::mem::ManuallyDrop<KEYBDINPUT>,
+    padding: [u8; 28],
+}
 
-const VK_INSERT: usize = 0x2D;   // Driving Cameras (TV Cycle)
-const VK_HOME: usize = 0x24;     // Onboard Cameras
-const VK_PRIOR: usize = 0x21;    // PageUp = Swingman Camera (Rear/Heck)
-const VK_NEXT: usize = 0x22;     // PageDown = Tracking Cameras (Trackside/Top)
-const VK_END: usize = 0x23;      // End = Spectator Cameras (Behind)
-const VK_LCONTROL: usize = 0xA2; // Left Control (für Fahrzeug-Fokus)
-const VK_F: usize = 0x46;        // F-Taste (für Fahrzeug-Fokus)
-const VK_RETURN: usize = 0x0D;   // Enter
-const VK_0: usize = 0x30;
-const VK_1: usize = 0x31;
-const VK_2: usize = 0x32;
-const VK_3: usize = 0x33;
-const VK_4: usize = 0x34;
-const VK_5: usize = 0x35;
-const VK_6: usize = 0x36;
-const VK_7: usize = 0x37;
-const VK_8: usize = 0x38;
-const VK_9: usize = 0x39;
+#[repr(C)]
+struct INPUT {
+    type_: DWORD,
+    u: INPUT_UNION,
+}
 
-// ─── Win32-Funktionen ──────────────────────────────────────────────────
-
+#[link(name = "user32")]
 extern "system" {
-    fn FindWindowW(lp_class_name: LPCWSTR, lp_window_name: LPCWSTR) -> HWND;
-    fn PostMessageW(h_wnd: HWND, msg: UINT, w_param: usize, l_param: isize) -> BOOL;
-    fn Sleep(dw_milliseconds: DWORD);
+    fn SendInput(cInputs: DWORD, pInputs: *mut INPUT, cbSize: i32) -> DWORD;
+    fn SetForegroundWindow(hWnd: HANDLE) -> BOOL;
+    fn ShowWindow(hWnd: HANDLE, nCmdShow: i32) -> BOOL;
+    fn GetForegroundWindow() -> HANDLE;
+    fn GetWindowTextW(hWnd: HANDLE, lpString: *mut u16, nMaxCount: i32) -> i32;
+    fn EnumWindows(lpEnumFunc: Option<unsafe extern "system" fn(HANDLE, LPVOID) -> BOOL>, lParam: LPVOID) -> BOOL;
+    fn IsWindowVisible(hWnd: HANDLE) -> BOOL;
 }
 
-// ─── Nachrichten für den Hintergrund-Thread ────────────────────────────
-
-enum KeyCommand {
-    SwitchCamera { vk_code: usize },
-    FocusCar { car_number: String },
-    Shutdown,
-}
-
-// ─── Hintergrund-Thread ───────────────────────────────────────────────
-
-struct KeyboardThread {
-    sender: mpsc::Sender<KeyCommand>,
-}
-
-impl KeyboardThread {
-    fn new() -> Self {
-        let (tx, rx) = mpsc::channel::<KeyCommand>();
-
-        thread::spawn(move || {
-            loop {
-                match rx.recv() {
-                    Ok(cmd) => match cmd {
-                        KeyCommand::SwitchCamera { vk_code } => {
-                            if let Some(hwnd) = Self::find_lmu() {
-                                Self::send_key(hwnd, vk_code);
-                            }
-                        }
-                        KeyCommand::FocusCar { car_number } => {
-                            if let Some(hwnd) = Self::find_lmu() {
-                                Self::send_key(hwnd, VK_LCONTROL);
-                                Self::send_key(hwnd, VK_F);
-                                thread::sleep(Duration::from_millis(500));
-                                for c in car_number.chars() {
-                                    if let Some(vk) = char_to_vk(c) {
-                                        Self::send_key(hwnd, vk);
-                                        thread::sleep(Duration::from_millis(50));
-                                    }
-                                }
-                                thread::sleep(Duration::from_millis(100));
-                                Self::send_key(hwnd, VK_RETURN);
-                            }
-                        }
-                        KeyCommand::Shutdown => break,
-                    },
-                    Err(_) => break,
-                }
-            }
-        });
-
-        KeyboardThread { sender: tx }
-    }
-
-    fn find_lmu() -> Option<HWND> {
-        let titles = [
-            "Le Mans Ultimate",
-            "LMU",
-            "rFactor 2",
-            "LMU -",
-            "Le Mans Ultimate -",
-        ];
-        for title in &titles {
-            let wide: Vec<u16> = title.encode_utf16().chain(std::iter::once(0)).collect();
+// ─── LMU-Fenster finden ──────────────────────────────────────────────
+fn find_lmu_window() -> Option<HANDLE> {
+    unsafe {
+        let mut result: HANDLE = 0;
+        
+        extern "system" fn enum_cb(hwnd: HANDLE, lparam: LPVOID) -> BOOL {
             unsafe {
-                let hwnd = FindWindowW(ptr::null(), wide.as_ptr());
-                if hwnd != 0 {
-                    println!("[keyboard] LMU-Fenster gefunden: '{}' (HWND={})", title, hwnd);
-                    return Some(hwnd);
+                if IsWindowVisible(hwnd) == FALSE { return 1; }
+                let mut buf = [0u16; 512];
+                let len = GetWindowTextW(hwnd, buf.as_mut_ptr(), 512);
+                if len <= 0 { return 1; }
+                let title = String::from_utf16_lossy(&buf[..len as usize]);
+                if title.starts_with("Le Mans Ultimate v") {
+                    *(lparam as *mut HANDLE) = hwnd;
+                    return 0;
                 }
             }
+            1
         }
-        println!("[keyboard] LMU-Fenster NICHT gefunden! Gesucht: {:?}", titles);
-        None
-    }
 
-    /// Sendet WM_KEYDOWN + WM_KEYUP direkt an das LMU-Fenster.
-    /// KEIN Fenster-Fokus nötig! LMU verarbeitet es in seiner Message-Pump.
-    fn send_key(hwnd: HWND, vk_code: usize) {
-        unsafe {
-            PostMessageW(hwnd, WM_KEYDOWN, vk_code, 0);
-            Sleep(50);
-            PostMessageW(hwnd, WM_KEYUP, vk_code, 0);
+        EnumWindows(Some(enum_cb), &mut result as *mut _ as LPVOID);
+        if result != 0 { Some(result) } else { None }
+    }
+}
+
+// ─── Scancode senden (mit extended-Flag) ─────────────────────────────
+fn send_scancode(scan: u16, extended: bool) {
+    unsafe {
+        let hwnd = find_lmu_window();
+        if hwnd.is_none() { return; }
+        let hwnd = hwnd.unwrap();
+
+        let prev = GetForegroundWindow();
+
+        ShowWindow(hwnd, 9);
+        thread::sleep(Duration::from_millis(50));
+        SetForegroundWindow(hwnd);
+        thread::sleep(Duration::from_millis(200));
+
+        let mut flags_down: DWORD = KEYEVENTF_SCANCODE;
+        let mut flags_up: DWORD = KEYEVENTF_SCANCODE | KEYEVENTF_KEYUP;
+        if extended {
+            flags_down |= KEYEVENTF_EXTENDEDKEY;
+            flags_up |= KEYEVENTF_EXTENDEDKEY;
+        }
+
+        let ki_down = KEYBDINPUT { wVk: 0, wScan: scan, dwFlags: flags_down, time: 0, dwExtraInfo: 0 };
+        let mut input_down = INPUT { type_: INPUT_KEYBOARD, u: INPUT_UNION { ki: std::mem::ManuallyDrop::new(ki_down) } };
+        let ki_up = KEYBDINPUT { wVk: 0, wScan: scan, dwFlags: flags_up, time: 0, dwExtraInfo: 0 };
+        let mut input_up = INPUT { type_: INPUT_KEYBOARD, u: INPUT_UNION { ki: std::mem::ManuallyDrop::new(ki_up) } };
+
+        // Nur 1x senden (3x war zu viel und hat 2 Kameras übersprungen)
+        SendInput(1, &mut input_down, std::mem::size_of::<INPUT>() as i32);
+        thread::sleep(Duration::from_millis(30));
+        SendInput(1, &mut input_up, std::mem::size_of::<INPUT>() as i32);
+        thread::sleep(Duration::from_millis(50));
+
+        if prev != 0 && prev != hwnd {
+            thread::sleep(Duration::from_millis(100));
+            SetForegroundWindow(prev);
         }
     }
 }
 
-// ─── Hilfsfunktion: Zeichen → VK-Code ──────────────────────────────────
-
-fn char_to_vk(c: char) -> Option<usize> {
-    match c {
-        '0' => Some(VK_0),
-        '1' => Some(VK_1),
-        '2' => Some(VK_2),
-        '3' => Some(VK_3),
-        '4' => Some(VK_4),
-        '5' => Some(VK_5),
-        '6' => Some(VK_6),
-        '7' => Some(VK_7),
-        '8' => Some(VK_8),
-        '9' => Some(VK_9),
-        _ => None,
-    }
-}
-
-// ─── Globaler Keyboard-Thread (Singleton) ──────────────────────────────
-
-use std::sync::OnceLock;
-
-fn keyboard_thread() -> &'static KeyboardThread {
-    static INSTANCE: OnceLock<KeyboardThread> = OnceLock::new();
-    INSTANCE.get_or_init(|| {
-        println!("[keyboard] Hintergrund-Thread für Tastatursimulation gestartet");
-        KeyboardThread::new()
-    })
-}
-
-// ─── Öffentliche API ───────────────────────────────────────────────────
-
-/// Schaltet die LMU-Kamera auf die angegebene Kamera-ID um.
-/// Verwendet `PostMessageW` mit den LMU-Standard-Tasten:
-/// - Insert = Driving Cameras (TV Cycle)
-/// - Home = Onboard Cameras
-/// - PageUp = Swingman Camera (Rear/Heck)
-/// - PageDown = Tracking Cameras (Trackside/Top)
-/// - End = Spectator Cameras (Behind)
+// ─── Öffentliche API ─────────────────────────────────────────────────
 pub fn switch_camera(cam_id: &str) -> Result<(), String> {
-    let vk_code = match cam_id {
-        "TV" => VK_INSERT,
-        "Helmet" | "Onboard" => VK_HOME,
-        "Front" | "Nose" => VK_INSERT,
-        "Heck" | "Rear" => VK_PRIOR,
-        "Top" | "Trackside" => VK_NEXT,
-        "Behind" => VK_END,
-        _ => return Err(format!(
-            "Unbekannte Kamera-ID: {}. Gültig: TV, Helmet, Front, Heck, Top, Behind",
-            cam_id
-        )),
+    // Deine Tastenbelegung:
+    // TV = PG_DN (Page Down), Hinten = PG_UP (Page Up), Bord = INSERT
+    // Alle 3 Tasten sind extended (Insert, PageUp, PageDown)
+    let (scan, extended) = match cam_id {
+        "TV" => (SCAN_PAGEDOWN, true),      // PG_DN = TV
+        "Bord" | "Helmet" | "Onboard" => (SCAN_INSERT, true), // INSERT = Bordkamera
+        "Heck" | "Rear" => (SCAN_PAGEUP, true), // PG_UP = Heck
+        _ => return Err(format!("Unbekannte Kamera-ID: {}", cam_id)),
     };
 
-    let thread = keyboard_thread();
-    thread
-        .sender
-        .send(KeyCommand::SwitchCamera { vk_code })
-        .map_err(|e| format!("Keyboard-Thread nicht verfügbar: {}", e))?;
+    thread::spawn(move || {
+        send_scancode(scan, extended);
+    });
 
     Ok(())
 }
 
-/// Fokussiert die Kamera auf ein bestimmtes Fahrzeug.
-pub fn focus_car(car_number: &str) -> Result<(), String> {
-    let thread = keyboard_thread();
-    thread
-        .sender
-        .send(KeyCommand::FocusCar {
-            car_number: car_number.to_string(),
-        })
-        .map_err(|e| format!("Keyboard-Thread nicht verfügbar: {}", e))?;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
+use once_cell::sync::Lazy;
+
+static ZOOM_ACTIVE: Lazy<Arc<AtomicBool>> = Lazy::new(|| Arc::new(AtomicBool::new(false)));
+
+/// Sendet einen Scancode OHNE Fenster-Wechsel (für Dauer-Zoom).
+/// LMU muss bereits im Vordergrund sein.
+fn send_scancode_fast(scan: u16, extended: bool) {
+    unsafe {
+        let mut flags_down: DWORD = KEYEVENTF_SCANCODE;
+        let mut flags_up: DWORD = KEYEVENTF_SCANCODE | KEYEVENTF_KEYUP;
+        if extended {
+            flags_down |= KEYEVENTF_EXTENDEDKEY;
+            flags_up |= KEYEVENTF_EXTENDEDKEY;
+        }
+
+        let ki_down = KEYBDINPUT { wVk: 0, wScan: scan, dwFlags: flags_down, time: 0, dwExtraInfo: 0 };
+        let mut input_down = INPUT { type_: INPUT_KEYBOARD, u: INPUT_UNION { ki: std::mem::ManuallyDrop::new(ki_down) } };
+        let ki_up = KEYBDINPUT { wVk: 0, wScan: scan, dwFlags: flags_up, time: 0, dwExtraInfo: 0 };
+        let mut input_up = INPUT { type_: INPUT_KEYBOARD, u: INPUT_UNION { ki: std::mem::ManuallyDrop::new(ki_up) } };
+
+        SendInput(1, &mut input_down, std::mem::size_of::<INPUT>() as i32);
+        thread::sleep(Duration::from_millis(2));
+        SendInput(1, &mut input_up, std::mem::size_of::<INPUT>() as i32);
+        thread::sleep(Duration::from_millis(2));
+    }
+}
+
+/// Startet Dauer-Zoom. Sendet die Taste alle 15ms, bis `zoom_stop()` aufgerufen wird.
+/// Holt LMU 1x in den Vordergrund und bleibt dort bis zum Stop.
+pub fn zoom_start(direction: &str) -> Result<(), String> {
+    if ZOOM_ACTIVE.load(Ordering::SeqCst) {
+        return Ok(());
+    }
+    ZOOM_ACTIVE.store(true, Ordering::SeqCst);
+
+    let (scan, extended) = match direction {
+        "in" => (SCAN_KP7, false),
+        "out" => (SCAN_KP9, false),
+        _ => return Err(format!("Unbekannte Zoom-Richtung: {}", direction)),
+    };
+
+    let active = ZOOM_ACTIVE.clone();
+    thread::spawn(move || {
+        // LMU 1x in den Vordergrund holen
+        let hwnd = find_lmu_window();
+        if hwnd.is_none() { 
+            active.store(false, Ordering::SeqCst);
+            return; 
+        }
+        let hwnd = hwnd.unwrap();
+        let prev = unsafe { GetForegroundWindow() };
+        
+        unsafe {
+            ShowWindow(hwnd, 9);
+            thread::sleep(Duration::from_millis(50));
+            SetForegroundWindow(hwnd);
+            thread::sleep(Duration::from_millis(50)); // reduziert von 200ms auf 50ms
+        }
+
+        // Turbo-Zoom: KeyDown+KeyUp so schnell wie möglich senden
+        let mut flags_down: DWORD = KEYEVENTF_SCANCODE;
+        let mut flags_up: DWORD = KEYEVENTF_SCANCODE | KEYEVENTF_KEYUP;
+        if extended {
+            flags_down |= KEYEVENTF_EXTENDEDKEY;
+            flags_up |= KEYEVENTF_EXTENDEDKEY;
+        }
+
+        // Turbo-Zoom (bewährte Methode): KeyDown und KeyUp getrennt senden
+        // mit minimaler Pause zwischen den Events
+        while active.load(Ordering::SeqCst) {
+            unsafe {
+                let ki_down = KEYBDINPUT { wVk: 0, wScan: scan, dwFlags: flags_down, time: 0, dwExtraInfo: 0 };
+                let mut input_down = INPUT { type_: INPUT_KEYBOARD, u: INPUT_UNION { ki: std::mem::ManuallyDrop::new(ki_down) } };
+                SendInput(1, &mut input_down, std::mem::size_of::<INPUT>() as i32);
+                
+                thread::sleep(Duration::from_millis(1)); // 1ms genug für KeyDown
+                
+                let ki_up = KEYBDINPUT { wVk: 0, wScan: scan, dwFlags: flags_up, time: 0, dwExtraInfo: 0 };
+                let mut input_up = INPUT { type_: INPUT_KEYBOARD, u: INPUT_UNION { ki: std::mem::ManuallyDrop::new(ki_up) } };
+                SendInput(1, &mut input_up, std::mem::size_of::<INPUT>() as i32);
+                
+                thread::sleep(Duration::from_millis(1)); // 1ms Pause zwischen Zoom-Stufen (halbiert von 2ms!)
+            }
+        }
+
+        // Kurz warten und zurück zum vorherigen Fenster
+        thread::sleep(Duration::from_millis(100));
+        if prev != 0 && prev != hwnd {
+            unsafe { SetForegroundWindow(prev); }
+        }
+    });
 
     Ok(())
+}
+
+/// Stoppt den Dauer-Zoom.
+pub fn zoom_stop() {
+    ZOOM_ACTIVE.store(false, Ordering::SeqCst);
+}
+
+/// Aktiviert den Replay-Modus über die R-Taste (Sofortwiederholung).
+pub fn replay_activate() -> Result<(), String> {
+    thread::spawn(move || {
+        // R-Taste senden (KEIN extended-Flag)
+        send_scancode(SCAN_R, false);
+        // Kurz warten, damit LMU den Replay-Modus aktiviert
+        thread::sleep(Duration::from_millis(500));
+    });
+    Ok(())
+}
+
+/// Spielt das Replay ab/pausiert es (F11-Toggle).
+pub fn replay_play() -> Result<(), String> {
+    thread::spawn(move || {
+        send_scancode(SCAN_F11, false);
+    });
+    Ok(())
+}
+
+/// Pausiert das Replay (F11 = Play/Pause-Toggle).
+/// F6 ist in LMU ein Hold-to-Stop (kein Toggle), F11 ist der richtige Play/Pause-Befehl.
+pub fn replay_pause() -> Result<(), String> {
+    thread::spawn(move || {
+        // LMU in den Vordergrund holen
+        let hwnd = find_lmu_window();
+        if hwnd.is_none() {
+            eprintln!("[replay_pause] LMU-Fenster nicht gefunden, sende F11 trotzdem...");
+            send_scancode(SCAN_F11, false);
+            return;
+        }
+        let hwnd = hwnd.unwrap();
+        let prev = unsafe { GetForegroundWindow() };
+        
+        unsafe {
+            ShowWindow(hwnd, 9);
+            thread::sleep(Duration::from_millis(50));
+            SetForegroundWindow(hwnd);
+            thread::sleep(Duration::from_millis(100));
+        }
+        
+        // F11 senden (Play/Pause-Toggle)
+        send_scancode(SCAN_F11, false);
+        thread::sleep(Duration::from_millis(200));
+        
+        // Zurück zum vorherigen Fenster
+        if prev != 0 && prev != hwnd {
+            unsafe { SetForegroundWindow(prev); }
+        }
+        println!("[replay_pause] F11 gesendet, Replay sollte pausiert sein");
+    });
+    Ok(())
+}
+
+/// Verlässt den Replay-Modus (Esc-Taste) – bringt LMU zurück zu Live.
+pub fn replay_exit() -> Result<(), String> {
+    let scan_esc: u16 = 0x01; // Esc-Scancode
+    thread::spawn(move || {
+        let hwnd = find_lmu_window();
+        if hwnd.is_none() {
+            eprintln!("[replay_exit] LMU-Fenster nicht gefunden, sende Esc trotzdem...");
+            send_scancode(scan_esc, false);
+            return;
+        }
+        let hwnd = hwnd.unwrap();
+        let prev = unsafe { GetForegroundWindow() };
+        
+        unsafe {
+            ShowWindow(hwnd, 9);
+            thread::sleep(Duration::from_millis(50));
+            SetForegroundWindow(hwnd);
+            thread::sleep(Duration::from_millis(100));
+        }
+        
+        // Esc senden (Replay-Modus verlassen)
+        send_scancode(scan_esc, false);
+        thread::sleep(Duration::from_millis(200));
+        
+        // Zurück zum vorherigen Fenster
+        if prev != 0 && prev != hwnd {
+            unsafe { SetForegroundWindow(prev); }
+        }
+        println!("[replay_exit] Esc gesendet, sollte zurück zu Live sein");
+    });
+    Ok(())
+}
+
+pub fn focus_car(car_number: &str) -> Result<(), String> {
+    let car_num = car_number.to_string();
+    thread::spawn(move || {
+        send_scancode(SCAN_LCONTROL, false);
+        send_scancode(SCAN_F, false);
+        thread::sleep(Duration::from_millis(500));
+
+        for c in car_num.chars() {
+            if let Some(scan) = char_to_scancode(c) {
+                send_scancode(scan, false);
+                thread::sleep(Duration::from_millis(50));
+            }
+        }
+
+        send_scancode(SCAN_RETURN, false);
+    });
+
+    Ok(())
+}
+
+fn char_to_scancode(c: char) -> Option<u16> {
+    match c {
+        '0' => Some(0x0B), '1' => Some(0x02), '2' => Some(0x03),
+        '3' => Some(0x04), '4' => Some(0x05), '5' => Some(0x06),
+        '6' => Some(0x07), '7' => Some(0x08), '8' => Some(0x09),
+        '9' => Some(0x0A), _ => None,
+    }
 }

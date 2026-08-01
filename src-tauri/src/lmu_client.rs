@@ -29,6 +29,11 @@ pub struct CarStanding {
     pub top_speed_kmh: f64,
     pub speed_kmh: f64,
     pub in_pits: bool,
+    /// Kontakt-Daten aus dem Shared Memory (VehicleTelemetry)
+    #[serde(default)]
+    pub impact_et: f64,
+    #[serde(default)]
+    pub impact_mag: f64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -37,9 +42,11 @@ pub struct SessionInfo {
     pub track_name: String,
     pub time_of_day: String,
     pub session_time_remaining_s: f64,
+    pub session_time_elapsed_s: f64,
     pub num_cars: i32,
 }
 
+#[derive(Clone)]
 pub struct LmuClient {
     http: reqwest::Client,
     base_url: String,
@@ -120,11 +127,17 @@ impl LmuClient {
 
     pub async fn get_session_info(&self) -> Result<SessionInfo> {
         let raw = self.get_json("/rest/watch/sessionInfo").await?;
+        // DEBUG: Einmal die rohe sessionInfo-Antwort loggen
+        static SESSION_RAW_LOGGED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+        if !SESSION_RAW_LOGGED.load(std::sync::atomic::Ordering::SeqCst) {
+            SESSION_RAW_LOGGED.store(true, std::sync::atomic::Ordering::SeqCst);
+            eprintln!("[session_raw] sessionInfo JSON: {}", serde_json::to_string_pretty(&raw).unwrap_or_default());
+        }
         Ok(parse_session_info(&raw))
     }
 
     pub async fn seek_replay_to(&self, seconds_since_start: f64) -> Result<()> {
-        let path = format!("/rest/watch/replaytime/{}", seconds_since_start as i64);
+        let path = format!("/rest/watch/replaytime/{:.1}", seconds_since_start);
         self.put(&path).await
     }
 
@@ -133,7 +146,15 @@ impl LmuClient {
     }
 
     pub async fn switch_to_replay(&self) -> Result<()> {
-        self.put("/rest/watch/replay/toggleactive").await
+        self.put("/rest/watch/replayCommand/replay").await
+    }
+
+    pub async fn replay_play(&self) -> Result<()> {
+        self.put("/rest/watch/replayCommand/VCRCOMMAND_PLAY").await
+    }
+
+    pub async fn pre_arm_replay(&self) -> Result<()> {
+        self.put("/rest/watch/replayCommand/PreArmReplay").await
     }
 
     pub async fn is_replay_active(&self) -> Result<bool> {
@@ -215,6 +236,8 @@ fn parse_standings(raw: &Value) -> Result<Vec<CarStanding>> {
             top_speed_kmh: field_f64(entry, &["topSpeed", "vmax", "maxSpeed"]).unwrap_or(0.0),
             speed_kmh,
             in_pits: field_bool(entry, &["pitting", "inPits", "isInPit", "pit"]).unwrap_or(false),
+            impact_et: 0.0,
+            impact_mag: 0.0,
         });
     }
     Ok(out)
@@ -225,8 +248,9 @@ fn parse_session_info(raw: &Value) -> SessionInfo {
         session_type: field_string(raw, &["sessionType", "session", "type"]),
         track_name: field_string(raw, &["trackName", "track"]),
         time_of_day: field_string(raw, &["timeOfDay", "tod"]),
-        session_time_remaining_s: field_f64(raw, &["timeRemaining", "sessionTimeRemaining"]).unwrap_or(0.0),
-        num_cars: field_i64(raw, &["numCars", "carCount", "numVehicles"]).unwrap_or(0) as i32,
+        session_time_remaining_s: field_f64(raw, &["timeRemaining", "sessionTimeRemaining", "timeRemainingInGamePhase"]).unwrap_or(0.0),
+        session_time_elapsed_s: field_f64(raw, &["currentEventTime", "sessionTime", "elapsed", "currentTime", "timeElapsed"]).unwrap_or(0.0),
+        num_cars: field_i64(raw, &["numCars", "carCount", "numVehicles", "numberOfVehicles"]).unwrap_or(0) as i32,
     }
 }
 

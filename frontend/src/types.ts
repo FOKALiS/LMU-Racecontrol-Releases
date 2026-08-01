@@ -66,6 +66,8 @@ export interface Settings {
   decision_types: string[];
   fcy_speed_limit_kmh: number;
   fcy_countdown_seconds: number;
+  pre_roll_seconds: number;
+  post_roll_seconds: number;
 }
 
 export type View = "home" | "fahrerfeld" | "vorfaelle" | "archiv" | "einstellungen";

@@ -28,6 +28,8 @@ const DEFAULT_SETTINGS: Settings = {
   decision_types: [],
   fcy_speed_limit_kmh: 60,
   fcy_countdown_seconds: 10,
+  pre_roll_seconds: 20,
+  post_roll_seconds: 20,
 };
 
 export default function App() {
@@ -44,11 +46,13 @@ export default function App() {
   const [fcyPhase, setFcyPhase] = useState<FcyPhase>("idle");
   const [fcyRemaining, setFcyRemaining] = useState(0);
 
-  const [preRoll, setPreRoll] = useState(20);
-  const [postRoll, setPostRoll] = useState(20);
   const [selectedCam, setSelectedCam] = useState<string>("TV");
+  /** Wird true, wenn ein Replay über das Auge-Symbol gestartet wurde */
+  const [replayActive, setReplayActive] = useState(false);
 
   const [modalDraft, setModalDraft] = useState<IncidentDraft | null>(null);
+  const [imageMode, setImageMode] = useState<"live" | "replay">("live");
+  const [focusedSlotId, setFocusedSlotId] = useState<number | null>(null);
 
   // Lizenzprüfung: solange "license" null ist, wird noch geladen (kurz
   // beim Start) - erst danach wissen wir, ob die App freigeschaltet ist.
@@ -95,7 +99,9 @@ export default function App() {
 
   useEffect(() => {
     refreshIncidents();
-    invoke<Settings>("get_settings").then(setSettings).catch(console.error);
+    invoke<Settings>("get_settings").then((s) => {
+      setSettings(s);
+    }).catch(console.error);
 
     const unlistenConn = listen<{ connected: boolean }>("connection-status", (e) => {
       setConnected(e.payload.connected);
@@ -209,26 +215,42 @@ export default function App() {
 
   async function jumpToReplay(incident: Incident) {
     try {
+      setReplayActive(true);
+      setImageMode("replay");
+      const targetCar = incident.car_number_a || incident.car_number_b || "";
+      const targetDriver = incident.driver_a || incident.driver_b || null;
       await invoke("jump_to_incident_replay", {
         sessionTimeS: incident.session_time_s,
-        preRollSeconds: preRoll,
+        preRollSeconds: settings.pre_roll_seconds,
+        carNumber: targetCar,
+        driverName: targetDriver,
       });
-      const targetCar = incident.car_number_a || incident.car_number_b;
-      if (targetCar) {
-        await new Promise(r => setTimeout(r, 300));
-        await invoke("focus_driver", { carNumber: targetCar });
-        // Nach dem Fokus auch die ausgewählte Kamera setzen
-        await new Promise(r => setTimeout(r, 200));
-        await invoke("set_camera", { camId: selectedCam });
+      // Fahrer-Fokus visuell markieren (alle Views)
+      if (incident.slot_id_a != null) {
+        setFocusedSlotId(incident.slot_id_a);
       }
+      // Fahrer-Fokus wird jetzt direkt in Rust gesetzt (nach letztem seek).
+      // KEIN separater focus_driver-Aufruf mehr nötig.
+      // KEINE Kamera setzen – der Rennkommissar behält seine gewählte Kamera!
     } catch (err) {
       alert(t("alert_replay_failed", { error: String(err) }));
     }
   }
 
-  async function focusDriver(carNumber: string) {
+  async function switchToLive() {
     try {
-      await invoke("focus_driver", { carNumber });
+      await invoke("switch_to_live");
+      setReplayActive(false);
+      setImageMode("live");
+    } catch (err) {
+      console.error("Switch to Live fehlgeschlagen:", err);
+    }
+  }
+
+  async function focusDriver(slotId: number, carNumber: string, driverName?: string) {
+    setFocusedSlotId(slotId);
+    try {
+      await invoke("focus_driver", { carNumber, driverName: driverName || null });
     } catch (err) {
       console.error("Fahrzeug-Fokus fehlgeschlagen:", err);
     }
@@ -242,6 +264,14 @@ export default function App() {
       console.error("Kamerawechsel fehlgeschlagen:", err);
       alert(t("alert_camera_unavailable"));
     }
+  }
+
+  // Zoom: startet/stoppt Dauer-Zoom (ein Hintergrund-Thread in Rust)
+  function startZoom(dir: "in" | "out") {
+    invoke("zoom_start", { direction: dir });
+  }
+  function stopZoom() {
+    invoke("zoom_stop");
   }
 
   async function saveSettings(updated: Settings) {
@@ -277,36 +307,47 @@ export default function App() {
             pendingIncidents={pendingIncidents}
             onInvestigate={openInvestigateModal}
             onFocusDriver={focusDriver}
+            focusedSlotId={focusedSlotId}
             selectedCam={selectedCam}
             onCamSelect={selectCamera}
             onReplay={jumpToReplay}
+            onZoomStart={startZoom}
+            onZoomEnd={stopZoom}
+            replayActive={replayActive}
+            onSwitchToLive={switchToLive}
+            imageMode={imageMode}
+            onImageModeChange={setImageMode}
           />
         )}
 
         {license?.licensed && view === "vorfaelle" && (
           <VorfaelleView
             incidents={pendingIncidents}
-            preRoll={preRoll}
-            postRoll={postRoll}
-            onSaveReplaySettings={(pre, post) => {
-              setPreRoll(pre);
-              setPostRoll(post);
-            }}
+            settings={settings}
+            onSaveSettings={saveSettings}
             onNewIncident={openNewIncidentModal}
             onInvestigate={openInvestigateModal}
+            onReplay={jumpToReplay}
             onGoToArchiv={() => setView("archiv")}
             onFcyClick={handleFcyClick}
+            focusedSlotId={focusedSlotId}
             selectedCam={selectedCam}
             onCamSelect={selectCamera}
+            onZoomStart={startZoom}
+            onZoomEnd={stopZoom}
+            replayActive={replayActive}
+            onSwitchToLive={switchToLive}
+            imageMode={imageMode}
+            onImageModeChange={setImageMode}
           />
         )}
 
         {license?.licensed && view === "archiv" && (
-          <ArchivView incidents={archivedIncidents} onReplay={jumpToReplay} selectedCam={selectedCam} onCamSelect={selectCamera} />
+          <ArchivView incidents={archivedIncidents} onReplay={jumpToReplay} focusedSlotId={focusedSlotId} selectedCam={selectedCam} onCamSelect={selectCamera} onZoomStart={startZoom} onZoomEnd={stopZoom} replayActive={replayActive} onSwitchToLive={switchToLive} imageMode={imageMode} onImageModeChange={setImageMode} />
         )}
 
         {license?.licensed && view === "einstellungen" && (
-          <EinstellungenView settings={settings} onSave={saveSettings} />
+          <EinstellungenView settings={settings} onSave={saveSettings} onClearAll={() => refreshIncidents()} />
         )}
       </main>
 

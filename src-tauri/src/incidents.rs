@@ -1,16 +1,26 @@
 //! Heuristische Verdachtserkennung für die drei Marker-Farben im Fahrerfeld:
 //!
 //! - ROT   = möglicher Crash (starke, plötzliche Rundenzeit- oder
-//!           Positions-Anomalie)
-//! - GELB  = mögliche gelbe Flagge / kleinere Auffälligkeit (moderate
+//!           Positions-Anomalie, Stillstand/nahe-0-Speed)
+//! - GELB  = mögliche gelbe Flagge / Track-Limits / Ausritt (moderate
 //!           Pace-Anomalie)
 //! - WEISS = auffällig langsames Fahrzeug relativ zum Feld
 //!
-//! Wie schon beim ersten Entwurf gilt: Es gibt keinen bestätigten REST-
-//! Endpunkt mit echtem Flaggen-Status pro Fahrzeug. Sobald ihr ein
-//! entsprechendes Feld in eurer `/rest/watch/standings`-Antwort findet,
-//! sollte das hier direkt statt der Heuristik verwendet werden (deutlich
-//! zuverlässiger als Pace-Schätzungen).
+//! Grundsatz: Die Erkennung ist KONSERVATIV (weniger ist mehr).
+//! Ein Rennkommissar kann manuell Vorfälle anlegen. Die automatische
+//! Erkennung soll nur OFFENSICHTLICHE Anomalien melden.
+//!
+//! FARB-CODIERUNG (laut User-Vorgabe):
+//! - ROT   = Kontakt zwischen 2 Fahrzeugen (automatisch via Shared Memory
+//!           impactET/impactMag aus der VehicleTelemetry).
+//! - GELB  = Alles andere: Abkommen, Track-Limits, Spin, Crash-Verdacht,
+//!           Stillstand, Positionsverlust, Rundenzeit-Anomalie.
+//! - WEISS = Auffällig langsame Fahrzeuge im Vergleich zum Feld.
+//!
+//! Automatisch erkannte Kontakte (impactMag > 5.0) werden ROT markiert.
+//! Der Rennkommissar kann die Farbe im Investigation-Modal ändern.
+//!
+//! Cooldown pro Fahrzeug (30 Sekunden) verhindert Überflutung.
 
 use crate::db::{FlagColor, Incident};
 use crate::lmu_client::CarStanding;
@@ -21,14 +31,21 @@ use uuid::Uuid;
 const CRASH_FACTOR: f64 = 1.35; // >35% langsamer als eigener Schnitt -> rot
 const YELLOW_FACTOR: f64 = 1.15; // >15% langsamer -> gelb
 const SLOW_FIELD_FACTOR: f64 = 1.10; // >10% langsamer als Feld-Median -> weiß (langsames Fahrzeug)
-const MIN_SAMPLES_FOR_BASELINE: usize = 3;
+const MIN_SAMPLES_FOR_BASELINE: usize = 3; // 3 Runden nötig für Baseline
 const MAX_LAP_HISTORY: usize = 8;
 const POSITION_LOSS_FOR_CRASH: i32 = 3;
 
-#[derive(Default)]
+// Speed < 10 km/h auf der Strecke = Stillstand (Crash/Spin)
+const NEAR_STOPPED_SPEED_KMH: f64 = 10.0;
+
+// Cooldown: Keine neuen Vorfälle für denselben Slot innerhalb von 30 Sekunden
+const COOLDOWN_SECONDS: f64 = 30.0;
+
+#[derive(Default, Clone)]
 struct DriverHistory {
     recent_lap_times: Vec<f64>,
     last_position: Option<i32>,
+    last_incident_time: f64,
 }
 
 #[derive(Default)]
@@ -60,6 +77,22 @@ impl IncidentDetector {
         for car in standings {
             let hist = self.history.entry(car.slot_id).or_default();
 
+            // Cooldown prüfen: Überspringe, wenn vor <30s ein Vorfall gemeldet wurde
+            let on_cooldown = if hist.last_incident_time > 0.0 {
+                (ctx.session_time_s - hist.last_incident_time) < COOLDOWN_SECONDS
+            } else {
+                false
+            };
+
+            if on_cooldown {
+                // Nur Historie aktualisieren, keine neuen Vorfälle
+                update_history(hist, car, ctx);
+                continue;
+            }
+
+            // ── Rundenzeit-basierte Erkennung (IMMER GELB) ─────────────
+            // Rot = NUR manuell bei bestätigtem Kontakt. Automatisch
+            // erkannte Anomalien sind immer Gelb (Abkommen, Spin, etc.)
             if car.last_lap_s > 0.0 && hist.recent_lap_times.len() >= MIN_SAMPLES_FOR_BASELINE {
                 let own_median = median(&hist.recent_lap_times);
                 if own_median > 0.0 {
@@ -67,12 +100,13 @@ impl IncidentDetector {
                         suggestions.push(make_incident(
                             ctx,
                             car,
-                            FlagColor::Red,
+                            FlagColor::Yellow,
                             format!(
-                                "Starker Rundenzeitverlust: {:.1}s vs. Ø {:.1}s – möglicher Crash. Replay prüfen.",
+                                "Starker Rundenzeitverlust: {:.1}s vs. Ø {:.1}s – möglicher Crash/Abflug. Replay prüfen.",
                                 car.last_lap_s, own_median
                             ),
                         ));
+                        hist.last_incident_time = ctx.session_time_s;
                     } else if car.last_lap_s > own_median * YELLOW_FACTOR {
                         suggestions.push(make_incident(
                             ctx,
@@ -83,16 +117,33 @@ impl IncidentDetector {
                                 car.last_lap_s, own_median
                             ),
                         ));
+                        hist.last_incident_time = ctx.session_time_s;
                     }
                 }
             }
 
+            // ── Stillstand-Erkennung (IMMER GELB) ─────────────────────
+            // Ein Fahrzeug, das fast steht (<10 km/h) und NICHT in der Box ist.
+            if car.speed_kmh < NEAR_STOPPED_SPEED_KMH && !car.in_pits && car.speed_kmh > 0.0 {
+                suggestions.push(make_incident(
+                    ctx,
+                    car,
+                    FlagColor::Yellow,
+                    format!(
+                        "Fahrzeug fast stehend ({:.0} km/h) auf der Strecke – möglicher Spin/Abflug.",
+                        car.speed_kmh
+                    ),
+                ));
+                hist.last_incident_time = ctx.session_time_s;
+            }
+
+            // ── Positionsverlust-Erkennung (IMMER GELB) ────────────────
             if let Some(last_pos) = hist.last_position {
                 if !car.in_pits && car.position - last_pos >= POSITION_LOSS_FOR_CRASH {
                     suggestions.push(make_incident(
                         ctx,
                         car,
-                        FlagColor::Red,
+                        FlagColor::Yellow,
                         format!(
                             "{} Positionen verloren (P{} -> P{}) ohne Boxenstopp – möglicher Vorfall.",
                             car.position - last_pos,
@@ -100,9 +151,11 @@ impl IncidentDetector {
                             car.position
                         ),
                     ));
+                    hist.last_incident_time = ctx.session_time_s;
                 }
             }
 
+            // ── Langsam-Feld-Erkennung (weiße Flagge) ──────────────────
             if field_median_lap > 0.0
                 && car.last_lap_s > field_median_lap * SLOW_FIELD_FACTOR
                 && !car.in_pits
@@ -116,19 +169,26 @@ impl IncidentDetector {
                         car.last_lap_s, field_median_lap
                     ),
                 ));
+                hist.last_incident_time = ctx.session_time_s;
             }
 
-            if car.last_lap_s > 0.0 {
-                hist.recent_lap_times.push(car.last_lap_s);
-                if hist.recent_lap_times.len() > MAX_LAP_HISTORY {
-                    hist.recent_lap_times.remove(0);
-                }
-            }
-            hist.last_position = Some(car.position);
+            // ── Historie aktualisieren ──────────────────────────────────
+            update_history(hist, car, ctx);
         }
 
         suggestions
     }
+}
+
+/// Aktualisiert die Fahrer-Historie (Rundenzeiten, Position)
+fn update_history(hist: &mut DriverHistory, car: &CarStanding, _ctx: &DetectionContext) {
+    if car.last_lap_s > 0.0 {
+        hist.recent_lap_times.push(car.last_lap_s);
+        if hist.recent_lap_times.len() > MAX_LAP_HISTORY {
+            hist.recent_lap_times.remove(0);
+        }
+    }
+    hist.last_position = Some(car.position);
 }
 
 fn make_incident(
@@ -163,6 +223,7 @@ fn make_incident(
 }
 
 /// Erstellt einen Vorfall für einen FCY-Geschwindigkeitsverstoß.
+/// Gelb, da es kein Kontakt ist (Rot = nur manuell).
 pub fn make_fcy_violation(
     ctx: &DetectionContext,
     car: &CarStanding,
@@ -171,7 +232,7 @@ pub fn make_fcy_violation(
     make_incident(
         ctx,
         car,
-        FlagColor::Red,
+        FlagColor::Yellow,
         format!(
             "FCY-Verstoß: {:.0} km/h bei Limit {:.0} km/h.",
             car.speed_kmh, limit_kmh

@@ -6,15 +6,18 @@ interface Props {
   onImageModeChange: (m: "live" | "replay") => void;
   selectedCam?: string;
   onCamSelect?: (cam: string) => void;
+  onZoomStart?: (direction: "in" | "out") => void;
+  onZoomEnd?: () => void;
+  /** Zeigt an, ob ein Replay gerade läuft (durch Auge-Klick gestartet) */
+  replayActive?: boolean;
+  /** Wird aufgerufen, wenn der LIVE-Button geklickt wird (nur sichtbar während Replay) */
+  onSwitchToLive?: () => void;
 }
 
 const CAM_KEYS: { key: TranslationKey; id: string }[] = [
   { key: "cam_tv", id: "TV" },
-  { key: "cam_helmet", id: "Helmet" },
-  { key: "cam_front", id: "Front" },
+  { key: "cam_bord", id: "Bord" },
   { key: "cam_rear", id: "Heck" },
-  { key: "cam_top", id: "Top" },
-  { key: "cam_behind", id: "Behind" },
 ];
 
 export default function TopToolbar({
@@ -22,8 +25,26 @@ export default function TopToolbar({
   onImageModeChange,
   selectedCam,
   onCamSelect,
+  onZoomStart,
+  onZoomEnd,
+  replayActive = false,
+  onSwitchToLive,
 }: Props) {
   const { t } = useLanguage();
+
+  function handleZoomInMouseDown(e: React.MouseEvent) {
+    e.preventDefault();
+    onZoomStart?.("in");
+  }
+
+  function handleZoomOutMouseDown(e: React.MouseEvent) {
+    e.preventDefault();
+    onZoomStart?.("out");
+  }
+
+  function handleZoomMouseUp() {
+    onZoomEnd?.();
+  }
 
   return (
     <div className="top-toolbar">
@@ -31,13 +52,14 @@ export default function TopToolbar({
         <div className="toolbar-label">{t("toolbar_image_control")}</div>
         <div className="toolbar-buttons">
           <button
-            className={imageMode === "live" ? "active" : ""}
-            onClick={() => onImageModeChange("live")}
+            className={!replayActive && imageMode === "live" ? "active" : ""}
+            onClick={() => replayActive ? onSwitchToLive?.() : onImageModeChange("live")}
+            title={replayActive ? t("toolbar_back_to_live") : ""}
           >
-            {t("toolbar_live")}
+            {t("toolbar_live")} {replayActive ? " ↩" : ""}
           </button>
           <button
-            className={imageMode === "replay" ? "active" : ""}
+            className={replayActive || imageMode === "replay" ? "active" : ""}
             onClick={() => onImageModeChange("replay")}
           >
             {t("toolbar_replay")}
@@ -57,6 +79,24 @@ export default function TopToolbar({
               {t(cam.key)}
             </button>
           ))}
+          <div className="zoom-btn-group">
+            <button
+              className="zoom-btn"
+              onMouseDown={handleZoomInMouseDown}
+              onMouseUp={handleZoomMouseUp}
+              onMouseLeave={handleZoomMouseUp}
+            >
+              {t("cam_zoom_in")}
+            </button>
+            <button
+              className="zoom-btn"
+              onMouseDown={handleZoomOutMouseDown}
+              onMouseUp={handleZoomMouseUp}
+              onMouseLeave={handleZoomMouseUp}
+            >
+              {t("cam_zoom_out")}
+            </button>
+          </div>
         </div>
       </div>
     </div>

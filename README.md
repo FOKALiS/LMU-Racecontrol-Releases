@@ -174,7 +174,7 @@ cargo tauri build
 ```
 
 Ergebnis liegt danach unter:
-`src-tauri/target/release/bundle/nsis/LMU Race Control_0.1.0_x64-setup.exe`
+`src-tauri/target/release/bundle/nsis/LMU RACECONTROL_0.7.0_x64-setup.exe`
 (und/oder `.../msi/...msi`)
 
 Diese Installer-Datei ist es, die du an die Rechner der Rennkommissare
@@ -189,10 +189,12 @@ lmu-race-control/
 ├── src-tauri/              Rust-Backend
 │   ├── src/
 │   │   ├── main.rs         Tauri-Setup, Commands, Polling-Loop, FCY-Countdown
+│   │   ├── keyboard.rs     Tastatur-Simulation via Win32 SendInput (Scancodes)
 │   │   ├── lmu_client.rs   LMU REST-API Client (Standings, Sessioninfo, Replay-Sprung)
 │   │   ├── incidents.rs    Automatische Verdachtserkennung (rot/gelb/weiß) + FCY-Verstöße
 │   │   ├── db.rs           SQLite-Persistenz (Vorfälle, Verursacher/Geschädigter)
 │   │   ├── settings.rs     Dropdown-Listen, Discord-Webhook, FCY-Parameter (settings.json)
+│   │   ├── license.rs      Keygen-Lizenzprüfung (Offline-Kulanz 14 Tage)
 │   │   └── discord.rs      Discord-Webhook-Benachrichtigung bei Entscheidung
 │   ├── icons/               App-Icons (aus eurem Logo generiert)
 │   ├── capabilities/         Tauri-2-Berechtigungen

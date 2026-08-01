@@ -14,6 +14,8 @@ pub struct Settings {
     pub decision_types: Vec<String>,
     pub fcy_speed_limit_kmh: f64,
     pub fcy_countdown_seconds: i32,
+    pub pre_roll_seconds: f64,
+    pub post_roll_seconds: f64,
 }
 
 impl Default for Settings {
@@ -41,6 +43,8 @@ impl Default for Settings {
             ],
             fcy_speed_limit_kmh: 60.0,
             fcy_countdown_seconds: 10,
+            pre_roll_seconds: 20.0,
+            post_roll_seconds: 20.0,
         }
     }
 }

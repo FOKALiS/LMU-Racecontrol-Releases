@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { Incident, FlagColor } from "../types";
+import type { Incident, FlagColor, Settings } from "../types";
 import TopToolbar from "../components/TopToolbar";
 import FlagFilter from "../components/FlagFilter";
 import EyeIcon from "../components/EyeIcon";
@@ -9,39 +9,53 @@ import { invoke } from "@tauri-apps/api/core";
 
 interface Props {
   incidents: Incident[];
-  onSaveReplaySettings: (preRoll: number, postRoll: number) => void;
-  preRoll: number;
-  postRoll: number;
+  settings: Settings;
+  onSaveSettings: (settings: Settings) => void;
   onNewIncident: () => void;
   onInvestigate: (incident: Incident) => void;
-  onReplay?: (incident: Incident) => void;
+  onReplay: (incident: Incident) => void;
   onGoToArchiv: () => void;
   onFcyClick: () => void;
+  focusedSlotId?: number | null;
   selectedCam?: string;
   onCamSelect?: (cam: string) => void;
+  onZoomStart?: (direction: "in" | "out") => void;
+  onZoomEnd?: () => void;
+  replayActive?: boolean;
+  onSwitchToLive?: () => void;
+  imageMode: "live" | "replay";
+  onImageModeChange: (m: "live" | "replay") => void;
 }
 
 export default function VorfaelleView({
   incidents,
-  preRoll,
-  postRoll,
-  onSaveReplaySettings,
+  settings,
+  onSaveSettings,
   onNewIncident,
   onInvestigate,
   onReplay,
   onGoToArchiv,
   onFcyClick,
+  focusedSlotId,
   selectedCam = "TV",
   onCamSelect,
+  onZoomStart,
+  onZoomEnd,
+  replayActive = false,
+  onSwitchToLive,
+  imageMode,
+  onImageModeChange,
 }: Props) {
   const { t } = useLanguage();
-  const [imageMode, setImageMode] = useState<"live" | "replay">("live");
   const [showRed, setShowRed] = useState(true);
   const [showYellow, setShowYellow] = useState(true);
   const [showWhite, setShowWhite] = useState(true);
 
+  // Session-Tabs (Platzhalter ohne Funktion)
+  const [sessionTab, setSessionTab] = useState<"Practice" | "Qualifying" | "Race">("Practice");
+
   function handleImageModeChange(mode: "live" | "replay") {
-    setImageMode(mode);
+    onImageModeChange(mode);
     if (mode === "live") {
       invoke("switch_to_live").catch(console.error);
     } else {
@@ -63,13 +77,87 @@ export default function VorfaelleView({
     return true;
   }
 
+  function handlePreRollChange(value: number) {
+    onSaveSettings({ ...settings, pre_roll_seconds: value });
+  }
+
+  function handlePostRollChange(value: number) {
+    onSaveSettings({ ...settings, post_roll_seconds: value });
+  }
+
   const filteredIncidents = incidents.filter(matchesFilter);
 
   return (
     <div className="view-vorfaelle">
       <div className="view-header-row">
         <h1>{t("vorfaelle_title")}</h1>
-        <TopToolbar imageMode={imageMode} onImageModeChange={handleImageModeChange} selectedCam={selectedCam} onCamSelect={onCamSelect} />
+        <TopToolbar imageMode={imageMode} onImageModeChange={handleImageModeChange} selectedCam={selectedCam} onCamSelect={onCamSelect} onZoomStart={onZoomStart} onZoomEnd={onZoomEnd} replayActive={replayActive} onSwitchToLive={onSwitchToLive} />
+      </div>
+
+      {/* Zweite Zeile: Session, Player, Filter */}
+      <div className="toolbar-row-secondary">
+        {/* Session-Tabs */}
+        <div className="toolbar-group">
+          <div className="toolbar-label">{t("col_session")}</div>
+          <div className="session-tabs">
+            {(["Practice", "Qualifying", "Race"] as const).map((tab) => (
+              <button
+                key={tab}
+                className={`session-tab ${sessionTab === tab ? "active" : ""}`}
+                onClick={() => setSessionTab(tab)}
+              >
+                {tab}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Player (Platzhalter ohne Funktion) */}
+        <div className="toolbar-group">
+          <div className="toolbar-label">{t("col_player")}</div>
+          <div className="toolbar-buttons player-bar">
+            <button disabled title={t("col_player_placeholder")}>
+              <img src="/icons/Slow Rewind.png" alt="Slow Rewind" className="player-icon" />
+            </button>
+            <button disabled title={t("col_player_placeholder")}>
+              <img src="/icons/Rewind.png" alt="Rewind" className="player-icon" />
+            </button>
+            <button disabled title={t("col_player_placeholder")}>
+              <img src="/icons/Play.png" alt="Play" className="player-icon" />
+            </button>
+            <button disabled title={t("col_player_placeholder")}>
+              <img src="/icons/Forward.png" alt="Forward" className="player-icon" />
+            </button>
+            <button disabled title={t("col_player_placeholder")}>
+              <img src="/icons/Slow Forward.png" alt="Slow Forward" className="player-icon" />
+            </button>
+          </div>
+        </div>
+
+        {/* Filter */}
+        <div className="toolbar-group">
+          <div className="toolbar-label">{t("col_filter")}</div>
+          <div className="filter-tabs">
+            <button
+              className={`filter-tab filter-tab-red ${showRed ? "active" : ""}`}
+              onClick={() => setShowRed(!showRed)}
+            >
+              {t("col_filter_crash")}
+            </button>
+            <button
+              className={`filter-tab filter-tab-yellow ${showYellow ? "active" : ""}`}
+              onClick={() => setShowYellow(!showYellow)}
+            >
+              {t("col_filter_yellow")}
+            </button>
+            <button
+              className={`filter-tab filter-tab-white ${showWhite ? "active" : ""}`}
+              onClick={() => setShowWhite(!showWhite)}
+            >
+              {t("col_filter_white")}
+            </button>
+          </div>
+        </div>
       </div>
 
       <div className="toolbar-row-secondary">
@@ -81,8 +169,8 @@ export default function VorfaelleView({
                 <input
                   type="number"
                   min={0}
-                  value={preRoll}
-                  onChange={(e) => onSaveReplaySettings(Number(e.target.value), postRoll)}
+                  value={settings.pre_roll_seconds}
+                  onChange={(e) => handlePreRollChange(Number(e.target.value))}
                 />
                 <span>{t("seconds_short")}</span>
               </div>
@@ -93,8 +181,8 @@ export default function VorfaelleView({
                 <input
                   type="number"
                   min={0}
-                  value={postRoll}
-                  onChange={(e) => onSaveReplaySettings(preRoll, Number(e.target.value))}
+                  value={settings.post_roll_seconds}
+                  onChange={(e) => handlePostRollChange(Number(e.target.value))}
                 />
                 <span>{t("seconds_short")}</span>
               </div>
@@ -148,7 +236,7 @@ export default function VorfaelleView({
               </tr>
             )}
             {filteredIncidents.map((i) => (
-              <tr key={i.id}>
+              <tr key={i.id} className={focusedSlotId != null && i.slot_id_a === focusedSlotId ? "row-focused" : ""}>
                 <td>{i.incident_number}</td>
                 <td>{i.class_a && <span className={`class-badge class-badge-${classColor(i.class_a)}`}>{i.class_a}</span>}</td>
                 <td>{i.car_number_a}</td>
@@ -162,7 +250,7 @@ export default function VorfaelleView({
                 <td className="incident-cell">
                   <button
                     className={`flag-dot flag-${i.flag_color.toLowerCase()}`}
-                    onClick={() => onReplay?.(i)}
+                    onClick={() => onReplay(i)}
                   >
                     <EyeIcon />
                   </button>
