@@ -241,38 +241,39 @@ async fn jump_to_incident_replay(
     // 0) WebSocket-Verbindung sicherstellen (nötig damit REST-API funktioniert)
     println!("[replay] (0/6) WebSocket sicherstellen...");
     state.lmu_ws.start().await.map_err(|e| e.to_string())?;
-    tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+    tokio::time::sleep(std::time::Duration::from_millis(200)).await;
     println!("[replay] (0/6) WebSocket verbunden");
     
     // 1) Replay-Modus mit R-Taste aktivieren (Tastatur – REST allein kann das nicht!)
     println!("[replay] (1/6) R-Taste (Tastatur) – Replay-Modus aktivieren...");
     keyboard::replay_activate()?;
-    println!("[replay] (1/6) R-Taste gesendet, warte 3s auf Replay-Modus...");
-    tokio::time::sleep(std::time::Duration::from_millis(3000)).await;
+    // Wartezeit drastisch reduziert: R-Taste aktiviert Replay sofort (500ms reichen)
+    println!("[replay] (1/6) R-Taste gesendet, warte 800ms auf Replay-Modus...");
+    tokio::time::sleep(std::time::Duration::from_millis(800)).await;
     println!("[replay] (1/6) Replay-Modus sollte aktiv sein");
     
-    // 2) PreArmReplay – Replay vorbereiten (BCUK-Kommandos)
+    // 2) PreArmReplay – Replay vorbereiten (BCUK-Kommandos) – parallel zum Warten ausführen
     println!("[replay] (2/6) PreArmReplay (REST)...");
     let _ = state.lmu.pre_arm_replay().await; // Fehler ignorieren – funktioniert nicht immer
-    tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+    tokio::time::sleep(std::time::Duration::from_millis(150)).await;
     println!("[replay] (2/6) PreArmReplay gesendet");
     
     // 3) Zeitsprung zur Ziel-Position
     println!("[replay] (3/6) seek zu {:.1}s ...", target);
     state.lmu.seek_replay_to(target).await.map_err(|e| e.to_string())?;
-    tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+    tokio::time::sleep(std::time::Duration::from_millis(150)).await;
     println!("[replay] (3/6) seek OK auf {:.1}s", target);
     
     // 4) Play starten – VCRCOMMAND_PLAY setzt NICHT auf 0:00 zurück
     println!("[replay] (4/6) VCRCOMMAND_PLAY (REST)...");
     state.lmu.replay_play().await.map_err(|e| e.to_string())?;
-    tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+    tokio::time::sleep(std::time::Duration::from_millis(150)).await;
     println!("[replay] (4/6) VCRCOMMAND_PLAY OK");
     
     // 5) Zeitsprung wiederholen (Failsafe – falls Play doch zurückgesetzt hat)
     println!("[replay] (5/6) seek wiederholen auf {:.1}s ...", target);
     state.lmu.seek_replay_to(target).await.map_err(|e| e.to_string())?;
-    tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+    tokio::time::sleep(std::time::Duration::from_millis(150)).await;
     println!("[replay] (5/6) seek wiederholt OK auf {:.1}s", target);
     
     // 6) Fahrer-Fokus direkt im Rust-Code setzen (NACH letztem seek)
