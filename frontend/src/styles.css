@@ -1,4 +1,4 @@
-:root {
+:root, .dat {
   --bg: #141414;
   --panel: rgba(8, 27, 38, 0.7);
   --border: #313131;
@@ -36,26 +36,72 @@ button { cursor: pointer; }
 
 .app { display: flex; height: 100vh; overflow: hidden; }
 
-/* ---------- Sidebar ---------- */
+/* ---------- Sidebar – Figma: 256px (w-64), border-right 1px #313131 ---------- */
 .sidebar {
-  width: 265px;
-  min-width: 265px;
+  width: 256px;
+  min-width: 256px;
   background: var(--bg);
   border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
   position: relative;
   overflow-y: auto;
+  gap: 24px; /* Figma: gap-6 zwischen allen Sidebar-Blöcken */
 }
+
+/* Language Toggle Block – Figma: separater Block zwischen Logo und Server */
+.sidebar-lang {
+  padding: 0 36px;
+}
+
+/* Divider – Figma: outline 1px outline-white/30 */
+.sidebar-divider {
+  height: 0;
+  outline: 1px solid rgba(255, 255, 255, 0.3);
+  outline-offset: -0.5px;
+  width: 100%;
+}
+
+/* Logo – Figma: padding 36px 0, bg rgba(10,89,137,0.2), 184x87 */
 .sidebar-logo {
-  background: var(--panel);
-  padding: 37px 41px;
-  min-height: 166px;
+  background: rgba(10, 89, 137, 0.2);
+  padding: 36px 0;
   display: flex;
   align-items: center;
   justify-content: center;
 }
-.sidebar-logo img { width: 184px; height: auto; }
+.sidebar-logo img { width: 184px; height: 87px; }
+
+/* ---------- Sidebar Sections – Figma: padding 0 36px, gap 10px ---------- */
+.sidebar-section {
+  padding: 0 36px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.sidebar-section-server { margin-top: 38px; }
+.sidebar-section-control { margin-top: 38px; }
+.sidebar-section-race { margin-top: 38px; gap: 6px; flex: 1; }
+.sidebar-section-infos { margin-top: 38px; }
+
+/* Section Label – Figma: Inter Light 14px #727272 + Linie */
+.sidebar-section-label {
+  font-family: "Inter", sans-serif;
+  font-weight: 300;
+  font-size: 14px;
+  letter-spacing: -0.04em;
+  color: #727272;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 0;
+}
+.sidebar-section-label::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.3);
+}
 
 /* ---------- Sprachumschalter ---------- */
 .language-toggle {
@@ -86,88 +132,102 @@ button { cursor: pointer; }
 .language-toggle button.active { background: var(--btn-active); color: var(--text); }
 .language-toggle button:hover:not(.active) { color: var(--text); }
 
-.sidebar-body { padding: 34px 41px 0; flex: 1; }
-
-.sidebar-section { margin-bottom: 33px; }
-.sidebar-section-label {
-  font-family: "Inter", sans-serif;
-  font-weight: 300;
-  font-size: 14px;
-  letter-spacing: -0.04em;
-  color: var(--text-dim);
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 20px;
-}
-.sidebar-section-label::after { content: ""; flex: 1; height: 1px; background: var(--border-soft); }
-
+/* ---------- Nav Buttons – Figma: 193x56 (h-14), border-radius 5px, Michroma 14px ---------- */
 .nav-btn {
   display: block;
   width: 100%;
-  background: var(--btn-default);
+  height: 56px;
+  background: rgba(217, 217, 217, 0.3);
   border: none;
-  color: var(--text);
+  color: #ffffff;
   border-radius: 5px;
-  padding: 17px 14px;
+  padding: 0 14px;
   font-family: "Michroma", sans-serif;
   font-size: 14px;
   letter-spacing: 0.03em;
-  margin-bottom: 8px;
   text-align: center;
   transition: background 0.15s;
 }
-.nav-btn:hover { background: var(--btn-active); }
-.nav-btn.active { background: var(--btn-active); }
+.nav-btn:hover { background: #0a5989; }
+.nav-btn.active { background: #0a5989; }
 
-.nav-btn-connect { background: var(--red-soft); border: 1px solid var(--red-soft); }
-.nav-btn-connect:hover { background: var(--border); border-color: var(--green); }
+/* Connect Button – Figma: bg rgba(255,0,0,0.3), border rgba(255,0,0,0.3) */
+.nav-btn-connect { background: rgba(255, 0, 0, 0.3); border: 1px solid rgba(255, 0, 0, 0.3); }
+.nav-btn-connect:hover { background: #313131; border-color: rgba(53, 229, 0, 0.5); }
 .nav-btn-connect.is-connected { background: rgba(89, 255, 0, 0.3); border: 1px solid rgba(89, 255, 0, 0.3); }
-.nav-btn-connect.is-connected:hover { background: var(--red-soft); border-color: var(--red-soft); }
+.nav-btn-connect.is-connected:hover { background: rgba(255, 0, 0, 0.3); border-color: rgba(255, 0, 0, 0.3); }
 
+/* Outline Buttons – Figma: 193x25.04, border 1px #313131, border-radius 5px, Michroma 10px */
 .nav-btn-outline {
+  display: block;
+  width: 100%;
+  height: 25px;
   background: transparent;
-  border: 1px solid var(--border);
-  color: var(--text);
+  border: 1px solid #313131;
+  color: #ffffff;
+  border-radius: 5px;
+  padding: 0 10px;
+  font-family: "Michroma", sans-serif;
   font-size: 10px;
-  padding: 8px 10px;
+  letter-spacing: 0.03em;
+  text-align: center;
+  transition: border-color 0.15s;
 }
 .nav-btn-outline:disabled { opacity: 0.5; cursor: default; }
-.nav-btn-outline:hover:not(:disabled) { border-color: var(--btn-active); }
-.nav-btn-outline-block { display: block; width: 100%; margin-bottom: 8px; border-radius: 5px; }
-.nav-btn-outline-block.active { border-color: var(--btn-active); }
-.sidebar-body-bottom { padding-top: 0; }
+.nav-btn-outline:hover:not(:disabled) { border-color: #0a5989; }
+.nav-btn-outline.active { border-color: #0a5989; }
 
+/* Spacer – Figma: fill-Bereich */
+.sidebar-spacer { flex: 1; }
+
+/* Placeholder_SB – Figma: Container Fill, min-height 393px */
+.sidebar-placeholder {
+  flex: 1;
+  min-height: 393px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+  align-self: stretch;
+}
+.sidebar-placeholder-inner {
+  flex: 1;
+  align-self: stretch;
+}
+
+/* FCY-Button – Figma: 193x85, gelb, border-radius 5px, Michroma 40px */
 .fcy-btn {
   display: block;
-  width: calc(100% - 82px);
-  margin: 0 41px 20px;
-  background: var(--yellow);
+  width: 100%;
+  height: 85px;
+  background: #fff200;
   color: #000000;
   border: none;
   border-radius: 5px;
-  padding: 20px 14px;
+  padding: 0 14px;
   font-family: "Michroma", sans-serif;
   font-size: 40px;
   letter-spacing: -0.04em;
   text-align: center;
 }
-.fcy-btn.fcy-countdown { background: var(--red); color: #000; animation: pulse 1s infinite; font-size: 32px; }
-.fcy-btn.fcy-active { background: var(--red); color: #000; font-size: 16px; }
+.fcy-btn:hover { background: #ff0000; }
+.fcy-btn.fcy-countdown { background: #ff0000; color: #000; animation: pulse 1s infinite; font-size: 32px; }
+.fcy-btn.fcy-active { background: #ff0000; color: #000; font-size: 16px; }
 @keyframes pulse { 0%, 100% { filter: brightness(1); } 50% { filter: brightness(1.3); } }
 
+/* Footer – Figma: px-2.5 (10px) py-3.5 (14px), bg-sky-800/20, Inter Light 12px #727272 */
 .sidebar-footer {
-  background: var(--panel);
-  padding: 20px 0;
-  min-height: 99px;
+  background: rgba(10, 89, 137, 0.2);
+  padding: 14px 10px;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   font-family: "Inter", sans-serif;
   font-weight: 300;
   font-size: 12px;
   letter-spacing: -0.04em;
-  color: var(--text-dim);
+  color: #727272;
   text-align: center;
   line-height: 1.5;
 }
@@ -257,15 +317,25 @@ button { cursor: pointer; }
   width: 20px;
   height: 20px;
   object-fit: contain;
-  filter: brightness(0.8);
+  filter: brightness(1);
   transition: filter 0.15s;
 }
-.player-bar button:hover .player-icon,
-.player-bar button:focus-visible .player-icon {
-  filter: brightness(1.2);
+.player-bar button:hover,
+.player-bar button:focus-visible {
+  background: #0a5989;
+  border-color: #0a5989;
+}
+.player-bar button:active {
+  background: #0a5989;
+  border-color: #0a5989;
+  filter: brightness(1.15);
+}
+.player-bar button:disabled {
+  opacity: 1;
+  cursor: pointer;
 }
 .player-bar button:disabled .player-icon {
-  filter: brightness(0.4);
+  filter: brightness(1);
 }
 
 /* Zoom-Buttons: 16px Abstand zu den Kamera-Buttons */
@@ -498,7 +568,1094 @@ button { cursor: pointer; }
 .decision-badge.penalty { background: rgba(255, 0, 0, 0.75); }
 .decision-badge.nfa { background: var(--green); }
 
-/* ---------- Home ---------- */
+/* ---------- Fahrerfeld – Figma: Gesamtes Fenster ---------- */
+.view-fahrerfeld {
+  display: flex;
+  flex-direction: column;
+  gap: 44px;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* Zeile 1: 3-Spalten-Toolbar – Figma: inline-flex justify-start items-start gap-12 */
+.fahrerfeld-toolbar-row {
+  display: flex;
+  justify-content: flex-start;
+  align-items: flex-start;
+  gap: 48px;
+  flex-shrink: 0;
+}
+.fahrerfeld-col {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  align-items: flex-start;
+  gap: 36px;
+  flex: 1;
+}
+
+/* Titel – Figma: text-4xl (36px), leading-[54px], tracking-wide, linksbündig */
+.fahrerfeld-title {
+  font-family: "Michroma", sans-serif;
+  font-size: 36px;
+  font-weight: 400;
+  line-height: 54px;
+  letter-spacing: 0.03em;
+  color: #ffffff;
+  text-align: left;
+  width: 100%;
+}
+
+/* Label – Figma: Inter Light 14px #727272 + Linie rechts */
+.fahrerfeld-label {
+  font-family: "Inter", sans-serif;
+  font-weight: 300;
+  font-size: 14px;
+  letter-spacing: -0.04em;
+  color: #727272;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+  width: 100%;
+  margin-bottom: 16px;
+}
+.fahrerfeld-label::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.fahrerfeld-section {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+  width: 100%;
+}
+
+/* Image Control Block – Figma: h-20 flex-col (80px) */
+.fahrerfeld-image-control {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: 0;
+  width: 100%;
+  flex-shrink: 0;
+}
+
+/* Button-Reihen – Figma: bg-zinc-300/30 (rgba(217,217,217,0.3)), rounded-[5px] */
+.fahrerfeld-buttons-row {
+  display: flex;
+  gap: 0;
+}
+.fahrerfeld-ctrl-btn {
+  background: rgba(217, 217, 217, 0.3);
+  border: none;
+  color: #ffffff;
+  height: 36px;
+  padding: 0 14px;
+  font-family: "Michroma", sans-serif;
+  font-size: 14px;
+  line-height: 20px;
+  letter-spacing: 0.03em;
+  border-radius: 5px;
+  margin-right: 8px;
+  transition: background 0.15s;
+}
+.fahrerfeld-ctrl-btn:last-child { margin-right: 0; }
+.fahrerfeld-ctrl-btn:hover { background: #0a5989; }
+.fahrerfeld-ctrl-btn.active { background: #0a5989; }
+.fahrerfeld-ctrl-btn:disabled { opacity: 0.6; cursor: wait; }
+
+/* Cam-Buttons – Figma: w-16 h-9 (64x36), rounded-[5px], Michroma 12px */
+.fahrerfeld-cam-btn {
+  background: rgba(217, 217, 217, 0.3);
+  border: none;
+  color: #ffffff;
+  width: 64px;
+  height: 36px;
+  font-family: "Michroma", sans-serif;
+  font-size: 12px;
+  line-height: 16px;
+  letter-spacing: 0.03em;
+  border-radius: 5px;
+  margin-right: 8px;
+  transition: background 0.15s;
+}
+.fahrerfeld-cam-btn:last-child { margin-right: 0; }
+.fahrerfeld-cam-btn:hover { background: #0a5989; }
+.fahrerfeld-cam-btn.active { background: #0a5989; }
+.fahrerfeld-cam-btn.zoom-btn { width: auto; padding: 0 10px; }
+
+/* Session-Tabs – Figma: flex-1 gleiche Breiten, h-9 (36px) */
+.session-tabs-fahrerfeld { width: 100%; }
+.session-tabs-fahrerfeld .session-tab {
+  flex: 1;
+  height: 36px;
+  padding: 6px 10px;
+  border-radius: 0;
+}
+.session-tabs-fahrerfeld .session-tab:first-child { border-radius: 10px 0 0 10px; }
+.session-tabs-fahrerfeld .session-tab:last-child { border-radius: 0 10px 10px 0; }
+.session-tabs-fahrerfeld .session-tab.active { background: #0a5989; }
+
+/* Filter-Tabs – Figma: h-9 (36px), outline-farbig */
+.filter-tabs-fahrerfeld { width: 100%; }
+.filter-tabs-fahrerfeld .filter-tab {
+  flex: 1;
+  height: 36px;
+  padding: 6px 10px;
+  border-radius: 0;
+}
+.filter-tabs-fahrerfeld .filter-tab:first-child { border-radius: 10px 0 0 10px; }
+.filter-tabs-fahrerfeld .filter-tab:last-child { border-radius: 0 10px 10px 0; }
+
+/* Player-Bar – Figma: 6 Buttons à w-10 h-9 (40x36), rounded-[10px] */
+.player-bar-fahrerfeld { display: flex; gap: 8px; }
+.player-bar-fahrerfeld button {
+  width: 40px;
+  height: 36px;
+  background: transparent;
+  border: 1px solid rgba(114, 114, 114, 1);
+  border-radius: 10px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, border-color 0.15s;
+}
+.player-bar-fahrerfeld button:hover,
+.player-bar-fahrerfeld button:active {
+  background: #0a5989;
+  border-color: #0a5989;
+}
+
+/* Zeile 2: Tabelle + Vorfall-Spalte – Figma: gap-2 (8px), flex-1 */
+.fahrerfeld-table-row {
+  display: flex;
+  justify-content: flex-start;
+  align-items: flex-start;
+  gap: 8px;
+  flex: 1;
+  overflow: hidden;
+  min-height: 0;
+}
+.fahrerfeld-table-scroll {
+  flex: 1;
+  overflow-y: auto;
+  height: 100%;
+  padding-right: 16px;
+}
+
+/* Tabelle – Figma: Zellbreiten */
+.fahrerfeld-table {
+  border-collapse: separate;
+  border-spacing: 0 3px;
+  width: 100%;
+}
+.fahrerfeld-table th, .fahrerfeld-table td {
+  font-family: "Michroma", sans-serif;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+  text-align: center;
+  font-size: 10px;
+  line-height: 15px;
+}
+.fahrerfeld-table th {
+  border: 1px solid rgba(114, 114, 114, 1);
+  border-right: none;
+  padding: 8px 16px;
+  height: 37px;
+  min-height: 30px;
+  font-size: 12px;
+  line-height: 18px;
+}
+.fahrerfeld-table td {
+  border: 1px solid rgba(114, 114, 114, 1);
+  border-right: none;
+  padding: 8px 16px;
+  height: 30px;
+}
+.fahrerfeld-table th:first-child { border-radius: 10px 0 0 10px; }
+.fahrerfeld-table th:nth-child(8) {
+  border-right: 1px solid rgba(114, 114, 114, 1);
+  border-radius: 0 10px 10px 0;
+}
+.fahrerfeld-table th:nth-child(9) {
+  border: none;
+  padding: 0;
+  width: 16px;
+  min-width: 16px;
+}
+.fahrerfeld-table th:nth-child(10) {
+  border: 1px solid rgba(114, 114, 114, 1);
+  padding: 8px 16px;
+  width: 128px;
+  border-radius: 10px;
+}
+.fahrerfeld-table td:nth-child(8) {
+  border-right: 1px solid rgba(114, 114, 114, 1);
+  border-radius: 0 10px 10px 0;
+}
+.fahrerfeld-table td:nth-child(9) {
+  border: none;
+  padding: 0;
+  width: 16px;
+  min-width: 16px;
+}
+.fahrerfeld-table td:nth-child(10) {
+  border: none;
+  padding: 0;
+}
+
+/* Zellbreiten – Figma */
+.fahrerfeld-th-pos { width: 48px; }
+.fahrerfeld-th-class { width: 72px; }
+.fahrerfeld-th-num { width: 40px; }
+.fahrerfeld-th-driver { width: auto; }
+.fahrerfeld-th-team { width: auto; }
+.fahrerfeld-th-car { width: 120px; }
+.fahrerfeld-th-status { width: 52px; }
+.fahrerfeld-th-lap {
+  width: 110px;
+  text-align: right;
+}
+.fahrerfeld-th-incident {
+  width: 128px;
+  text-align: center;
+}
+.fahrerfeld-table td:first-child { text-align: center; border-radius: 10px 0 0 10px; }
+.fahrerfeld-table td:nth-child(2) { text-align: center; }
+.fahrerfeld-table td:nth-child(3) { text-align: center; }
+.fahrerfeld-table td:nth-child(8) { text-align: right; }
+
+/* Row-Fokus – Figma: bg-sky-800/40 */
+.fahrerfeld-table tbody tr.row-focused td {
+  background: rgba(10, 89, 137, 0.4);
+}
+
+/* Incident-Zelle in der Tabelle – kein eigener Rahmen, nur innere Buttons */
+.fahrerfeld-td-incident {
+  text-align: center;
+  padding: 0 !important;
+  border: none !important;
+}
+.fahrerfeld-incident-inner {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 3px;
+  height: 100%;
+  padding: 0 4px;
+}
+.fahrerfeld-flag-badge {
+  width: 31px;
+  height: 30px;
+  border-radius: 10px;
+  border: 1px solid rgba(49, 49, 49, 1);
+  background: rgba(255, 0, 0, 0);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.fahrerfeld-flag-badge svg { width: 15px; height: 15px; }
+.fahrerfeld-flag-badge.flag-red {
+  background: #ff0000;
+  border-color: rgba(49, 49, 49, 1);
+}
+.fahrerfeld-flag-badge.flag-yellow {
+  background: #fff200;
+  border-color: rgba(49, 49, 49, 1);
+}
+.fahrerfeld-flag-badge.flag-white {
+  background: #ffffff;
+  border-color: rgba(49, 49, 49, 1);
+}
+.fahrerfeld-flag-badge.flag-empty,
+.fahrerfeld-flag-badge.flag-none {
+  background: rgba(255, 0, 0, 0);
+}
+.fahrerfeld-investigate-btn {
+  flex: 1;
+  height: 30px;
+  border-radius: 10px;
+  border: 1px solid rgba(49, 49, 49, 1);
+  background: transparent;
+  color: #ffffff;
+  font-family: "Michroma", sans-serif;
+  font-size: 10px;
+  letter-spacing: 0.03em;
+  text-align: center;
+  padding: 0 8px;
+  cursor: pointer;
+  transition: background 0.15s;
+  white-space: nowrap;
+}
+.fahrerfeld-incident-inner:has(.fahrerfeld-flag-badge.flag-red) .fahrerfeld-investigate-btn,
+.fahrerfeld-incident-inner:has(.fahrerfeld-flag-badge.flag-yellow) .fahrerfeld-investigate-btn {
+  border-color: #ff0000;
+}
+.fahrerfeld-investigate-btn:hover { background: #ff0000; }
+.fahrerfeld-flag-badge-empty {
+  width: 31px;
+  height: 30px;
+  border-radius: 10px;
+  border: 1px solid rgba(49, 49, 49, 1);
+  background: rgba(255, 0, 0, 0);
+}
+.fahrerfeld-investigate-empty {
+  flex: 1;
+  height: 30px;
+  border-radius: 10px;
+  border: 1px solid rgba(49, 49, 49, 1);
+  background: transparent;
+}
+
+/* ---------- Vorfälle – Figma: Gesamtes Fenster ---------- */
+.view-vorfaelle {
+  display: flex;
+  flex-direction: column;
+  gap: 44px;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* Zeile 1: 3-Spalten-Toolbar – Figma: gap-12 (48px) */
+.vorfaelle-toolbar-row {
+  display: flex;
+  justify-content: flex-start;
+  align-items: flex-start;
+  gap: 48px;
+  flex-shrink: 0;
+}
+.vorfaelle-col-first {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  align-items: flex-start;
+  gap: 36px;
+  flex: 1;
+}
+.vorfaelle-col {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  align-items: flex-start;
+  gap: 36px;
+  flex: 1;
+}
+
+/* Titel – Figma: text-4xl (36px), leading-[54px], tracking-wide */
+.vorfaelle-title {
+  font-family: "Michroma", sans-serif;
+  font-size: 36px;
+  font-weight: 400;
+  line-height: 54px;
+  letter-spacing: 0.03em;
+  color: #ffffff;
+  text-align: left;
+  width: 100%;
+}
+
+/* Label – Figma: Inter Light 14px #727272 + Linie */
+.vorfaelle-label {
+  font-family: "Inter", sans-serif;
+  font-weight: 300;
+  font-size: 14px;
+  letter-spacing: -0.04em;
+  color: #727272;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  margin-bottom: 16px;
+}
+.vorfaelle-label::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.vorfaelle-section {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+  width: 100%;
+}
+
+/* Image Control Block – Figma: h-20 (80px) */
+.vorfaelle-image-control {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: 0;
+  width: 100%;
+  flex-shrink: 0;
+}
+
+/* Button-Reihen */
+.vorfaelle-buttons-row {
+  display: flex;
+  gap: 0;
+}
+.vorfaelle-ctrl-btn {
+  background: rgba(217, 217, 217, 0.3);
+  border: none;
+  color: #ffffff;
+  height: 36px;
+  padding: 0 14px;
+  font-family: "Michroma", sans-serif;
+  font-size: 14px;
+  line-height: 20px;
+  letter-spacing: 0.03em;
+  border-radius: 5px;
+  margin-right: 8px;
+  transition: background 0.15s;
+}
+.vorfaelle-ctrl-btn:last-child { margin-right: 0; }
+.vorfaelle-ctrl-btn:hover { background: #0a5989; }
+.vorfaelle-ctrl-btn.active { background: #0a5989; }
+.vorfaelle-ctrl-btn:disabled { opacity: 0.6; cursor: wait; }
+
+/* Cam-Buttons – Figma: w-16 h-9 (64x36), rounded-[5px], Michroma 12px */
+.vorfaelle-cam-btn {
+  background: rgba(217, 217, 217, 0.3);
+  border: none;
+  color: #ffffff;
+  width: 64px;
+  height: 36px;
+  font-family: "Michroma", sans-serif;
+  font-size: 12px;
+  line-height: 16px;
+  letter-spacing: 0.03em;
+  border-radius: 5px;
+  margin-right: 8px;
+  transition: background 0.15s;
+}
+.vorfaelle-cam-btn:last-child { margin-right: 0; }
+.vorfaelle-cam-btn:hover { background: #0a5989; }
+.vorfaelle-cam-btn.active { background: #0a5989; }
+.vorfaelle-cam-btn.zoom-btn { width: auto; padding: 0 10px; }
+
+/* Session-Tabs – Figma: wie Fahrerfeld h-9 (36px) */
+.session-tabs-vorfaelle { width: 100%; }
+.session-tabs-vorfaelle .session-tab {
+  flex: 1;
+  height: 36px;
+  padding: 6px 10px;
+  border-radius: 0;
+}
+.session-tabs-vorfaelle .session-tab:first-child { border-radius: 10px 0 0 10px; }
+.session-tabs-vorfaelle .session-tab:last-child { border-radius: 0 10px 10px 0; }
+.session-tabs-vorfaelle .session-tab.active { background: #0a5989; }
+
+/* Filter-Tabs – Figma: wie Fahrerfeld h-9 (36px) */
+.filter-tabs-vorfaelle { width: 100%; }
+.filter-tabs-vorfaelle .filter-tab {
+  flex: 1;
+  height: 36px;
+  padding: 6px 10px;
+  border-radius: 0;
+}
+.filter-tabs-vorfaelle .filter-tab:first-child { border-radius: 10px 0 0 10px; }
+.filter-tabs-vorfaelle .filter-tab:last-child { border-radius: 0 10px 10px 0; }
+
+/* Player-Bar – Figma: wie Fahrerfeld h-9 (36px) */
+.player-bar-vorfaelle { display: flex; gap: 8px; }
+.player-bar-vorfaelle button {
+  width: 40px;
+  height: 36px;
+  background: transparent;
+  border: 1px solid rgba(114, 114, 114, 1);
+  border-radius: 10px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, border-color 0.15s;
+}
+.player-bar-vorfaelle button:hover,
+.player-bar-vorfaelle button:active {
+  background: #0a5989;
+  border-color: #0a5989;
+}
+
+/* Zeile 2: Replay Control + Race Control – Figma: gap-12 (48px) */
+.vorfaelle-control-row {
+  display: flex;
+  justify-content: flex-start;
+  align-items: flex-start;
+  gap: 48px;
+  flex-shrink: 0;
+}
+.vorfaelle-replay-control {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.vorfaelle-replay-control .vorfaelle-label::after { width: 240px; }
+.vorfaelle-replay-inputs {
+  display: flex;
+  flex-direction: row;
+  gap: 48px;
+  width: 100%;
+}
+.vorfaelle-replay-pair {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+}
+.vorfaelle-replay-pair-label {
+  font-family: "Michroma", sans-serif;
+  font-size: 12px;
+  letter-spacing: 0.03em;
+  color: #ffffff;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.vorfaelle-replay-input {
+  flex: 1;
+  height: 44px;
+  padding: 4px 8px;
+  border-radius: 10px;
+  outline: 1px solid rgba(114, 114, 114, 1);
+  outline-offset: -1px;
+  display: flex;
+  flex-direction: row;
+  justify-content: flex-start;
+  align-items: center;
+  gap: 0;
+  position: relative;
+}
+.vorfaelle-replay-input-number {
+  flex: 2;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+}
+.vorfaelle-replay-input-number input {
+  width: 100%;
+  background: transparent;
+  border: none;
+  color: #ffffff;
+  font-family: "Michroma", sans-serif;
+  font-size: 14px;
+  line-height: 20px;
+  letter-spacing: 0.03em;
+  padding: 0;
+  outline: none;
+}
+.vorfaelle-replay-input-label {
+  flex: 1;
+  text-align: center;
+  font-family: "Inter", sans-serif;
+  font-weight: 300;
+  font-size: 14px;
+  color: #727272;
+  line-height: 20px;
+}
+.vorfaelle-replay-input-arrows {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+.vorfaelle-replay-input-arrows {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 6px;
+  padding-right: 4px;
+}
+.vorfaelle-replay-arrow-btn {
+  width: 12px;
+  height: 12px;
+  background: transparent;
+  border: none;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.vorfaelle-replay-arrow-btn:hover {
+  filter: brightness(1.5);
+}
+.vorfaelle-replay-arrow-icon {
+  width: 12px;
+  height: 12px;
+  object-fit: contain;
+}
+
+/* Race Control – Figma: flex-2, gleiche Struktur wie Zeile 1 */
+.vorfaelle-race-control {
+  flex: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.vorfaelle-race-buttons {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.vorfaelle-race-btn {
+  flex: 1;
+  height: 44px;
+  background: rgba(217, 217, 217, 0.3);
+  border: none;
+  color: #ffffff;
+  font-family: "Michroma", sans-serif;
+  font-size: 14px;
+  line-height: 20px;
+  letter-spacing: 0.03em;
+  text-align: center;
+  border-radius: 5px;
+  transition: background 0.15s;
+}
+.vorfaelle-race-btn:hover { background: #0a5989; }
+.vorfaelle-fcy-btn {
+  background: #fff200;
+  color: #000000;
+}
+.vorfaelle-fcy-btn:hover { background: #ff0000; color: #ffffff; }
+
+/* Zeile 3: Tabelle + Vorfall-Spalte – Figma: gap-2 (8px), flex-1 */
+.vorfaelle-table-row {
+  display: flex;
+  justify-content: flex-start;
+  align-items: flex-start;
+  gap: 24px;
+  flex: 1;
+  overflow: hidden;
+  min-height: 0;
+}
+.vorfaelle-table-scroll {
+  flex: 1;
+  overflow-y: auto;
+  height: 100%;
+  padding-right: 16px;
+}
+
+/* Tabelle – Figma: 9 Spalten – wie Fahrerfeld */
+.vorfaelle-table {
+  border-collapse: separate;
+  border-spacing: 0 3px;
+  width: 100%;
+}
+.vorfaelle-table th, .vorfaelle-table td {
+  border: 1px solid rgba(114, 114, 114, 1);
+  border-right: none;
+  font-family: "Michroma", sans-serif;
+  letter-spacing: 0.03em;
+  padding: 8px 16px;
+  white-space: nowrap;
+  text-align: center;
+  font-size: 10px;
+  line-height: 15px;
+}
+.vorfaelle-table th {
+  height: 37px;
+  min-height: 30px;
+  font-size: 12px;
+  line-height: 18px;
+}
+.vorfaelle-table td {
+  height: 30px;
+}
+.vorfaelle-table th:first-child { border-radius: 10px 0 0 10px; }
+.vorfaelle-table th:nth-child(9) {
+  border-right: 1px solid rgba(114, 114, 114, 1);
+  border-radius: 0 10px 10px 0;
+  text-align: right;
+}
+.vorfaelle-table th:nth-child(10) {
+  border: none;
+  padding: 0;
+  width: 16px;
+  min-width: 16px;
+}
+.vorfaelle-table th:nth-child(11) {
+  border: 1px solid rgba(114, 114, 114, 1);
+  padding: 8px 16px;
+  border-radius: 10px;
+}
+.vorfaelle-table td:nth-child(9) {
+  border-right: 1px solid rgba(114, 114, 114, 1);
+  border-radius: 0 10px 10px 0;
+  text-align: right;
+}
+.vorfaelle-table td:nth-child(10) {
+  border: none;
+  padding: 0;
+  width: 16px;
+  min-width: 16px;
+}
+.vorfaelle-table td:nth-child(11) {
+  border: none;
+  padding: 0;
+}
+.vorfaelle-table td:first-child { border-radius: 10px 0 0 10px; }
+
+/* Zellbreiten – Figma */
+.vorfaelle-th-incident { width: 80px; }
+.vorfaelle-th-class { width: 80px; }
+.vorfaelle-th-num { width: 64px; }
+.vorfaelle-th-driver { width: auto; flex: 1; }
+.vorfaelle-th-lap { width: 80px; }
+.vorfaelle-th-timestamp {
+  width: 128px;
+  text-align: right;
+}
+.vorfaelle-th-incident-col {
+  border: 1px solid rgba(114, 114, 114, 1);
+  padding: 8px 16px;
+  width: 128px;
+  border-radius: 10px;
+}
+.vorfaelle-td-incident-col {
+  text-align: center;
+  padding: 0 !important;
+  border: none !important;
+}
+.vorfaelle-incident-inner {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 3px;
+  height: 100%;
+  padding: 0 4px;
+}
+.vorfaelle-flag-badge {
+  width: 31px;
+  height: 30px;
+  border-radius: 10px;
+  border: 1px solid rgba(49, 49, 49, 1);
+  background: rgba(255, 0, 0, 0);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.vorfaelle-flag-badge svg { width: 15px; height: 15px; }
+.vorfaelle-flag-badge.flag-red {
+  background: #ff0000;
+  border-color: rgba(49, 49, 49, 1);
+}
+.vorfaelle-flag-badge.flag-yellow {
+  background: #fff200;
+  border-color: rgba(49, 49, 49, 1);
+}
+.vorfaelle-flag-badge.flag-white {
+  background: #ffffff;
+  border-color: rgba(49, 49, 49, 1);
+}
+.vorfaelle-investigate-btn {
+  flex: 1;
+  height: 30px;
+  border-radius: 10px;
+  border: 1px solid rgba(49, 49, 49, 1);
+  background: transparent;
+  color: #ffffff;
+  font-family: "Michroma", sans-serif;
+  font-size: 10px;
+  letter-spacing: 0.03em;
+  text-align: center;
+  padding: 0 8px;
+  cursor: pointer;
+  transition: background 0.15s;
+  white-space: nowrap;
+}
+.vorfaelle-incident-inner:has(.vorfaelle-flag-badge.flag-red) .vorfaelle-investigate-btn,
+.vorfaelle-incident-inner:has(.vorfaelle-flag-badge.flag-yellow) .vorfaelle-investigate-btn {
+  border-color: #ff0000;
+}
+.vorfaelle-investigate-btn:hover { background: #ff0000; }
+
+/* ---------- Archiv – Figma: Gesamtes Fenster ---------- */
+.view-archiv {
+  display: flex;
+  flex-direction: column;
+  gap: 44px;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* Zeile 1: 3-Spalten-Toolbar – Figma: gap-12 (48px) */
+.archiv-toolbar-row {
+  display: flex;
+  justify-content: flex-start;
+  align-items: flex-start;
+  gap: 48px;
+  flex-shrink: 0;
+}
+.archiv-col-first {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  align-items: flex-start;
+  gap: 36px;
+  flex: 1;
+}
+.archiv-col {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  align-items: flex-start;
+  gap: 36px;
+  flex: 1;
+}
+
+/* Titel – Figma: text-4xl (36px), leading-[54px], tracking-wide */
+.archiv-title {
+  font-family: "Michroma", sans-serif;
+  font-size: 36px;
+  font-weight: 400;
+  line-height: 54px;
+  letter-spacing: 0.03em;
+  color: #ffffff;
+  text-align: left;
+  width: 100%;
+}
+
+/* Label – Figma: Inter Light 14px #727272 + Linie */
+.archiv-label {
+  font-family: "Inter", sans-serif;
+  font-weight: 300;
+  font-size: 14px;
+  letter-spacing: -0.04em;
+  color: #727272;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  margin-bottom: 16px;
+}
+.archiv-label::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* Image Control Block – Figma: h-20 (80px) */
+.archiv-image-control {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: 0;
+  width: 100%;
+  flex-shrink: 0;
+}
+
+/* Button-Reihen */
+.archiv-buttons-row {
+  display: flex;
+  gap: 0;
+}
+.archiv-ctrl-btn {
+  background: rgba(217, 217, 217, 0.3);
+  border: none;
+  color: #ffffff;
+  height: 36px;
+  padding: 0 14px;
+  font-family: "Michroma", sans-serif;
+  font-size: 14px;
+  line-height: 20px;
+  letter-spacing: 0.03em;
+  border-radius: 5px;
+  margin-right: 8px;
+  transition: background 0.15s;
+}
+.archiv-ctrl-btn:last-child { margin-right: 0; }
+.archiv-ctrl-btn:hover { background: #0a5989; }
+.archiv-ctrl-btn.active { background: #0a5989; }
+.archiv-ctrl-btn:disabled { opacity: 0.6; cursor: wait; }
+
+/* Cam-Buttons – Figma: w-16 h-9 (64x36), rounded-[5px], Michroma 12px */
+.archiv-cam-btn {
+  background: rgba(217, 217, 217, 0.3);
+  border: none;
+  color: #ffffff;
+  width: 64px;
+  height: 36px;
+  font-family: "Michroma", sans-serif;
+  font-size: 12px;
+  line-height: 16px;
+  letter-spacing: 0.03em;
+  border-radius: 5px;
+  margin-right: 8px;
+  transition: background 0.15s;
+}
+.archiv-cam-btn:last-child { margin-right: 0; }
+.archiv-cam-btn:hover { background: #0a5989; }
+.archiv-cam-btn.active { background: #0a5989; }
+.archiv-cam-btn.zoom-btn { width: auto; padding: 0 10px; }
+
+/* Zeile 2: Tabelle + Entscheidung-Spalte – Figma: gap-2 (8px), flex-1 */
+.archiv-table-row {
+  display: flex;
+  justify-content: flex-start;
+  align-items: flex-start;
+  gap: 24px;
+  flex: 1;
+  overflow: hidden;
+  min-height: 0;
+}
+.archiv-table-scroll {
+  flex: 1;
+  overflow-y: auto;
+  height: 100%;
+  padding-right: 16px;
+}
+
+/* Tabelle – Figma: 9 Spalten – wie Fahrerfeld */
+.archiv-table {
+  border-collapse: separate;
+  border-spacing: 0 3px;
+  width: 100%;
+}
+.archiv-table th, .archiv-table td {
+  border: 1px solid rgba(114, 114, 114, 1);
+  border-right: none;
+  font-family: "Michroma", sans-serif;
+  letter-spacing: 0.03em;
+  padding: 8px 16px;
+  white-space: nowrap;
+  text-align: center;
+  font-size: 10px;
+  line-height: 15px;
+}
+.archiv-table th {
+  height: 37px;
+  min-height: 30px;
+  font-size: 12px;
+  line-height: 18px;
+}
+.archiv-table td {
+  height: 30px;
+}
+.archiv-table th:first-child { border-radius: 10px 0 0 10px; }
+.archiv-table th:nth-child(9) {
+  border-right: 1px solid rgba(114, 114, 114, 1);
+  border-radius: 0 10px 10px 0;
+  text-align: right;
+}
+.archiv-table th:nth-child(10) {
+  border: none;
+  padding: 0;
+  width: 16px;
+  min-width: 16px;
+}
+.archiv-table th:nth-child(11) {
+  border: 1px solid rgba(114, 114, 114, 1);
+  padding: 8px 16px;
+  border-radius: 10px;
+}
+.archiv-table td:nth-child(9) {
+  border-right: 1px solid rgba(114, 114, 114, 1);
+  border-radius: 0 10px 10px 0;
+  text-align: right;
+}
+.archiv-table td:nth-child(10) {
+  border: none;
+  padding: 0;
+  width: 16px;
+  min-width: 16px;
+}
+.archiv-table td:nth-child(11) {
+  border: none;
+  padding: 0;
+}
+.archiv-table td:first-child { border-radius: 10px 0 0 10px; }
+
+/* Zellbreiten – Figma */
+.archiv-th-incident { width: 80px; }
+.archiv-th-class { width: 80px; }
+.archiv-th-num { width: 64px; }
+.archiv-th-driver { width: auto; flex: 1; }
+.archiv-th-lap { width: 80px; }
+.archiv-th-timestamp {
+  width: 128px;
+  text-align: right;
+}
+.archiv-td-incident { text-align: center; }
+.archiv-th-decision-col {
+  border: 1px solid rgba(114, 114, 114, 1);
+  padding: 8px 16px;
+  width: 128px;
+  border-radius: 10px;
+}
+.archiv-td-decision-col {
+  text-align: center;
+  padding: 0 !important;
+  border: none !important;
+}
+.archiv-decision-inner {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 3px;
+  height: 100%;
+  padding: 0 4px;
+}
+/* Replay-Button – Figma: size-8 (32x32), bg-sky-800, rounded-[10px] */
+.archiv-decision-view-btn {
+  width: 32px;
+  height: 30px;
+  background: #0a5989;
+  border: 1px solid rgba(49, 49, 49, 1);
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+.archiv-decision-view-btn svg { width: 14px; height: 14px; }
+/* Badge – Figma: w-24 (96px), h-8 (32px), rounded-[10px] */
+.archiv-decision-badge {
+  flex: 1;
+  height: 30px;
+  border-radius: 10px;
+  border: 1px solid rgba(49, 49, 49, 1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: "Michroma", sans-serif;
+  font-size: 12px;
+  letter-spacing: 0.03em;
+  color: #ffffff;
+  text-align: center;
+}
+.archiv-decision-badge.penalty { background: rgba(255, 0, 0, 0.75); }
+.archiv-decision-badge.nfa { background: rgba(53, 229, 0, 0.5); }
+
+/* Row-Fokus */
+.archiv-table tbody tr.row-focused td {
+  background: rgba(10, 89, 137, 0.4);
+}
+
+/* ---------- Home – Figma: Race Control - Disconnected ---------- */
 .home-view {
   display: flex;
   flex-direction: column;
@@ -507,17 +1664,77 @@ button { cursor: pointer; }
   height: 100%;
   text-align: center;
 }
-.home-logo { width: 508px; margin-bottom: 32px; }
-.home-welcome-text {
-  font-family: "Michroma", sans-serif;
-  font-size: 15px;
-  line-height: 1.8;
-  letter-spacing: 0.03em;
-  color: var(--text);
-  max-width: 728px;
+.home-logo { width: 508px; height: 241px; margin-bottom: 32px; }
+.home-welcome {
+  width: 728px;
   margin: 0;
 }
+.home-welcome-title {
+  font-family: "Michroma", sans-serif;
+  font-size: 24px;
+  font-weight: 400;
+  line-height: 40px;
+  letter-spacing: 0.03em;
+  color: #ffffff;
+}
+.home-welcome-instructions {
+  font-family: "Michroma", sans-serif;
+  font-size: 15px;
+  font-weight: 400;
+  line-height: 24px;
+  letter-spacing: 0.03em;
+  color: #ffffff;
+}
 .home-connected-hint { color: var(--green-solid); font-family: "Michroma", sans-serif; font-size: 14px; margin-top: 24px; }
+
+/* Home – Lizenz-Eingabe (Figma) */
+.home-license-label {
+  font-family: "Michroma", sans-serif;
+  font-size: 15px;
+  font-weight: 400;
+  line-height: 24px;
+  letter-spacing: 0.03em;
+  color: #ffffff;
+  text-align: center;
+  margin-top: 20px;
+  margin-bottom: 8px;
+  width: 728px;
+}
+.home-license-input-wrapper {
+  width: 498px;
+  height: 40px;
+  margin: 0 auto;
+}
+.home-license-input {
+  width: 100%;
+  height: 100%;
+  background: transparent;
+  border: 1px solid rgba(114, 114, 114, 1);
+  border-radius: 10px;
+  color: #ffffff;
+  font-family: "Michroma", sans-serif;
+  font-size: 14px;
+  text-align: center;
+  padding: 0 14px;
+  outline: none;
+}
+.home-license-input::placeholder {
+  color: rgba(255, 255, 255, 0.2);
+}
+.home-license-input:focus {
+  border-color: #0a5989;
+}
+.home-license-hint {
+  font-family: "Michroma", sans-serif;
+  font-size: 15px;
+  font-weight: 400;
+  line-height: 24px;
+  letter-spacing: 0.03em;
+  color: rgba(255, 255, 255, 0.2);
+  text-align: center;
+  width: 728px;
+  margin-top: 4px;
+}
 
 /* ---------- Lizenz-Gate ---------- */
 .license-title {
@@ -568,7 +1785,7 @@ button { cursor: pointer; }
   top: 0;
   right: 0;
   bottom: 0;
-  left: 265px;
+  left: 256px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -633,7 +1850,8 @@ button { cursor: pointer; }
 .modal-close:hover { background: var(--red); border-color: var(--red); }
 .modal-divider { height: 1px; background: rgba(114,114,114,0.5); margin: 16px 0 24px; }
 
-.confirm-modal { width: 480px; }
+.confirm-modal { width: 600px; }
+.confirm-modal .modal-header h1 { white-space: nowrap; }
 .confirm-message {
   font-family: "Inter", sans-serif;
   font-size: 15px;
@@ -664,9 +1882,33 @@ button { cursor: pointer; }
   appearance: none;
 }
 .field select {
-  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6'><polygon points='0,0 10,0 5,6' fill='%23D9D9D9'/></svg>");
+  background-image: none;
   background-repeat: no-repeat;
   background-position: right 14px center;
+  overflow-y: auto;
+}
+/* Dropdown-Wrapper: eigenes Pfeil-Icon unten */
+.field .select-wrapper {
+  position: relative;
+  width: 100%;
+}
+.field .select-wrapper::after {
+  content: "";
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 12px;
+  height: 12px;
+  background-image: url("/icons/Pfeil unten.png");
+  background-size: contain;
+  background-repeat: no-repeat;
+  pointer-events: none;
+}
+.field .select-wrapper select {
+  width: 100%;
+  padding-right: 36px;
+  overflow-y: auto;
 }
 .field textarea { resize: vertical; }
 .field-inline { display: flex; gap: 12px; }
@@ -689,6 +1931,18 @@ button { cursor: pointer; }
 .btn-solid { background: var(--btn-active); color: var(--text); border-color: var(--btn-active); }
 .btn-solid:hover:not(:disabled) { filter: brightness(1.15); }
 .btn-solid:disabled { background: var(--border); border-color: var(--border); opacity: 1; cursor: not-allowed; }
+.btn-danger {
+  flex: 1;
+  padding: 13px;
+  border-radius: 10px;
+  font-family: "Michroma", sans-serif;
+  font-size: 12px;
+  letter-spacing: 0.03em;
+  border: 1px solid #ff0000;
+  background: #ff0000;
+  color: #ffffff;
+}
+.btn-danger:hover { filter: brightness(1.15); }
 
 /* ---------- Hilfe-Modal ---------- */
 .help-modal { width: 700px; }
@@ -710,112 +1964,226 @@ button { cursor: pointer; }
 .help-content ul { margin: 0 0 10px; padding-left: 20px; color: var(--text-dim); }
 .help-content li { margin-bottom: 4px; }
 
-/* ---------- Einstellungen ---------- */
-.view-einstellungen { max-width: 1100px; }
-.settings-hint {
-  font-family: "Michroma", sans-serif;
-  font-size: 11px;
-  letter-spacing: 0.03em;
-  color: rgba(255, 255, 255, 0.65);
-  margin-bottom: 40px;
-  line-height: 1.5;
-}
-.settings-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0 48px;
-  margin-bottom: 32px;
-}
-.settings-col { display: flex; flex-direction: column; gap: 0; }
-.settings-block {
+/* ---------- Einstellungen – Figma: Gesamtes Fenster ---------- */
+.view-einstellungen {
   display: flex;
   flex-direction: column;
-  margin-bottom: 24px;
+  gap: 16px;
+  height: 100%;
+  overflow-y: auto;
 }
-.settings-block label {
-  display: block;
+
+/* Titel – Figma: text-4xl (36px), leading-[54px], tracking-wide, center */
+.einstellungen-title {
+  font-family: "Michroma", sans-serif;
+  font-size: 36px;
+  font-weight: 400;
+  line-height: 54px;
+  letter-spacing: 0.03em;
+  color: #ffffff;
+  text-align: center;
+  width: 100%;
+}
+
+/* Hinweis – Figma: white/60, text-xs, Michroma, leading-4, tracking-tight */
+.einstellungen-hint {
+  font-family: "Michroma", sans-serif;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 20px;
+  letter-spacing: 0.02em;
+  color: rgba(255, 255, 255, 0.6);
+  text-align: left;
+  width: 100%;
+}
+
+/* 2-Spalten-Grid – Figma: gap-12 (48px), flex-1 */
+.einstellungen-grid {
+  display: flex;
+  justify-content: flex-start;
+  align-items: flex-start;
+  gap: 48px;
+  flex: 1;
+  width: 100%;
+}
+.einstellungen-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 24px;
+}
+
+/* Field – Figma: self-stretch, flex-col, gap-2.5 (10px) */
+.einstellungen-field {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  align-items: flex-start;
+  gap: 10px;
+  width: 100%;
+}
+
+/* Field Label – Figma: white, text-sm (14px), Michroma, leading-5, tracking-wide */
+.einstellungen-field-label {
   font-family: "Michroma", sans-serif;
   font-size: 14px;
+  font-weight: 400;
+  line-height: 20px;
   letter-spacing: 0.03em;
-  color: var(--text);
-  margin-bottom: 6px;
-}
-.settings-block-hint {
-  font-family: "Michroma", sans-serif;
-  font-size: 10px;
-  letter-spacing: 0.03em;
-  color: rgba(255, 255, 255, 0.65);
-  margin: 0 0 8px;
-  line-height: 1.5;
-}
-.settings-input {
+  color: #ffffff;
+  text-align: left;
   width: 100%;
+}
+
+/* Field Hint – Figma: white/60, text-[10px], Michroma, leading-4, tracking-tight */
+.einstellungen-field-hint {
+  font-family: "Michroma", sans-serif;
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 18px;
+  letter-spacing: 0.02em;
+  color: rgba(255, 255, 255, 0.6);
+  text-align: left;
+  width: 100%;
+}
+
+/* Input Wrapper – Figma: h-10 (40px), rounded-[10px], border-neutral-500 */
+.einstellungen-input-wrapper {
+  width: 100%;
+  height: 40px;
+  position: relative;
+}
+.einstellungen-input {
+  width: 100%;
+  height: 40px;
   background: transparent;
   border: 1px solid rgba(114, 114, 114, 1);
-  color: var(--text);
-  padding: 12px 14px;
   border-radius: 10px;
+  color: rgba(255, 255, 255, 0.3);
   font-family: "Michroma", sans-serif;
   font-size: 12px;
-  letter-spacing: 0.03em;
+  line-height: 16px;
+  letter-spacing: 0.02em;
+  padding: 0 21px;
   outline: none;
-  transition: border-color 0.15s;
 }
-.settings-input:focus { border-color: var(--btn-active); }
-.settings-input-number {
-  width: calc(100% - 36px);
-  border-radius: 10px 0 0 10px;
-  border-right: none;
-}
-.settings-input-row {
+.einstellungen-input:focus { border-color: #0a5989; color: #ffffff; }
+
+/* Simple Input – Figma: h-10 (40px), pl-5 pr-4 py-2, rounded-[10px], outline-neutral-500 */
+.einstellungen-input-simple {
+  width: 100%;
+  height: 40px;
+  padding: 8px 16px 8px 20px;
+  border-radius: 10px;
+  outline: 1px solid rgba(114, 114, 114, 1);
+  outline-offset: -1px;
   display: flex;
-  align-items: stretch;
+  justify-content: space-between;
+  align-items: center;
 }
-.settings-stepper {
-  display: flex;
-  flex-direction: column;
-  border: 1px solid rgba(114, 114, 114, 1);
-  border-left: none;
-  border-radius: 0 10px 10px 0;
-  overflow: hidden;
-  width: 36px;
-}
-.settings-stepper button {
-  flex: 1;
+.einstellungen-input-simple-field {
+  width: 100%;
   background: transparent;
   border: none;
-  color: rgba(255, 255, 255, 0.85);
+  color: #ffffff;
   font-family: "Michroma", sans-serif;
-  font-size: 8px;
-  cursor: pointer;
-  padding: 0 8px;
+  font-size: 12px;
+  line-height: 16px;
+  letter-spacing: 0.02em;
+  outline: none;
+  padding: 0;
+}
+
+/* Generische Input-Pfeile – wiederverwendbar in Einstellungen und Investigation Modal */
+.input-arrow-btn {
+  width: 12px;
+  height: 12px;
+  background: transparent;
+  border: none;
+  padding: 0;
   display: flex;
   align-items: center;
   justify-content: center;
+  cursor: pointer;
 }
-.settings-stepper button:hover { background: rgba(255, 255, 255, 0.1); }
-.settings-stepper button:first-child { border-bottom: 1px solid rgba(114, 114, 114, 0.4); }
-.settings-textarea {
+.input-arrow-btn:hover {
+  filter: brightness(1.5);
+}
+.input-arrow-icon {
+  width: 12px;
+  height: 12px;
+  object-fit: contain;
+}
+.input-arrows {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 6px;
+  flex-shrink: 0;
+  margin-left: 4px;
+}
+
+/* Modal – Input mit Pfeilen (wie field-input-with-arrows, aber an Modal-Style angepasst) */
+.modal-input-with-arrows {
+  display: flex;
+  align-items: center;
+  gap: 0;
   width: 100%;
-  background: transparent;
-  border: 1px solid rgba(114, 114, 114, 1);
-  color: var(--text);
-  padding: 14px;
+  background: var(--bg);
+  border: 1px solid var(--text-dim);
   border-radius: 10px;
+  padding: 0 14px;
+}
+.modal-input-with-arrows input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: var(--text);
   font-family: "Michroma", sans-serif;
   font-size: 10px;
   letter-spacing: 0.03em;
-  line-height: 1.5;
-  resize: vertical;
-  min-height: 160px;
+  padding: 12px 0;
   outline: none;
 }
-.settings-textarea:focus { border-color: var(--btn-active); }
-.settings-save-btn {
+
+/* Textarea Wrapper – Figma: h-52 (208px), pl-5 pr-4 py-4, rounded-[10px], outline-neutral-500 */
+.einstellungen-textarea-wrapper {
+  width: 100%;
+  height: 208px;
+  padding: 16px 16px 16px 20px;
+  border-radius: 10px;
+  outline: 1px solid rgba(114, 114, 114, 1);
+  outline-offset: -1px;
+  display: flex;
+  justify-content: flex-start;
+  align-items: flex-start;
+  gap: 40px;
+}
+.einstellungen-textarea {
+  width: 100%;
+  height: 100%;
+  background: transparent;
+  border: none;
+  color: #ffffff;
+  font-family: "Michroma", sans-serif;
+  font-size: 11px;
+  line-height: 1.8;
+  letter-spacing: 0.02em;
+  outline: none;
+  resize: none;
+  padding: 0;
+  overflow-y: auto;
+}
+
+/* Save Button – Figma: bg-sky-800, rounded-[10px], Michroma 12px */
+.einstellungen-save-btn {
   display: inline-block;
-  background: var(--btn-active);
-  color: var(--text);
-  border: 1px solid var(--btn-active);
+  background: #0a5989;
+  color: #ffffff;
+  border: 1px solid #0a5989;
   border-radius: 10px;
   padding: 13px 40px;
   font-family: "Michroma", sans-serif;
@@ -823,105 +2191,267 @@ button { cursor: pointer; }
   letter-spacing: 0.03em;
   cursor: pointer;
   transition: filter 0.15s;
+  align-self: flex-start;
 }
-.settings-save-btn:hover { filter: brightness(1.15); }
-.settings-save-btn:disabled { background: var(--border); border-color: var(--border); cursor: not-allowed; filter: none; }
+.einstellungen-save-btn:hover { filter: brightness(1.15); }
+.einstellungen-save-btn:disabled { background: #313131; border-color: #313131; cursor: not-allowed; filter: none; }
 
-/* Danger Zone */
-.settings-danger {
-  border: 1px solid rgba(255, 0, 0, 0.2);
+/* Danger Zone – Figma: h-44 (176px), py-6, bg-red-600/20, rounded-[10px], outline-red-600 */
+.einstellungen-danger {
+  width: 100%;
+  height: 176px;
+  padding: 24px 0;
+  background: rgba(255, 0, 0, 0.2);
   border-radius: 10px;
-  padding: 24px;
-  background: rgba(255, 0, 0, 0.08);
-  margin-top: 48px;
+  outline: 1px solid #ff0000;
+  outline-offset: -1px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 16px;
   text-align: center;
 }
-.settings-danger h3 {
+.einstellungen-danger-title {
   font-family: "Michroma", sans-serif;
   font-size: 14px;
+  font-weight: 400;
+  line-height: 20px;
   letter-spacing: 0.03em;
-  color: var(--text);
-  margin: 0 0 12px;
+  color: #ffffff;
+  text-align: center;
+  width: 100%;
 }
-.settings-danger-hint {
+.einstellungen-danger-hint {
   font-family: "Michroma", sans-serif;
   font-size: 10px;
-  letter-spacing: 0.03em;
-  color: rgba(255, 255, 255, 0.65);
-  margin: 0 0 20px;
-  line-height: 1.5;
-  max-width: 800px;
-  margin-left: auto;
-  margin-right: auto;
+  font-weight: 400;
+  line-height: 16px;
+  letter-spacing: 0.02em;
+  color: rgba(255, 255, 255, 0.6);
+  text-align: center;
+  max-width: 810px;
+  width: 100%;
 }
-.settings-danger-btn {
-  background: var(--red);
-  color: #fff;
-  border: 1px solid var(--red);
+.einstellungen-danger-btn {
+  width: 810px;
+  height: 48px;
+  background: #ff0000;
+  border: 1px solid #ff0000;
   border-radius: 10px;
-  padding: 14px 32px;
-  font-family: "Michroma", sans-serif;
-  font-size: 14px;
-  letter-spacing: 0.03em;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
   cursor: pointer;
   transition: opacity 0.15s;
-  line-height: 1.5;
-  white-space: pre-line;
+  padding: 0;
 }
-.settings-danger-btn:hover { opacity: 0.85; }
-.settings-danger-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.einstellungen-danger-btn:hover { opacity: 0.85; }
+.einstellungen-danger-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.einstellungen-danger-btn-primary {
+  font-family: "Michroma", sans-serif;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 20px;
+  letter-spacing: 0.03em;
+  color: #ffffff;
+}
+.einstellungen-danger-btn-sub {
+  font-family: "Michroma", sans-serif;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 16px;
+  letter-spacing: 0.02em;
+  color: #ffffff;
+  margin-top: 2px;
+}
 
-/* ---------- Splashscreen ---------- */
+/* LMU-Tastenbelegung – neue Sektion in den Einstellungen */
+.einstellungen-lmu-keys {
+  width: 100%;
+  padding: 24px;
+  background: rgba(10, 89, 137, 0.08);
+  border-radius: 10px;
+  outline: 1px solid rgba(114, 114, 114, 0.4);
+  outline-offset: -1px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.einstellungen-lmu-path-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+}
+.einstellungen-lmu-path-input-wrapper {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.einstellungen-field-label-small {
+  font-family: "Michroma", sans-serif;
+  font-size: 11px;
+  color: #ffffff;
+  letter-spacing: 0.03em;
+}
+.einstellungen-field-hint-small {
+  font-family: "Michroma", sans-serif;
+  font-size: 9px;
+  color: rgba(255, 255, 255, 0.6);
+  letter-spacing: 0.02em;
+}
+.einstellungen-lmu-reload-btn {
+  background: #0a5989;
+  color: #ffffff;
+  border: 1px solid #0a5989;
+  border-radius: 10px;
+  padding: 12px 20px;
+  font-family: "Michroma", sans-serif;
+  font-size: 11px;
+  letter-spacing: 0.03em;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: filter 0.15s;
+}
+.einstellungen-lmu-reload-btn:hover { filter: brightness(1.15); }
+.einstellungen-lmu-keys-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 8px;
+}
+.einstellungen-lmu-key-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 8px;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 8px;
+  outline: 1px solid rgba(114, 114, 114, 0.3);
+  outline-offset: -1px;
+}
+.einstellungen-lmu-key-label {
+  font-family: "Michroma", sans-serif;
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.7);
+  letter-spacing: 0.03em;
+}
+.einstellungen-lmu-key-value {
+  font-family: "Michroma", sans-serif;
+  font-size: 12px;
+  color: #ffffff;
+  letter-spacing: 0.03em;
+  background: #0a5989;
+  padding: 4px 10px;
+  border-radius: 6px;
+}
+.einstellungen-lmu-keys-empty {
+  font-family: "Michroma", sans-serif;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+/* ---------- Splashscreen – Figma: 850x600, bg-neutral-900, rounded-[10px], outline, flex-col, items-center, gap-10, py-6 ---------- */
 body:has(.splash) { background: transparent; }
+body:has(.splash), html:has(body > .splash) { background: transparent !important; margin: 0; padding: 0; }
 .splash {
   display: flex;
   flex-direction: column;
   align-items: center;
-  width: 100vw;
-  height: 100vh;
-  background: var(--bg);
-  border: 1px solid var(--border);
-  overflow: hidden;
-  padding-top: 80px;
-}
-.splash-logo { width: 450px; margin-bottom: 10px; margin-top: 20px; }
-.splash-version {
-  font-family: "Michroma", sans-serif;
-  font-size: 14px;
-  letter-spacing: 0.03em;
-  color: var(--text);
-  margin-bottom: 30px;
-}
-.splash-bar {
+  justify-content: center;
   width: 100%;
-  border: none;
+  height: 100%;
+  margin: 0;
   padding: 0;
-  font-family: "Michroma", sans-serif;
-  font-size: 14px;
-  letter-spacing: 0.03em;
-  color: var(--text);
-  text-align: center;
-  cursor: default;
+  background: transparent;
+}
+.splash-frame {
+  width: 850px;
+  height: 600px;
+  padding: 24px 0;
+  background: #141414;
+  border-radius: 10px;
+  outline: 1px solid rgba(255, 255, 255, 0.1);
+  outline-offset: -1px;
+  display: inline-flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 40px;
+  overflow: hidden;
+  flex-shrink: 0;
+  margin: 0 auto;
+}
+/* Logo – Figma: w-96 h-52 (384x208), object-fit: contain damit Logo nicht abgeschnitten */
+.splash-logo {
+  width: 384px;
+  height: 208px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+/* Version – Figma: 728x48, text-sm (14px), leading-6 (24px), tracking-wide, text-center */
+.splash-version {
+  width: 728px;
+  height: 48px;
   display: flex;
   align-items: center;
   justify-content: center;
+  font-family: "Michroma", sans-serif;
+  font-weight: 400;
+  font-size: 14px;
+  letter-spacing: 0.03em;
+  color: #ffffff;
+  line-height: 24px;
+  text-align: center;
+  flex-shrink: 0;
 }
-.splash-bar-link {
-  background: rgba(10, 89, 137, 0.5);
-  height: 49px;
-  margin-top: auto;
-  cursor: pointer;
-}
-.splash-bar-link:hover { filter: brightness(1.15); }
-.splash-bar-update {
-  background: rgba(53, 229, 0, 0.35);
-  height: 72px;
-  cursor: pointer;
-  line-height: 1.6;
+/* Notices Section – Figma: self-stretch, flex-col, items-center, gap-3 (12px) */
+.splash-notices {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 12px;
+  align-self: stretch;
+  width: 100%;
+  flex-shrink: 0;
+}
+.splash-bar {
+  border: none;
+  padding: 0;
+  font-family: "Michroma", sans-serif;
+  font-weight: 400;
+  font-size: 14px;
+  letter-spacing: 0.03em;
+  color: #ffffff;
+  text-align: center;
+  line-height: 24px;
+  cursor: pointer;
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+  align-self: stretch;
+  flex-shrink: 0;
+}
+.splash-bar > span {
+  width: 850px;
+  text-align: center;
+}
+/* Link – Figma: self-stretch h-12 pt-px bg-sky-800/50 */
+.splash-bar-link {
+  background: rgba(10, 89, 137, 0.5);
+  height: 49px;
+  padding-top: 1px;
+}
+.splash-bar-link:hover { filter: brightness(1.15); }
+/* Update – Figma: self-stretch py-4 bg-lime-600/50 */
+.splash-bar-update {
+  background: rgba(53, 229, 0, 0.5);
+  padding: 16px 0;
+  flex-direction: column;
 }
 .splash-bar-update:hover:not(:disabled) { filter: brightness(1.15); }
 .splash-bar-update:disabled { cursor: wait; opacity: 0.85; }
@@ -934,14 +2464,20 @@ body:has(.splash) { background: transparent; }
   text-align: center;
   padding: 8px;
 }
+/* Footer – Figma: self-stretch, text-center, white/60, text-xs (12px), Michroma, leading-5 (20px), tracking-tight */
 .splash-footer {
-  width: 100%;
-  padding: 14px 20px;
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   font-family: "Michroma", sans-serif;
-  font-size: 11px;
-  letter-spacing: 0.03em;
+  font-weight: 400;
+  font-size: 12px;
+  letter-spacing: -0.04em;
   color: rgba(255, 255, 255, 0.6);
   text-align: center;
+  line-height: 20px;
+  flex-shrink: 0;
 }
 /* Scrollbar – Figma: 8px x 258px, #313131, border 1px rgba(114,114,114,0.6), radius 10px */
 ::-webkit-scrollbar { width: 8px; }

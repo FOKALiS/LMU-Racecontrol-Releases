@@ -10,9 +10,6 @@ import "./styles.css";
 
 const COUNTDOWN_SECONDS = 5;
 
-// Splashscreen ist bewusst eigenständig (nicht Teil des i18n-Systems der
-// Haupt-App), damit es unabhängig und schnell lädt. Liest aber dieselbe
-// gespeicherte Sprachwahl (localStorage), damit es konsistent wirkt.
 function detectLang(): "de" | "en" {
   const stored = localStorage.getItem("lmu-rc-lang");
   if (stored === "de" || stored === "en") return stored;
@@ -59,8 +56,6 @@ function Splashscreen() {
 
   useEffect(() => {
     getVersion().then(setAppVersion).catch(console.error);
-
-    // Update-Prüfung im Hintergrund - blockiert den Countdown nicht.
     check()
       .then((result) => {
         if (result) setUpdate(result);
@@ -71,20 +66,13 @@ function Splashscreen() {
     const interval = setInterval(() => {
       const remaining = Math.max(0, COUNTDOWN_SECONDS - Math.floor((Date.now() - start) / 1000));
       setSecondsLeft(remaining);
-      if (remaining === 0) {
-        clearInterval(interval);
-      }
+      if (remaining === 0) clearInterval(interval);
     }, 200);
-
     return () => clearInterval(interval);
   }, []);
 
   useEffect(() => {
-    // Automatisch weiter, sobald der Countdown abgelaufen ist - außer
-    // gerade läuft eine Update-Installation.
-    if (secondsLeft === 0 && !installing) {
-      proceedToMain();
-    }
+    if (secondsLeft === 0 && !installing) proceedToMain();
   }, [secondsLeft, installing, proceedToMain]);
 
   async function handleInstallUpdate() {
@@ -102,35 +90,53 @@ function Splashscreen() {
   }
 
   return (
-    <div className="splash">
-      <img src="/logo.png" alt="LMU Racecontrol" className="splash-logo" />
+    <main className="splash">
+      {/* Figma exakt: 850x600, bg-neutral-900, rounded-[10px], outline, flex-col, items-center, gap-10 */}
+      <div className="splash-frame">
+        {/* Logo – Figma: w-96 h-52 (384x208) */}
+        <img className="splash-logo" src="/logo.png" alt="LMU RaceControl" />
 
-      <div className="splash-version">
-        {t.version} {appVersion}
-      </div>
+        {/* Version – Figma: 728x48, text-center, white, text-sm, Michroma, leading-6, tracking-wide */}
+        <div className="splash-version">
+          {t.version} {appVersion}
+        </div>
 
-      <button className="splash-bar splash-bar-link" onClick={() => open("https://www.lmu-racecontrol.gg").catch(console.error)}>
-        {t.website}
-      </button>
-
-      {update && (
-        <button className="splash-bar splash-bar-update" onClick={handleInstallUpdate} disabled={installing}>
-          {installing ? (
-            t.installing
-          ) : (
-            <>
-              {t.updateAvailable}
-              <br />
-              {t.version} {update.version}
-            </>
+        {/* Notices – Figma: self-stretch, flex-col, items-center, gap-3 */}
+        <div className="splash-notices">
+          {update && (
+            <button
+              className="splash-bar splash-bar-update"
+              onClick={handleInstallUpdate}
+              disabled={installing}
+            >
+              {installing ? (
+                t.installing
+              ) : (
+                <>
+                  {t.updateAvailable}
+                  <br />
+                  {t.version} {update.version}
+                </>
+              )}
+            </button>
           )}
-        </button>
-      )}
 
-      {error && <div className="splash-error">{error}</div>}
+          <button
+            className="splash-bar splash-bar-link"
+            onClick={() => open("https://www.lmu-racecontrol.gg").catch(console.error)}
+          >
+            {t.website}
+          </button>
+        </div>
 
-      <div className="splash-footer">{t.copyright}</div>
-    </div>
+        {error && <div className="splash-error">{error}</div>}
+
+        {/* Footer – Figma: self-stretch, text-center, white/60, text-xs, Michroma, leading-5, tracking-tight */}
+        <footer className="splash-footer">
+          {t.copyright}
+        </footer>
+      </div>
+    </main>
   );
 }
 

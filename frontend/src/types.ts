@@ -68,6 +68,8 @@ export interface Settings {
   fcy_countdown_seconds: number;
   pre_roll_seconds: number;
   post_roll_seconds: number;
+  license_key: string;
+  lmu_install_path: string;
 }
 
 export type View = "home" | "fahrerfeld" | "vorfaelle" | "archiv" | "einstellungen";

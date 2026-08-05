@@ -16,6 +16,16 @@ pub struct Settings {
     pub fcy_countdown_seconds: i32,
     pub pre_roll_seconds: f64,
     pub post_roll_seconds: f64,
+    #[serde(default)]
+    pub license_key: String,
+    /// Pfad zur LMU-Installation (für `keyboard.json`).
+    /// Standard: C:\Program Files (x86)\Steam\steamapps\common\Le Mans Ultimate
+    #[serde(default = "default_lmu_install_path")]
+    pub lmu_install_path: String,
+}
+
+fn default_lmu_install_path() -> String {
+    "C:\\Program Files (x86)\\Steam\\steamapps\\common\\Le Mans Ultimate".to_string()
 }
 
 impl Default for Settings {
@@ -45,6 +55,8 @@ impl Default for Settings {
             fcy_countdown_seconds: 10,
             pre_roll_seconds: 20.0,
             post_roll_seconds: 20.0,
+            license_key: String::new(),
+            lmu_install_path: default_lmu_install_path(),
         }
     }
 }

@@ -5,6 +5,7 @@ mod discord;
 mod fcy;
 mod incidents;
 mod keyboard;
+mod keyboard_config;
 mod license;
 mod lmu_client;
 mod lmu_ws;
@@ -341,6 +342,50 @@ async fn zoom_stop(_state: State<'_, AppState>) -> Result<(), String> {
 }
 
 #[tauri::command]
+async fn replay_slow(_state: State<'_, AppState>) -> Result<(), String> {
+    println!("[replay_slow] 🔄 Replay Slow-Motion (F10)...");
+    keyboard::replay_slow()
+}
+
+#[tauri::command]
+async fn replay_forward(_state: State<'_, AppState>) -> Result<(), String> {
+    println!("[replay_forward] 🔄 Replay Vorspulen (F9)...");
+    keyboard::replay_forward()
+}
+
+#[tauri::command]
+async fn rewind_fast(_state: State<'_, AppState>) -> Result<(), String> {
+    println!("[rewind_fast] 🔄 Replay schnell Zurück (F8)...");
+    keyboard::rewind_fast()
+}
+
+#[tauri::command]
+async fn replay_reverse(_state: State<'_, AppState>) -> Result<(), String> {
+    println!("[replay_reverse] 🔄 Replay Rückwärts (F7)...");
+    keyboard::replay_reverse()
+}
+
+#[tauri::command]
+async fn replay_activate(_state: State<'_, AppState>) -> Result<(), String> {
+    println!("[replay_activate] 🔄 Replay aktivieren (R-Taste)...");
+    keyboard::replay_activate()
+}
+
+#[tauri::command]
+async fn replay_pause(_state: State<'_, AppState>) -> Result<(), String> {
+    println!("[replay_pause] 🔄 Play/Pause (F11)...");
+    keyboard::replay_pause()
+}
+
+#[tauri::command]
+async fn hold_stop(_state: State<'_, AppState>) -> Result<(), String> {
+    println!("[hold_stop] 🔄 Hold-Key stoppen...");
+    keyboard::hold_stop();
+    keyboard::zoom_stop();
+    Ok(())
+}
+
+#[tauri::command]
 async fn set_camera(cam_id: String, state: State<'_, AppState>) -> Result<(), String> {
     println!("[set_camera] 🔄 Setze Kamera {} via Tastatur-Simulation...", cam_id);
     
@@ -441,6 +486,23 @@ async fn switch_to_live(state: State<'_, AppState>) -> Result<(), String> {
 #[tauri::command]
 async fn switch_to_replay(state: State<'_, AppState>) -> Result<(), String> {
     state.lmu.switch_to_replay().await.map_err(|e| e.to_string())
+}
+
+/// Gibt die aktuell geladene Tastenbelegung aus der LMU keyboard.json zurück.
+/// Zeigt die relevanten Tasten (Kamera, Replay, Zoom) mit lesbaren Namen an.
+#[tauri::command]
+async fn get_keyboard_mapping() -> Result<Vec<keyboard::KeyboardMappingEntryFrontend>, String> {
+    Ok(keyboard::get_relevant_bindings())
+}
+
+/// Lädt die Tastenbelegung aus der LMU keyboard.json neu.
+/// Wird aufgerufen, nachdem der User den LMU-Pfad geändert hat.
+#[tauri::command]
+async fn reload_keyboard_mapping(state: State<'_, AppState>) -> Result<Vec<keyboard::KeyboardMappingEntryFrontend>, String> {
+    let lmu_install_path = state.settings.lock().await.lmu_install_path.clone();
+    let kb_config = keyboard_config::KeyboardConfig::load_from(&lmu_install_path);
+    keyboard::init(kb_config);
+    Ok(keyboard::get_relevant_bindings())
 }
 
 #[tauri::command]
@@ -650,11 +712,16 @@ fn main() {
             let fcy = Arc::new(FcyState::default());
             let settings_store = Arc::new(SettingsStore::new(&app_dir));
             let loaded_settings = settings_store.load();
+            let lmu_install_path = loaded_settings.lmu_install_path.clone();
             let settings = Arc::new(AsyncMutex::new(loaded_settings));
             let should_poll = Arc::new(AtomicBool::new(false));
             let license_store = Arc::new(LicenseStore::new(&app_dir));
             let loaded_license = license_store.load();
             let license = Arc::new(AsyncMutex::new(loaded_license));
+
+            // Tastenbelegung aus der LMU keyboard.json laden
+            let kb_config = keyboard_config::KeyboardConfig::load_from(&lmu_install_path);
+            keyboard::init(kb_config);
 
             let replay_cancel_token = Arc::new(AtomicBool::new(false));
 
@@ -711,12 +778,21 @@ fn main() {
             focus_driver,
             focus_slot,
             clear_focus,
+            get_keyboard_mapping,
+            reload_keyboard_mapping,
             check_lmu_connection,
             switch_to_live,
             switch_to_replay,
             start_fcy,
             clear_fcy,
             show_main_window,
+            replay_slow,
+            replay_forward,
+            rewind_fast,
+            replay_reverse,
+            replay_activate,
+            replay_pause,
+            hold_stop,
         ])
         .run(tauri::generate_context!())
         .expect("Fehler beim Starten von LMU Race Control");

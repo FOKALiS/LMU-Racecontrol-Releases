@@ -10,14 +10,20 @@ export default function HomeView({ connected }: Props) {
 
   return (
     <div className="home-view">
-      <img src="/logo.png" alt="LMU Racecontrol" className="home-logo" />
-      <p className="home-welcome-text">
-        {t("home_welcome")}
-        <br />
-        <br />
-        {t("home_instructions")}
-      </p>
-      {connected && <p className="home-connected-hint">✓ {t("home_connected_hint")}</p>}
+      <div className="home-content">
+        {/* Logo – Figma: w-[508px] h-60 (508x240) */}
+        <img className="home-logo" src="/logo.png" alt="LMU Racecontrol" />
+
+        {/* Willkommenstext */}
+        <div className="home-welcome">
+          <span className="home-welcome-title">{t("home_welcome")}</span>
+          <br />
+          <br />
+          <span className="home-welcome-instructions">{t("home_instructions")}</span>
+        </div>
+
+        {connected && <p className="home-connected-hint">✓ {t("home_connected_hint")}</p>}
+      </div>
     </div>
   );
 }

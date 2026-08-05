@@ -30,6 +30,8 @@ const DEFAULT_SETTINGS: Settings = {
   fcy_countdown_seconds: 10,
   pre_roll_seconds: 20,
   post_roll_seconds: 20,
+  license_key: "",
+  lmu_install_path: "C:\\Program Files (x86)\\Steam\\steamapps\\common\\Le Mans Ultimate",
 };
 
 export default function App() {
@@ -84,7 +86,12 @@ export default function App() {
     try {
       const data = await invoke<LicenseData>("activate_license", { licenseKey: key });
       setLicense(data);
-      if (!data.licensed) {
+      if (data.licensed) {
+        // Lizenzschlüssel in die Settings übernehmen und speichern
+        const updated: Settings = { ...settings, license_key: key };
+        setSettings(updated);
+        await invoke("save_settings", { settings: updated });
+      } else {
         setLicenseError(data.last_error);
       }
     } catch (err) {
@@ -293,11 +300,23 @@ export default function App() {
       />
 
       <main className={`main-content ${fcyPhase !== "idle" ? "fcy-frame" : ""}`}>
-        {!license?.licensed && (
+        {/* Lizenz wird noch geladen (license === null) – warten */}
+        {license === null && (
+          <div className="home-view">
+            <div className="home-content">
+              <img className="home-logo" src="/logo.png" alt="LMU Racecontrol" />
+              <div className="home-welcome-title">{t("loading")}</div>
+            </div>
+          </div>
+        )}
+
+        {/* Keine gültige Lizenz – Lizenz-Gate anzeigen */}
+        {license !== null && !license.licensed && (
           <LicenseGateView error={licenseError} onActivate={handleActivateLicense} />
         )}
 
-        {license?.licensed && view === "home" && (
+        {/* Lizenziert – HomeView (ohne Lizenz-Input) oder andere Views */}
+        {license !== null && license.licensed && view === "home" && (
           <HomeView connected={connected} onConnect={handleConnect} />
         )}
 

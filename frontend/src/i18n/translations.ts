@@ -10,8 +10,8 @@ export type Lang = "de" | "en";
 // (was ja der Sinn der Sache ist).
 const de = {
   // Sidebar
-  sidebar_functions: "Functions",
-  sidebar_control: "Control",
+  sidebar_server: "Server",
+  sidebar_live_view: "LIVE-Ansicht",
   sidebar_race_control: "Race Control",
   sidebar_software_infos: "Software Infos",
   connect_to_server: "Connect to Server",
@@ -69,6 +69,7 @@ const de = {
   home_instructions:
     'Um das Tool nutzen zu können, joine als Zuschauer auf dem LMU Server und klicke anschließend in der Menüleiste links auf "Connect to Server"',
   home_connected_hint: 'Verbunden – wähle links "Fahrerfeld"',
+  home_license_label: "Lizenz-Nummer eingeben:",
 
   // Fahrerfeld
   fahrerfeld_title: "Fahrerfeld",
@@ -84,6 +85,11 @@ const de = {
   col_session: "Session",
   col_player: "Player",
   col_player_placeholder: "In Entwicklung",
+  col_player_replay_reverse: "Rückwärts (F7)",
+  col_player_rewind_fast: "Schnell Zurück (F8)",
+  col_player_play: "Play/Pause (F11)",
+  col_player_forward: "Vorspulen (F9)",
+  col_player_slow: "Slow-Motion (F10)",
   col_filter: "Filter",
   col_filter_crash: "Crash",
   col_filter_yellow: "Yellow Flag",
@@ -125,8 +131,7 @@ const de = {
   settings_incident_types_label: 'Vorfall-Kategorien ("Vorfall auswählen")',
   settings_incident_types_hint: "Eine Kategorie pro Zeile, in dieser Reihenfolge im Dropdown.",
   settings_decision_types_label: 'Entscheidungs-Optionen ("Entscheidung der Rennkommission")',
-  settings_decision_types_hint:
-    'Eine Option pro Zeile. Optionen, die das Wort "keine" enthalten, werden im Archiv und bei Discord automatisch grün/NFA markiert - alle anderen rot/Strafe.',
+  settings_decision_types_hint: "Eine Entscheidung pro Zeile, in dieser Reihenfolge im Dropdown.",
   settings_save: "Einstellungen speichern",
   settings_saved: "Gespeichert",
   settings_pre_roll_label: "Vorfall - Vorlaufzeit",
@@ -154,11 +159,30 @@ const de = {
   license_activate_button: "Aktivieren",
   license_activating: "Wird geprüft...",
   license_no_key_hint: "Noch keine Lizenz? Ihr findet das Angebot auf unserer Website.",
+
+  // Tastenbelegung
+  settings_lmu_keys_title: "LMU-Tastenbelegung",
+  settings_lmu_keys_hint: "Diese Tasten werden aus der LMU keyboard.json ausgelesen und für die Steuerung verwendet.",
+  settings_lmu_path_label: "LMU-Installationspfad",
+  settings_lmu_path_hint: "Pfad zum LMU-Installationsverzeichnis (wo die UserData/keyboard.json liegt).",
+  settings_lmu_reload: "Tastenbelegung neu laden",
+  settings_lmu_reloaded: "Neu geladen!",
+  settings_lmu_onboard: "Bord",
+  settings_lmu_spectator: "TV",
+  settings_lmu_tracking: "Heli",
+  settings_lmu_zoom_in: "Zoom +",
+  settings_lmu_zoom_out: "Zoom -",
+  settings_lmu_replay: "Replay (R)",
+  settings_lmu_play: "Play (F11)",
+  settings_lmu_stop: "Stop (F6)",
+
+  // Allgemein
+  loading: "Lädt...",
 };
 
 const en: typeof de = {
-  sidebar_functions: "Functions",
-  sidebar_control: "Control",
+  sidebar_server: "Server",
+  sidebar_live_view: "Live View",
   sidebar_race_control: "Race Control",
   sidebar_software_infos: "Software Info",
   connect_to_server: "Connect to Server",
@@ -212,6 +236,7 @@ const en: typeof de = {
   home_instructions:
     'To use this tool, join as a spectator on the LMU server and then click "Connect to Server" in the menu on the left.',
   home_connected_hint: 'Connected – select "Driver Field" on the left',
+  home_license_label: "Enter License Number:",
 
   fahrerfeld_title: "Driver Field",
   col_pos: "Pos",
@@ -226,6 +251,11 @@ const en: typeof de = {
   col_session: "Session",
   col_player: "Player",
   col_player_placeholder: "In Development",
+  col_player_replay_reverse: "Reverse (F7)",
+  col_player_rewind_fast: "Rewind Fast (F8)",
+  col_player_play: "Play/Pause (F11)",
+  col_player_forward: "Forward (F9)",
+  col_player_slow: "Slow-Motion (F10)",
   col_filter: "Filter",
   col_filter_crash: "Crash",
   col_filter_yellow: "Yellow Flag",
@@ -264,8 +294,7 @@ const en: typeof de = {
   settings_incident_types_label: 'Incident Categories ("Incident Type")',
   settings_incident_types_hint: "One category per line, shown in this order in the dropdown.",
   settings_decision_types_label: 'Decision Options ("Stewards\' Decision")',
-  settings_decision_types_hint:
-    'One option per line. Options containing the word "no" are automatically shown green/NFA in the archive and Discord - everything else red/Penalty.',
+  settings_decision_types_hint: "One decision per line, in this order in the dropdown.",
   settings_save: "Save Settings",
   settings_saved: "Saved",
   settings_pre_roll_label: "Incident – Pre-roll",
@@ -290,6 +319,25 @@ const en: typeof de = {
   license_activate_button: "Activate",
   license_activating: "Checking...",
   license_no_key_hint: "Don't have a license yet? Find our offer on our website.",
+
+  // Tastenbelegung
+  settings_lmu_keys_title: "LMU Key Mapping",
+  settings_lmu_keys_hint: "These keys are read from the LMU keyboard.json and used for control.",
+  settings_lmu_path_label: "LMU Install Path",
+  settings_lmu_path_hint: "Path to the LMU installation directory (where UserData/keyboard.json is located).",
+  settings_lmu_reload: "Reload Key Mapping",
+  settings_lmu_reloaded: "Reloaded!",
+  settings_lmu_onboard: "Onboard",
+  settings_lmu_spectator: "TV",
+  settings_lmu_tracking: "Heli",
+  settings_lmu_zoom_in: "Zoom +",
+  settings_lmu_zoom_out: "Zoom -",
+  settings_lmu_replay: "Replay (R)",
+  settings_lmu_play: "Play (F11)",
+  settings_lmu_stop: "Stop (F6)",
+
+  // Allgemein
+  loading: "Loading...",
 };
 
 export const translations: Record<Lang, typeof de> = { de, en };

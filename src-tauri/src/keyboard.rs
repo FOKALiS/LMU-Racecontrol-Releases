@@ -1,28 +1,33 @@
 //! Tastatursimulation für die LMU-Kamera-Steuerung und Fahrzeug-Fokus.
 //! Verwendet SendInput mit Scancodes (KEIN externer Helper nötig).
+//! Die Scancodes werden dynamisch aus der LMU-Tastenbelegung (keyboard.json)
+//! geladen, sodass jede benutzerdefinierte Tastenbelegung funktioniert.
 
 use std::thread;
 use std::time::Duration;
+use std::sync::OnceLock;
+use crate::keyboard_config::{KeyboardConfig, KeyBinding};
 
-// ─── Scancodes (Set 1) ──────────────────────────────────────────────────
-// Benutzer-Tastenbelegung:
-// TV = PG_DN (Page Down), Hinten = PG_UP (Page Up), Bord = INSERT
-const SCAN_INSERT: u16 = 0x52;    // INSERT = Bordkamera
-const SCAN_PAGEUP: u16 = 0x49;    // PG_UP = Heck/Rear
-const SCAN_PAGEDOWN: u16 = 0x51;  // PG_DN = TV
-const SCAN_END: u16 = 0x4F;       // END (nicht belegt, aber als Fallback)
-const SCAN_KP7: u16 = 0x47;       // KP 7 = Zoom In (ohne extended)
-const SCAN_KP9: u16 = 0x49;       // KP 9 = Zoom Out (ohne extended – gleicher Scancode wie PageUp, aber extended=false)
+// ─── Globale Konfiguration (wird einmal beim Start geladen) ────────────
+static KEYBOARD_CONFIG: OnceLock<KeyboardConfig> = OnceLock::new();
+
+/// Initialisiert die Tastenbelegung aus der LMU keyboard.json.
+/// Muss vor dem ersten Tastendruck aufgerufen werden (in main.rs).
+pub fn init(config: KeyboardConfig) {
+    let _ = KEYBOARD_CONFIG.set(config);
+}
+
+/// Gibt die aktuelle Tastenbelegung zurück.
+fn config() -> &'static KeyboardConfig {
+    KEYBOARD_CONFIG.get().expect("keyboard_config::init() wurde nicht aufgerufen!")
+}
+
+/// Sonder-Scancodes für Tasten, die nicht in der LMU keyboard.json vorkommen
+/// (z.B. Esc, Strg, Enter, F für Focus-Tastatur-Fallback).
+const SCAN_ESC: u16 = 0x01;
 const SCAN_LCONTROL: u16 = 0x1D;
 const SCAN_F: u16 = 0x21;
 const SCAN_RETURN: u16 = 0x1C;
-const SCAN_R: u16 = 0x13;       // R = Sofortwiederholung (Replay)
-const SCAN_F6: u16 = 0x40;      // F6 = Stop
-const SCAN_F7: u16 = 0x41;      // F7 = Zurückspulen
-const SCAN_F8: u16 = 0x42;      // F8 = Schnell zurück
-const SCAN_F9: u16 = 0x43;      // F9 = Vorspulen
-const SCAN_F10: u16 = 0x44;     // F10 = Slow-Motion
-const SCAN_F11: u16 = 0x57;     // F11 = Play/Pause
 
 // ─── Win32 Typen ──────────────────────────────────────────────────────
 type HANDLE = isize;
@@ -37,6 +42,8 @@ const INPUT_KEYBOARD: DWORD = 1;
 const KEYEVENTF_KEYUP: DWORD = 0x0002;
 const KEYEVENTF_SCANCODE: DWORD = 0x0008;
 const KEYEVENTF_EXTENDEDKEY: DWORD = 0x0001;
+const WM_KEYDOWN: u32 = 0x0100;
+const WM_KEYUP: u32 = 0x0101;
 const FALSE: BOOL = 0;
 
 #[repr(C)]
@@ -70,13 +77,29 @@ extern "system" {
     fn GetWindowTextW(hWnd: HANDLE, lpString: *mut u16, nMaxCount: i32) -> i32;
     fn EnumWindows(lpEnumFunc: Option<unsafe extern "system" fn(HANDLE, LPVOID) -> BOOL>, lParam: LPVOID) -> BOOL;
     fn IsWindowVisible(hWnd: HANDLE) -> BOOL;
+    fn AttachThreadInput(idAttach: u32, idAttachTo: u32, fAttach: BOOL) -> BOOL;
+    fn GetCurrentThreadId() -> u32;
+    fn GetWindowThreadProcessId(hWnd: HANDLE, lpdwProcessId: *mut u32) -> u32;
+    fn BringWindowToTop(hWnd: HANDLE) -> BOOL;
+}
+
+/// Erzwingt den Fokus zuverlässig (Windows blockiert SetForegroundWindow sonst manchmal).
+fn force_foreground(hwnd: HANDLE) {
+    unsafe {
+        let current_thread = GetCurrentThreadId();
+        let target_thread = GetWindowThreadProcessId(hwnd, std::ptr::null_mut());
+        AttachThreadInput(current_thread, target_thread, 1);
+        BringWindowToTop(hwnd);
+        SetForegroundWindow(hwnd);
+        AttachThreadInput(current_thread, target_thread, 0);
+    }
 }
 
 // ─── LMU-Fenster finden ──────────────────────────────────────────────
 fn find_lmu_window() -> Option<HANDLE> {
     unsafe {
         let mut result: HANDLE = 0;
-        
+
         extern "system" fn enum_cb(hwnd: HANDLE, lparam: LPVOID) -> BOOL {
             unsafe {
                 if IsWindowVisible(hwnd) == FALSE { return 1; }
@@ -136,31 +159,6 @@ fn send_scancode(scan: u16, extended: bool) {
     }
 }
 
-// ─── Öffentliche API ─────────────────────────────────────────────────
-pub fn switch_camera(cam_id: &str) -> Result<(), String> {
-    // Deine Tastenbelegung:
-    // TV = PG_DN (Page Down), Hinten = PG_UP (Page Up), Bord = INSERT
-    // Alle 3 Tasten sind extended (Insert, PageUp, PageDown)
-    let (scan, extended) = match cam_id {
-        "TV" => (SCAN_PAGEDOWN, true),      // PG_DN = TV
-        "Bord" | "Helmet" | "Onboard" => (SCAN_INSERT, true), // INSERT = Bordkamera
-        "Heck" | "Rear" => (SCAN_PAGEUP, true), // PG_UP = Heck
-        _ => return Err(format!("Unbekannte Kamera-ID: {}", cam_id)),
-    };
-
-    thread::spawn(move || {
-        send_scancode(scan, extended);
-    });
-
-    Ok(())
-}
-
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
-use once_cell::sync::Lazy;
-
-static ZOOM_ACTIVE: Lazy<Arc<AtomicBool>> = Lazy::new(|| Arc::new(AtomicBool::new(false)));
-
 /// Sendet einen Scancode OHNE Fenster-Wechsel (für Dauer-Zoom).
 /// LMU muss bereits im Vordergrund sein.
 fn send_scancode_fast(scan: u16, extended: bool) {
@@ -184,6 +182,39 @@ fn send_scancode_fast(scan: u16, extended: bool) {
     }
 }
 
+/// Hilfsfunktion: Holt ein Binding aus der Konfiguration.
+fn get_binding(action: &str) -> Result<KeyBinding, String> {
+    config().get(action).ok_or_else(|| format!("Taste '{}' nicht in LMU-Tastenbelegung gefunden", action))
+}
+
+// ─── Öffentliche API ─────────────────────────────────────────────────
+pub fn switch_camera(cam_id: &str) -> Result<(), String> {
+    // LMU-Aktion pro Kamera-Button (basierend auf der LMU keyboard.json):
+    // "TV" → "Tracking Cameras" (Verfolgerkamera, z.B. PG_DN)
+    // "Bord" → "Driving Cameras" (Fahrkameras, z.B. Insert)
+    // "Heck" → "Swingman Camera" (Schwenkkopfkamera, z.B. PG_UP)
+    let action = match cam_id {
+        "TV" | "Tracking" => "Tracking Cameras",
+        "Bord" | "Helmet" | "Onboard" | "Driving" => "Driving Cameras",
+        "Heck" | "Rear" | "Swingman" => "Swingman Camera",
+        _ => return Err(format!("Unbekannte Kamera-ID: {}", cam_id)),
+    };
+
+    let binding = get_binding(action)?;
+
+    thread::spawn(move || {
+        send_scancode(binding.scan, binding.extended);
+    });
+
+    Ok(())
+}
+
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
+use once_cell::sync::Lazy;
+
+static ZOOM_ACTIVE: Lazy<Arc<AtomicBool>> = Lazy::new(|| Arc::new(AtomicBool::new(false)));
+
 /// Startet Dauer-Zoom. Sendet die Taste alle 15ms, bis `zoom_stop()` aufgerufen wird.
 /// Holt LMU 1x in den Vordergrund und bleibt dort bis zum Stop.
 pub fn zoom_start(direction: &str) -> Result<(), String> {
@@ -192,11 +223,13 @@ pub fn zoom_start(direction: &str) -> Result<(), String> {
     }
     ZOOM_ACTIVE.store(true, Ordering::SeqCst);
 
-    let (scan, extended) = match direction {
-        "in" => (SCAN_KP7, false),
-        "out" => (SCAN_KP9, false),
+    let action = match direction {
+        "in" => "Swingman Zoom In",
+        "out" => "Swingman Zoom Out",
         _ => return Err(format!("Unbekannte Zoom-Richtung: {}", direction)),
     };
+
+    let binding = get_binding(action)?;
 
     let active = ZOOM_ACTIVE.clone();
     thread::spawn(move || {
@@ -208,41 +241,37 @@ pub fn zoom_start(direction: &str) -> Result<(), String> {
         }
         let hwnd = hwnd.unwrap();
         let prev = unsafe { GetForegroundWindow() };
-        
+
         unsafe {
             ShowWindow(hwnd, 9);
             thread::sleep(Duration::from_millis(50));
             SetForegroundWindow(hwnd);
-            thread::sleep(Duration::from_millis(50)); // reduziert von 200ms auf 50ms
+            thread::sleep(Duration::from_millis(50));
         }
 
-        // Turbo-Zoom: KeyDown+KeyUp so schnell wie möglich senden
         let mut flags_down: DWORD = KEYEVENTF_SCANCODE;
         let mut flags_up: DWORD = KEYEVENTF_SCANCODE | KEYEVENTF_KEYUP;
-        if extended {
+        if binding.extended {
             flags_down |= KEYEVENTF_EXTENDEDKEY;
             flags_up |= KEYEVENTF_EXTENDEDKEY;
         }
 
-        // Turbo-Zoom (bewährte Methode): KeyDown und KeyUp getrennt senden
-        // mit minimaler Pause zwischen den Events
         while active.load(Ordering::SeqCst) {
             unsafe {
-                let ki_down = KEYBDINPUT { wVk: 0, wScan: scan, dwFlags: flags_down, time: 0, dwExtraInfo: 0 };
+                let ki_down = KEYBDINPUT { wVk: 0, wScan: binding.scan, dwFlags: flags_down, time: 0, dwExtraInfo: 0 };
                 let mut input_down = INPUT { type_: INPUT_KEYBOARD, u: INPUT_UNION { ki: std::mem::ManuallyDrop::new(ki_down) } };
                 SendInput(1, &mut input_down, std::mem::size_of::<INPUT>() as i32);
-                
-                thread::sleep(Duration::from_millis(1)); // 1ms genug für KeyDown
-                
-                let ki_up = KEYBDINPUT { wVk: 0, wScan: scan, dwFlags: flags_up, time: 0, dwExtraInfo: 0 };
+
+                thread::sleep(Duration::from_millis(1));
+
+                let ki_up = KEYBDINPUT { wVk: 0, wScan: binding.scan, dwFlags: flags_up, time: 0, dwExtraInfo: 0 };
                 let mut input_up = INPUT { type_: INPUT_KEYBOARD, u: INPUT_UNION { ki: std::mem::ManuallyDrop::new(ki_up) } };
                 SendInput(1, &mut input_up, std::mem::size_of::<INPUT>() as i32);
-                
-                thread::sleep(Duration::from_millis(1)); // 1ms Pause zwischen Zoom-Stufen (halbiert von 2ms!)
+
+                thread::sleep(Duration::from_millis(1));
             }
         }
 
-        // Kurz warten und zurück zum vorherigen Fenster
         thread::sleep(Duration::from_millis(100));
         if prev != 0 && prev != hwnd {
             unsafe { SetForegroundWindow(prev); }
@@ -257,84 +286,306 @@ pub fn zoom_stop() {
     ZOOM_ACTIVE.store(false, Ordering::SeqCst);
 }
 
-/// Aktiviert den Replay-Modus über die R-Taste (Sofortwiederholung).
+/// Aktiviert den Replay-Modus über die Instant Replay-Taste (Standard: R).
 pub fn replay_activate() -> Result<(), String> {
+    let binding = get_binding("Instant Replay")?;
+
     thread::spawn(move || {
-        // R-Taste senden (KEIN extended-Flag)
-        send_scancode(SCAN_R, false);
+        send_scancode(binding.scan, binding.extended);
         // Kurz warten, damit LMU den Replay-Modus aktiviert
         thread::sleep(Duration::from_millis(500));
     });
     Ok(())
 }
 
-/// Spielt das Replay ab/pausiert es (F11-Toggle).
+/// Spielt das Replay ab/pausiert es (Replay Play-Taste, Standard: F11).
 pub fn replay_play() -> Result<(), String> {
+    let binding = get_binding("Replay Play")?;
+
     thread::spawn(move || {
-        send_scancode(SCAN_F11, false);
+        send_scancode(binding.scan, binding.extended);
     });
     Ok(())
 }
 
-/// Pausiert das Replay (F11 = Play/Pause-Toggle).
-/// F6 ist in LMU ein Hold-to-Stop (kein Toggle), F11 ist der richtige Play/Pause-Befehl.
+/// Pausiert das Replay (Replay Play = Play/Pause-Toggle).
+/// SCHNELL: Minimaler Fokus-Wechsel + direktes SendInput (keine 430ms Wartezeit).
 pub fn replay_pause() -> Result<(), String> {
+    let binding = get_binding("Replay Play")?;
+
     thread::spawn(move || {
-        // LMU in den Vordergrund holen
         let hwnd = find_lmu_window();
         if hwnd.is_none() {
-            eprintln!("[replay_pause] LMU-Fenster nicht gefunden, sende F11 trotzdem...");
-            send_scancode(SCAN_F11, false);
+            eprintln!("[replay_pause] LMU-Fenster nicht gefunden, sende trotzdem...");
+            send_scancode(binding.scan, binding.extended);
             return;
         }
         let hwnd = hwnd.unwrap();
         let prev = unsafe { GetForegroundWindow() };
-        
-        unsafe {
-            ShowWindow(hwnd, 9);
-            thread::sleep(Duration::from_millis(50));
-            SetForegroundWindow(hwnd);
-            thread::sleep(Duration::from_millis(100));
+
+        // LMU schnell in den Vordergrund (force_foreground = ~10ms)
+        force_foreground(hwnd);
+        thread::sleep(Duration::from_millis(15));
+
+        let mut flags_down: DWORD = KEYEVENTF_SCANCODE;
+        let mut flags_up: DWORD = KEYEVENTF_SCANCODE | KEYEVENTF_KEYUP;
+        if binding.extended {
+            flags_down |= KEYEVENTF_EXTENDEDKEY;
+            flags_up |= KEYEVENTF_EXTENDEDKEY;
         }
-        
-        // F11 senden (Play/Pause-Toggle)
-        send_scancode(SCAN_F11, false);
-        thread::sleep(Duration::from_millis(200));
-        
-        // Zurück zum vorherigen Fenster
+
+        unsafe {
+            let ki = KEYBDINPUT { wVk: 0, wScan: binding.scan, dwFlags: flags_down, time: 0, dwExtraInfo: 0 };
+            let mut inp = INPUT { type_: INPUT_KEYBOARD, u: INPUT_UNION { ki: std::mem::ManuallyDrop::new(ki) } };
+            SendInput(1, &mut inp, std::mem::size_of::<INPUT>() as i32);
+            thread::sleep(Duration::from_millis(10));
+            let ki_up = KEYBDINPUT { wVk: 0, wScan: binding.scan, dwFlags: flags_up, time: 0, dwExtraInfo: 0 };
+            let mut inp_up = INPUT { type_: INPUT_KEYBOARD, u: INPUT_UNION { ki: std::mem::ManuallyDrop::new(ki_up) } };
+            SendInput(1, &mut inp_up, std::mem::size_of::<INPUT>() as i32);
+        }
+
+        // Zurück zur Racecontrol-App
         if prev != 0 && prev != hwnd {
             unsafe { SetForegroundWindow(prev); }
         }
-        println!("[replay_pause] F11 gesendet, Replay sollte pausiert sein");
+        println!("[replay_pause] Play/Pause gesendet (schnell)");
     });
     Ok(())
+}
+
+/// Generisches Hold-Key-System für Tasten, die gedrückt gehalten werden müssen.
+/// Startet einen Hintergrund-Thread, der die Taste alle 50ms sendet, bis `hold_stop()` aufgerufen wird.
+static HOLD_ACTIVE: Lazy<Arc<AtomicBool>> = Lazy::new(|| Arc::new(AtomicBool::new(false)));
+
+fn hold_start(action: &str) -> Result<(), String> {
+    if HOLD_ACTIVE.load(Ordering::SeqCst) {
+        return Ok(());
+    }
+    HOLD_ACTIVE.store(true, Ordering::SeqCst);
+
+    let binding = get_binding(action)?;
+    let play_binding = get_binding("Replay Play").ok();
+    let active = HOLD_ACTIVE.clone();
+    let prev = unsafe { GetForegroundWindow() };
+    thread::spawn(move || {
+        // LMU 1x in den Vordergrund holen (wenn nötig)
+        let hwnd = find_lmu_window();
+        if hwnd.is_none() { 
+            active.store(false, Ordering::SeqCst);
+            return; 
+        }
+        let hwnd = hwnd.unwrap();
+
+        unsafe {
+            ShowWindow(hwnd, 9);
+            thread::sleep(Duration::from_millis(30));
+            SetForegroundWindow(hwnd);
+            thread::sleep(Duration::from_millis(30));
+        }
+
+        let mut flags_down: DWORD = KEYEVENTF_SCANCODE;
+        let mut flags_up: DWORD = KEYEVENTF_SCANCODE | KEYEVENTF_KEYUP;
+        if binding.extended {
+            flags_down |= KEYEVENTF_EXTENDEDKEY;
+            flags_up |= KEYEVENTF_EXTENDEDKEY;
+        }
+
+        // Taste EINMAL drücken und HALTEN (KEYDOWN ohne KEYUP) – wie LMU selbst
+        unsafe {
+            let ki = KEYBDINPUT { wVk: 0, wScan: binding.scan, dwFlags: flags_down, time: 0, dwExtraInfo: 0 };
+            let mut inp = INPUT { type_: INPUT_KEYBOARD, u: INPUT_UNION { ki: std::mem::ManuallyDrop::new(ki) } };
+            SendInput(1, &mut inp, std::mem::size_of::<INPUT>() as i32);
+        }
+
+        // Warten bis Stop – Taste bleibt gedrückt
+        while active.load(Ordering::SeqCst) {
+            thread::sleep(Duration::from_millis(10));
+        }
+
+        // Taste loslassen (KEYUP)
+        unsafe {
+            let ki = KEYBDINPUT { wVk: 0, wScan: binding.scan, dwFlags: flags_up, time: 0, dwExtraInfo: 0 };
+            let mut inp = INPUT { type_: INPUT_KEYBOARD, u: INPUT_UNION { ki: std::mem::ManuallyDrop::new(ki) } };
+            SendInput(1, &mut inp, std::mem::size_of::<INPUT>() as i32);
+        }
+
+        // Automatisch Play (F11) senden wie LMU
+        if let Some(pb) = play_binding {
+            let mut pf_down: DWORD = KEYEVENTF_SCANCODE;
+            let mut pf_up: DWORD = KEYEVENTF_SCANCODE | KEYEVENTF_KEYUP;
+            if pb.extended {
+                pf_down |= KEYEVENTF_EXTENDEDKEY;
+                pf_up |= KEYEVENTF_EXTENDEDKEY;
+            }
+            unsafe {
+                let ki = KEYBDINPUT { wVk: 0, wScan: pb.scan, dwFlags: pf_down, time: 0, dwExtraInfo: 0 };
+                let mut inp = INPUT { type_: INPUT_KEYBOARD, u: INPUT_UNION { ki: std::mem::ManuallyDrop::new(ki) } };
+                SendInput(1, &mut inp, std::mem::size_of::<INPUT>() as i32);
+                thread::sleep(Duration::from_millis(1));
+                let ki_up = KEYBDINPUT { wVk: 0, wScan: pb.scan, dwFlags: pf_up, time: 0, dwExtraInfo: 0 };
+                let mut inp_up = INPUT { type_: INPUT_KEYBOARD, u: INPUT_UNION { ki: std::mem::ManuallyDrop::new(ki_up) } };
+                SendInput(1, &mut inp_up, std::mem::size_of::<INPUT>() as i32);
+            }
+        }
+
+        // Vorheriges Fenster wiederherstellen (nur wenn nicht LMU)
+        if prev != 0 && prev != hwnd {
+            thread::sleep(Duration::from_millis(50));
+            unsafe { SetForegroundWindow(prev); }
+        }
+    });
+    Ok(())
+}
+
+pub fn hold_stop() {
+    HOLD_ACTIVE.store(false, Ordering::SeqCst);
+}
+
+/// Replay Slow-Motion (F10) – muss gedrückt gehalten werden
+pub fn replay_slow() -> Result<(), String> {
+    hold_start("Replay Slowmotion")
+}
+
+/// Replay Vorspulen (F9) – muss gedrückt gehalten werden
+pub fn replay_forward() -> Result<(), String> {
+    hold_start("Replay Fast Forward")
+}
+
+/// Replay schnell Zurückspulen (F8) – LMU-Kombi: F7 (Reverse) halten + F8 (Fast Rewind) senden
+/// F7 wird gedrückt GEHALTEN (KEYDOWN ohne KEYUP), F8 wird alle 15ms press+release gesendet.
+/// Beim Stop: F7 loslassen (KEYUP) + F11 (Play) senden.
+pub fn rewind_fast() -> Result<(), String> {
+    if HOLD_ACTIVE.load(Ordering::SeqCst) {
+        return Ok(());
+    }
+    HOLD_ACTIVE.store(true, Ordering::SeqCst);
+
+    let f7_binding = get_binding("Replay Reverse")?;
+    let f8_binding = get_binding("Replay Fast Rewind")?;
+    let play_binding = get_binding("Replay Play").ok();
+    let active = HOLD_ACTIVE.clone();
+    let prev = unsafe { GetForegroundWindow() };
+    thread::spawn(move || {
+        let hwnd = find_lmu_window();
+        if hwnd.is_none() { 
+            active.store(false, Ordering::SeqCst);
+            return; 
+        }
+        let hwnd = hwnd.unwrap();
+
+        unsafe {
+            ShowWindow(hwnd, 9);
+            thread::sleep(Duration::from_millis(30));
+            SetForegroundWindow(hwnd);
+            thread::sleep(Duration::from_millis(30));
+        }
+
+        // F7 Scancode-Flags
+        let mut f7_down: DWORD = KEYEVENTF_SCANCODE;
+        let mut f7_up: DWORD = KEYEVENTF_SCANCODE | KEYEVENTF_KEYUP;
+        if f7_binding.extended {
+            f7_down |= KEYEVENTF_EXTENDEDKEY;
+            f7_up |= KEYEVENTF_EXTENDEDKEY;
+        }
+        // F8 Scancode-Flags
+        let mut f8_down: DWORD = KEYEVENTF_SCANCODE;
+        let mut f8_up: DWORD = KEYEVENTF_SCANCODE | KEYEVENTF_KEYUP;
+        if f8_binding.extended {
+            f8_down |= KEYEVENTF_EXTENDEDKEY;
+            f8_up |= KEYEVENTF_EXTENDEDKEY;
+        }
+
+        // F7 drücken und HALTEN (nur KEYDOWN, kein KEYUP)
+        unsafe {
+            let ki = KEYBDINPUT { wVk: 0, wScan: f7_binding.scan, dwFlags: f7_down, time: 0, dwExtraInfo: 0 };
+            let mut inp = INPUT { type_: INPUT_KEYBOARD, u: INPUT_UNION { ki: std::mem::ManuallyDrop::new(ki) } };
+            SendInput(1, &mut inp, std::mem::size_of::<INPUT>() as i32);
+        }
+
+        // F8 drücken und HALTEN (nur KEYDOWN, kein KEYUP) – wie F7
+        unsafe {
+            let ki = KEYBDINPUT { wVk: 0, wScan: f8_binding.scan, dwFlags: f8_down, time: 0, dwExtraInfo: 0 };
+            let mut inp = INPUT { type_: INPUT_KEYBOARD, u: INPUT_UNION { ki: std::mem::ManuallyDrop::new(ki) } };
+            SendInput(1, &mut inp, std::mem::size_of::<INPUT>() as i32);
+        }
+
+        // Kurz warten, damit LMU die Kombination registriert
+        thread::sleep(Duration::from_millis(50));
+
+        // Warten bis Stop – beide Tasten bleiben gedrückt
+        while active.load(Ordering::SeqCst) {
+            thread::sleep(Duration::from_millis(10));
+        }
+
+        // F8 loslassen (KEYUP)
+        unsafe {
+            let ki = KEYBDINPUT { wVk: 0, wScan: f8_binding.scan, dwFlags: f8_up, time: 0, dwExtraInfo: 0 };
+            let mut inp = INPUT { type_: INPUT_KEYBOARD, u: INPUT_UNION { ki: std::mem::ManuallyDrop::new(ki) } };
+            SendInput(1, &mut inp, std::mem::size_of::<INPUT>() as i32);
+        }
+
+        // F7 loslassen (KEYUP)
+        unsafe {
+            let ki = KEYBDINPUT { wVk: 0, wScan: f7_binding.scan, dwFlags: f7_up, time: 0, dwExtraInfo: 0 };
+            let mut inp = INPUT { type_: INPUT_KEYBOARD, u: INPUT_UNION { ki: std::mem::ManuallyDrop::new(ki) } };
+            SendInput(1, &mut inp, std::mem::size_of::<INPUT>() as i32);
+        }
+
+        // Automatisch Play (F11) senden wie LMU
+        if let Some(pb) = play_binding {
+            let mut pf_down: DWORD = KEYEVENTF_SCANCODE;
+            let mut pf_up: DWORD = KEYEVENTF_SCANCODE | KEYEVENTF_KEYUP;
+            if pb.extended {
+                pf_down |= KEYEVENTF_EXTENDEDKEY;
+                pf_up |= KEYEVENTF_EXTENDEDKEY;
+            }
+            unsafe {
+                let ki = KEYBDINPUT { wVk: 0, wScan: pb.scan, dwFlags: pf_down, time: 0, dwExtraInfo: 0 };
+                let mut inp = INPUT { type_: INPUT_KEYBOARD, u: INPUT_UNION { ki: std::mem::ManuallyDrop::new(ki) } };
+                SendInput(1, &mut inp, std::mem::size_of::<INPUT>() as i32);
+                thread::sleep(Duration::from_millis(1));
+                let ki_up = KEYBDINPUT { wVk: 0, wScan: pb.scan, dwFlags: pf_up, time: 0, dwExtraInfo: 0 };
+                let mut inp_up = INPUT { type_: INPUT_KEYBOARD, u: INPUT_UNION { ki: std::mem::ManuallyDrop::new(ki_up) } };
+                SendInput(1, &mut inp_up, std::mem::size_of::<INPUT>() as i32);
+            }
+        }
+
+        // Vorheriges Fenster wiederherstellen
+        if prev != 0 && prev != hwnd {
+            thread::sleep(Duration::from_millis(50));
+            unsafe { SetForegroundWindow(prev); }
+        }
+    });
+    Ok(())
+}
+
+/// Replay Rückwärts (F7) – muss gedrückt gehalten werden
+pub fn replay_reverse() -> Result<(), String> {
+    hold_start("Replay Reverse")
 }
 
 /// Verlässt den Replay-Modus (Esc-Taste) – bringt LMU zurück zu Live.
 pub fn replay_exit() -> Result<(), String> {
-    let scan_esc: u16 = 0x01; // Esc-Scancode
     thread::spawn(move || {
         let hwnd = find_lmu_window();
         if hwnd.is_none() {
             eprintln!("[replay_exit] LMU-Fenster nicht gefunden, sende Esc trotzdem...");
-            send_scancode(scan_esc, false);
+            send_scancode(SCAN_ESC, false);
             return;
         }
         let hwnd = hwnd.unwrap();
         let prev = unsafe { GetForegroundWindow() };
-        
+
         unsafe {
             ShowWindow(hwnd, 9);
             thread::sleep(Duration::from_millis(50));
             SetForegroundWindow(hwnd);
             thread::sleep(Duration::from_millis(100));
         }
-        
-        // Esc senden (Replay-Modus verlassen)
-        send_scancode(scan_esc, false);
+
+        send_scancode(SCAN_ESC, false);
         thread::sleep(Duration::from_millis(200));
-        
-        // Zurück zum vorherigen Fenster
+
         if prev != 0 && prev != hwnd {
             unsafe { SetForegroundWindow(prev); }
         }
@@ -370,4 +621,28 @@ fn char_to_scancode(c: char) -> Option<u16> {
         '6' => Some(0x07), '7' => Some(0x08), '8' => Some(0x09),
         '9' => Some(0x0A), _ => None,
     }
+}
+
+/// Gibt die relevanten Tastenbelegungen für das Frontend zurück.
+/// Format: Vec<(action, scan, extended, key_name)> als einfache Struktur.
+pub fn get_relevant_bindings() -> Vec<KeyboardMappingEntryFrontend> {
+    let bindings = config().relevant_bindings();
+    bindings
+        .into_iter()
+        .map(|(action, binding, key_name)| KeyboardMappingEntryFrontend {
+            action,
+            key_name,
+            scan: binding.scan,
+            extended: binding.extended,
+        })
+        .collect()
+}
+
+/// Vereinfachte Struktur fürs Frontend.
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct KeyboardMappingEntryFrontend {
+    pub action: String,
+    pub key_name: String,
+    pub scan: u16,
+    pub extended: bool,
 }

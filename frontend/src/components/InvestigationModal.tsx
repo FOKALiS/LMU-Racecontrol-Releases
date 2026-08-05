@@ -51,39 +51,68 @@ export default function InvestigationModal({ draft, standings, settings, onClose
         <div className="modal-grid">
           <div className="field">
             <label>{t("modal_causing_driver")}</label>
-            <select value={form.car_number_a} onChange={(e) => selectDriverA(e.target.value)}>
-              <option value="">{t("modal_select_driver")}</option>
-              {standings.map((c) => (
-                <option key={c.slot_id} value={c.car_number}>
-                  #{c.car_number} {c.driver}
-                </option>
-              ))}
-            </select>
+            <div className="select-wrapper">
+              <select value={form.car_number_a} onChange={(e) => selectDriverA(e.target.value)}>
+                <option value="">{t("modal_select_driver")}</option>
+                {standings.map((c) => (
+                  <option key={c.slot_id} value={c.car_number}>
+                    #{c.car_number} {c.driver}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
           <div className="field">
             <label>{t("modal_affected_driver")}</label>
-            <select value={form.car_number_b} onChange={(e) => selectDriverB(e.target.value)}>
-              <option value="">{t("modal_select_driver_optional")}</option>
-              {standings.map((c) => (
-                <option key={c.slot_id} value={c.car_number}>
-                  #{c.car_number} {c.driver}
-                </option>
-              ))}
-            </select>
+            <div className="select-wrapper">
+              <select value={form.car_number_b} onChange={(e) => selectDriverB(e.target.value)}>
+                <option value="">{t("modal_select_driver_optional")}</option>
+                {standings.map((c) => (
+                  <option key={c.slot_id} value={c.car_number}>
+                    #{c.car_number} {c.driver}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
 
           <div className="field field-inline">
             <div>
               <label>{t("modal_lap")}</label>
-              <input
-                type="number"
-                value={form.lap}
-                onChange={(e) => set("lap", Number(e.target.value))}
-              />
+              <div className="modal-input-with-arrows">
+                <input
+                  type="number"
+                  value={form.lap}
+                  onChange={(e) => set("lap", Number(e.target.value))}
+                />
+                <div className="input-arrows">
+                  <button className="input-arrow-btn" onClick={() => set("lap", form.lap + 1)}>
+                    <img src="/icons/Pfeil oben.png" alt="+" className="input-arrow-icon" />
+                  </button>
+                  <button className="input-arrow-btn" onClick={() => set("lap", Math.max(0, form.lap - 1))}>
+                    <img src="/icons/Pfeil unten.png" alt="-" className="input-arrow-icon" />
+                  </button>
+                </div>
+              </div>
             </div>
             <div>
               <label>{t("modal_corner")}</label>
-              <input value={form.corner} onChange={(e) => set("corner", e.target.value)} />
+              <div className="modal-input-with-arrows">
+                <input
+                  type="number"
+                  min={0}
+                  value={form.corner || 1}
+                  onChange={(e) => set("corner", e.target.value)}
+                />
+                <div className="input-arrows">
+                  <button className="input-arrow-btn" onClick={() => set("corner", String(Number(form.corner || 1) + 1))}>
+                    <img src="/icons/Pfeil oben.png" alt="+" className="input-arrow-icon" />
+                  </button>
+                  <button className="input-arrow-btn" onClick={() => set("corner", String(Math.max(0, Number(form.corner || 1) - 1)))}>
+                    <img src="/icons/Pfeil unten.png" alt="-" className="input-arrow-icon" />
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
           <div className="field">
@@ -96,28 +125,32 @@ export default function InvestigationModal({ draft, standings, settings, onClose
 
           <div className="field">
             <label>{t("modal_incident_type")}</label>
-            <select
-              value={form.incident_type}
-              onChange={(e) => set("incident_type", e.target.value)}
-            >
-              <option value="">{t("modal_select_incident_type")}</option>
-              {settings.incident_types.map((type) => (
-                <option key={type} value={type}>
-                  {type}
-                </option>
-              ))}
-            </select>
+            <div className="select-wrapper">
+              <select
+                value={form.incident_type}
+                onChange={(e) => set("incident_type", e.target.value)}
+              >
+                <option value="">{t("modal_select_incident_type")}</option>
+                {settings.incident_types.map((type) => (
+                  <option key={type} value={type}>
+                    {type}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
           <div className="field">
             <label>{t("modal_decision")}</label>
-            <select value={form.decision} onChange={(e) => set("decision", e.target.value)}>
-              <option value="">{t("modal_select_decision")}</option>
-              {settings.decision_types.map((type) => (
-                <option key={type} value={type}>
-                  {type}
-                </option>
-              ))}
-            </select>
+            <div className="select-wrapper">
+              <select value={form.decision} onChange={(e) => set("decision", e.target.value)}>
+                <option value="">{t("modal_select_decision")}</option>
+                {settings.decision_types.map((type) => (
+                  <option key={type} value={type}>
+                    {type}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
 
           <div className="field field-full">

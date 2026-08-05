@@ -35,7 +35,7 @@ export default function LicenseGateView({ error, onActivate }: Props) {
           onKeyDown={(e) => e.key === "Enter" && submit()}
           disabled={busy}
         />
-        <button className="btn-solid" onClick={submit} disabled={busy || !key.trim()}>
+        <button className="nav-btn license-activate-btn" onClick={submit} disabled={busy || !key.trim()}>
           {busy ? t("license_activating") : t("license_activate_button")}
         </button>
       </div>

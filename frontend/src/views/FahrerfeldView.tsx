@@ -1,7 +1,5 @@
 import { useState, useMemo } from "react";
-import type { CarStanding, Incident, FlagColor } from "../types";
-import TopToolbar from "../components/TopToolbar";
-import FlagFilter from "../components/FlagFilter";
+import type { CarStanding, Incident } from "../types";
 import EyeIcon from "../components/EyeIcon";
 import { useLanguage } from "../i18n/LanguageContext";
 import { classColor } from "../classColors";
@@ -57,18 +55,13 @@ export default function FahrerfeldView({
     if (mode === "live") {
       invoke("switch_to_live").catch(console.error);
     } else {
+      invoke("replay_activate").catch(console.error);
       invoke("switch_to_replay").catch(console.error);
     }
   }
 
   function handleCamSelect(cam: string) {
     onCamSelect?.(cam);
-  }
-
-  function handleFlagFilterChange(color: FlagColor, show: boolean) {
-    if (color === "Red") setShowRed(show);
-    else if (color === "Yellow") setShowYellow(show);
-    else if (color === "White") setShowWhite(show);
   }
 
   function pendingFor(carNumber: string): Incident | undefined {
@@ -87,159 +80,223 @@ export default function FahrerfeldView({
 
   return (
     <div className="view-fahrerfeld">
-      <div className="view-header-row">
-        <h1>{t("fahrerfeld_title")}</h1>
-        <TopToolbar
-          imageMode={imageMode}
-          onImageModeChange={handleImageModeChange}
-          selectedCam={selectedCam}
-          onCamSelect={handleCamSelect}
-          onZoomStart={onZoomStart}
-          onZoomEnd={onZoomEnd}
-          replayActive={replayActive}
-          onSwitchToLive={onSwitchToLive}
-        />
-      </div>
-
-      {/* Zweite Zeile: Session, Player, Filter */}
-      <div className="toolbar-row-secondary">
-        {/* Session-Tabs */}
-        <div className="toolbar-group">
-          <div className="toolbar-label">{t("col_session")}</div>
-          <div className="session-tabs">
-            {(["Practice", "Qualifying", "Race"] as const).map((tab) => (
+      {/* Zeile 1: Titel | Image Control | Cam Control */}
+      <div className="fahrerfeld-toolbar-row">
+        <div className="fahrerfeld-col">
+          <div className="fahrerfeld-title">{t("fahrerfeld_title")}</div>
+        </div>
+        <div className="fahrerfeld-col">
+          <div className="fahrerfeld-image-control">
+            <div className="fahrerfeld-label">{t("toolbar_image_control")}</div>
+            <div className="fahrerfeld-buttons-row">
               <button
-                key={tab}
-                className={`session-tab ${sessionTab === tab ? "active" : ""}`}
-                onClick={() => setSessionTab(tab)}
+                className={`fahrerfeld-ctrl-btn ${imageMode === "replay" || replayActive ? "active" : ""}`}
+                onClick={() => handleImageModeChange("replay")}
+                disabled={replayActive}
               >
-                {tab}
+                {replayActive ? t("toolbar_replay_active") : t("toolbar_replay")}
               </button>
-            ))}
+              <button
+                className={`fahrerfeld-ctrl-btn ${imageMode === "live" ? "active" : ""}`}
+                onClick={() => handleImageModeChange("live")}
+              >
+                {t("toolbar_live")}
+              </button>
+            </div>
           </div>
         </div>
-
-        {/* Player (Platzhalter ohne Funktion) */}
-        <div className="toolbar-group">
-          <div className="toolbar-label">{t("col_player")}</div>
-          <div className="toolbar-buttons player-bar">
-            <button disabled title={t("col_player_placeholder")}>
-              <img src="/icons/Slow Rewind.png" alt="Slow Rewind" className="player-icon" />
-            </button>
-            <button disabled title={t("col_player_placeholder")}>
-              <img src="/icons/Rewind.png" alt="Rewind" className="player-icon" />
-            </button>
-            <button disabled title={t("col_player_placeholder")}>
-              <img src="/icons/Play.png" alt="Play" className="player-icon" />
-            </button>
-            <button disabled title={t("col_player_placeholder")}>
-              <img src="/icons/Forward.png" alt="Forward" className="player-icon" />
-            </button>
-            <button disabled title={t("col_player_placeholder")}>
-              <img src="/icons/Slow Forward.png" alt="Slow Forward" className="player-icon" />
-            </button>
-          </div>
-        </div>
-
-        {/* Filter */}
-        <div className="toolbar-group">
-          <div className="toolbar-label">{t("col_filter")}</div>
-          <div className="filter-tabs">
-            <button
-              className={`filter-tab filter-tab-red ${showRed ? "active" : ""}`}
-              onClick={() => setShowRed(!showRed)}
-            >
-              {t("col_filter_crash")}
-            </button>
-            <button
-              className={`filter-tab filter-tab-yellow ${showYellow ? "active" : ""}`}
-              onClick={() => setShowYellow(!showYellow)}
-            >
-              {t("col_filter_yellow")}
-            </button>
-            <button
-              className={`filter-tab filter-tab-white ${showWhite ? "active" : ""}`}
-              onClick={() => setShowWhite(!showWhite)}
-            >
-              {t("col_filter_white")}
-            </button>
+        <div className="fahrerfeld-col">
+          <div className="fahrerfeld-image-control">
+            <div className="fahrerfeld-label">{t("toolbar_cam_control")}</div>
+            <div className="fahrerfeld-buttons-row">
+              {(["TV", "Bord", "Heck"] as const).map((cam) => (
+                <button
+                  key={cam}
+                  className={`fahrerfeld-cam-btn ${selectedCam === cam ? "active" : ""}`}
+                  onClick={() => handleCamSelect(cam)}
+                >
+                  {cam === "TV" ? t("cam_tv") : cam === "Bord" ? t("cam_bord") : t("cam_rear")}
+                </button>
+              ))}
+              <button
+                className="fahrerfeld-cam-btn zoom-btn"
+                onMouseDown={() => onZoomStart?.("in")}
+                onMouseUp={() => onZoomEnd?.()}
+                onMouseLeave={() => onZoomEnd?.()}
+              >
+                {t("cam_zoom_in")}
+              </button>
+              <button
+                className="fahrerfeld-cam-btn zoom-btn"
+                onMouseDown={() => onZoomStart?.("out")}
+                onMouseUp={() => onZoomEnd?.()}
+                onMouseLeave={() => onZoomEnd?.()}
+              >
+                {t("cam_zoom_out")}
+              </button>
+            </div>
           </div>
         </div>
       </div>
 
-      <FlagFilter
-        showRed={showRed}
-        showYellow={showYellow}
-        showWhite={showWhite}
-        onChange={handleFlagFilterChange}
-      />
-
-      <div className="table-scroll">
-        <table className="data-table">
-          <thead>
-            <tr>
-              <th>{t("col_pos")}</th>
-              <th>{t("col_class")}</th>
-              <th>{t("col_number")}</th>
-              <th>{t("col_driver_name")}</th>
-              <th>{t("col_team")}</th>
-              <th>{t("col_car")}</th>
-              <th>{t("col_status")}</th>
-              <th>{t("col_fastest_lap")}</th>
-              <th>{t("col_incident")}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {sortedStandings.length === 0 && (
-              <tr>
-                <td colSpan={9} className="empty-row">
-                  {t("fahrerfeld_no_data")}
-                </td>
-              </tr>
-            )}
-            {sortedStandings.map((car) => {
-              const pending = pendingFor(car.car_number);
-              const showIncident = pending && matchesFilter(pending);
-              return (
-                <tr
-                  key={car.slot_id}
-                  className={focusedSlotId === car.slot_id ? "row-focused" : ""}
-                  onClick={() => onFocusDriver(car.slot_id, car.car_number, car.driver)}
+      {/* Zeile 1b: Session | Player | Filter – auf gleicher Höhe */}
+      <div className="fahrerfeld-toolbar-row">
+        <div className="fahrerfeld-col">
+          <div className="fahrerfeld-section">
+            <div className="fahrerfeld-label">{t("col_session")}</div>
+            <div className="session-tabs session-tabs-fahrerfeld">
+              {(["Practice", "Qualifying", "Race"] as const).map((tab) => (
+                <button
+                  key={tab}
+                  className={`session-tab ${sessionTab === tab ? "active" : ""}`}
+                  onClick={() => setSessionTab(tab)}
                 >
-                  <td>{car.position}</td>
-                  <td>
-                    <span className={`class-badge class-badge-${classColor(car.class)}`}>{car.class}</span>
-                  </td>
-                  <td>{car.car_number}</td>
-                  <td>{car.driver}</td>
-                  <td>{car.team}</td>
-                  <td>{car.car_model || "–"}</td>
-                  <td>{car.in_pits ? "PIT" : ""}</td>
-                  <td>{formatLap(car.best_lap_s)}</td>
-                  <td className="incident-cell">
-                    {showIncident && pending && (
-                      <button
-                        className={`flag-dot flag-${pending.flag_color?.toLowerCase() ?? "empty"}`}
-                        onClick={(e) => { e.stopPropagation(); onReplay?.(pending); }}
-                        title={pending.incident_type || ""}
-                      >
-                        <EyeIcon />
-                      </button>
-                    )}
-                    {showIncident && pending && (
-                      <button
-                        className="investigate-btn"
-                        onClick={(e) => { e.stopPropagation(); onInvestigate(pending); }}
-                      >
-                        {t("investigate")}
-                      </button>
-                    )}
+                  {tab}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+        <div className="fahrerfeld-col">
+          <div className="fahrerfeld-section">
+            <div className="fahrerfeld-label">{t("col_player")}</div>
+            <div className="player-bar player-bar-fahrerfeld">
+              <button title={t("col_player_replay_reverse")}
+                onMouseDown={() => invoke("replay_reverse")}
+                onMouseUp={() => invoke("hold_stop")}
+                onMouseLeave={() => invoke("hold_stop")}>
+                <img src="/icons/Slow Rewind.png" alt="Slow Rewind" className="player-icon" />
+              </button>
+              <button title={t("col_player_rewind_fast")}
+                onMouseDown={() => invoke("rewind_fast")}
+                onMouseUp={() => invoke("hold_stop")}
+                onMouseLeave={() => invoke("hold_stop")}>
+                <img src="/icons/Rewind.png" alt="Rewind" className="player-icon" />
+              </button>
+              <button title={t("col_player_play")} onClick={() => invoke("replay_pause")}>
+                <img src="/icons/Play.png" alt="Play" className="player-icon" />
+              </button>
+              <button title={t("col_player_forward")}
+                onMouseDown={() => invoke("replay_forward")}
+                onMouseUp={() => invoke("hold_stop")}
+                onMouseLeave={() => invoke("hold_stop")}>
+                <img src="/icons/Forward.png" alt="Forward" className="player-icon" />
+              </button>
+              <button title={t("col_player_slow")}
+                onMouseDown={() => invoke("replay_slow")}
+                onMouseUp={() => invoke("hold_stop")}
+                onMouseLeave={() => invoke("hold_stop")}>
+                <img src="/icons/Slow Forward.png" alt="Slow Forward" className="player-icon" />
+              </button>
+            </div>
+          </div>
+        </div>
+        <div className="fahrerfeld-col">
+          <div className="fahrerfeld-section">
+            <div className="fahrerfeld-label">{t("col_filter")}</div>
+            <div className="filter-tabs filter-tabs-fahrerfeld">
+              <button
+                className={`filter-tab filter-tab-red ${showRed ? "active" : ""}`}
+                onClick={() => setShowRed(!showRed)}
+              >
+                {t("col_filter_crash")}
+              </button>
+              <button
+                className={`filter-tab filter-tab-yellow ${showYellow ? "active" : ""}`}
+                onClick={() => setShowYellow(!showYellow)}
+              >
+                {t("col_filter_yellow")}
+              </button>
+              <button
+                className={`filter-tab filter-tab-white ${showWhite ? "active" : ""}`}
+                onClick={() => setShowWhite(!showWhite)}
+              >
+                {t("col_filter_white")}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Zeile 3: Tabelle mit integrierter Vorfall-Spalte */}
+      <div className="fahrerfeld-table-row">
+        <div className="table-scroll fahrerfeld-table-scroll">
+          <table className="data-table fahrerfeld-table">
+            <thead>
+              <tr>
+                <th className="fahrerfeld-th-pos">{t("col_pos")}</th>
+                <th className="fahrerfeld-th-class">{t("col_class")}</th>
+                <th className="fahrerfeld-th-num">{t("col_number")}</th>
+                <th className="fahrerfeld-th-driver">{t("col_driver_name")}</th>
+                <th className="fahrerfeld-th-team">{t("col_team")}</th>
+                <th className="fahrerfeld-th-car">{t("col_car")}</th>
+                <th className="fahrerfeld-th-status">{t("col_status")}</th>
+                <th className="fahrerfeld-th-lap">{t("col_fastest_lap")}</th>
+                <th className="fahrerfeld-th-spacer"></th>
+                <th className="fahrerfeld-th-incident">{t("col_incident")}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {sortedStandings.length === 0 && (
+                <tr>
+                  <td colSpan={10} className="empty-row">
+                    {t("fahrerfeld_no_data")}
                   </td>
                 </tr>
-              );
-            })}
-          </tbody>
-        </table>
+              )}
+              {sortedStandings.map((car) => {
+                const pending = pendingFor(car.car_number);
+                const showIncident = pending && matchesFilter(pending);
+                const focused = focusedSlotId === car.slot_id;
+                return (
+                  <tr
+                    key={car.slot_id}
+                    className={focused ? "row-focused" : ""}
+                    onClick={() => onFocusDriver(car.slot_id, car.car_number, car.driver)}
+                  >
+                    <td>{car.position}</td>
+                    <td>
+                      <span className={`class-badge class-badge-${classColor(car.class)}`}>
+                        {car.class}
+                      </span>
+                    </td>
+                    <td>{car.car_number}</td>
+                    <td>{car.driver}</td>
+                    <td>{car.team}</td>
+                    <td>{car.car_model || "–"}</td>
+                    <td>{car.in_pits ? "PIT" : ""}</td>
+                    <td>{formatLap(car.best_lap_s)}</td>
+                    <td className="fahrerfeld-td-spacer"></td>
+                    <td className="fahrerfeld-td-incident">
+                      {showIncident && pending ? (
+                        <div className="fahrerfeld-incident-inner">
+                          <button
+                            className={`fahrerfeld-flag-badge flag-${pending.flag_color?.toLowerCase() ?? "empty"}`}
+                            onClick={(e) => { e.stopPropagation(); onReplay?.(pending); }}
+                            title={pending.incident_type || ""}
+                          >
+                            <EyeIcon />
+                          </button>
+                          <button
+                            className="fahrerfeld-investigate-btn"
+                            onClick={(e) => { e.stopPropagation(); onInvestigate(pending); }}
+                          >
+                            {t("investigate")}
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="fahrerfeld-incident-inner">
+                          <div className="fahrerfeld-flag-badge-empty" />
+                          <div className="fahrerfeld-investigate-empty" />
+                        </div>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );
