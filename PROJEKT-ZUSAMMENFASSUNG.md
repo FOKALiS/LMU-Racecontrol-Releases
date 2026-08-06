@@ -3,12 +3,12 @@
 ## Projekt
 **LMU RACECONTROL** – Tauri-basiertes Desktop-Tool für Le Mans Ultimate Rennkommissionen.
 - **Pfad:** `C:\Users\Administrator\Documents\AI\Software Entwicklung\LMU Racecontrol\Tool\lmu-race-control`
-- **Aktuelle Version:** v0.8.8
+- **Aktuelle Version:** v0.9.1
 - **Build-Workflow:** https://github.com/FOKALiS/LMU-Racecontrol/actions
-- **Release-Versionierung:** Zweite Kommastelle erhöhen (z. B. 0.8.8 → 0.8.9)
-- **WICHTIG:** Nur lokale Builds & Releases – KEINE GitHub-Pushes!
+- **Release-Versionierung:** Zweite Kommastelle erhöhen (z. B. 0.9.0 → 0.9.1)
 - **User ist Grafik Designer, kein Coder** – Schritt-für-Schritt-Anleitung nötig
-- **Letzter Commit:** `52fa03b421ea6d9542995404558523b46b74f3ad`
+- **Letzter Commit:** `52d1e2b` (v0.9.1 – Weiße Flagge Fix)
+- **GitHub:** `origin/main` auf dem aktuellsten Stand, Arbeitsverzeichnis sauber
 
 ## Wichtige Pfade
 - **LMU-Installation:** `C:\Program Files (x86)\Steam\steamapps\common\Le Mans Ultimate`
@@ -22,7 +22,7 @@
   - `C:\Users\Administrator\Documents\AI\Software Entwicklung\LMU Racecontrol\Logo\LMU RC Logo - hell.png` (1024x486, breites Banner)
   - `C:\Users\Administrator\Documents\AI\Software Entwicklung\LMU Racecontrol\Logo\LMU RC - Icon transparent.png` (1024x1024, Flaggen-Symbol)
 
-## FUNKTIONIERT ✅ (Stand v0.8.8)
+## FUNKTIONIERT ✅ (Stand v0.9.1)
 
 ### Kamera-Steuerung
 - **3 Kamera-Buttons:** "Bord", "TV", "Heck"
@@ -52,24 +52,31 @@
 - **Einstellungen** und **Vorfälle**-Ansicht sind synchron
 - Auto-Stop nach Nachlaufzeit (F11-Taste) via Timer
 
-### Vorfall-Erkennung (NEU in v0.8.8)
-- **ROT (Crash):** Impact >3.0g (Shared Memory), Rundenzeit >30% zum eigenen Schnitt, Stillstand <10 km/h
+### Vorfall-Erkennung (v0.8.8, verbessert in v0.9.1)
+- **ROT (Crash):** Impact >3.0g (Shared Memory), Rundenzeit >30% zum eigenen Schnitt, Stillstand >0.5 km/h und <10 km/h
 - **GELB (Auffälligkeit):** Rundenzeit >15%, Positionsverlust ≥3 ohne Boxenstopp, FCY-Verstoß
-- **WEISS (dauerhaft langsam):** >30 Sekunden unter 50 km/h (Timer-basiert, NEU!)
+- **WEISS (dauerhaft langsam):** >30 Sekunden unter 50 km/h (Timer-basiert)
 - **Impact-Schwelle gesenkt:** 5.0 → 3.0g (sensibler)
 - Cooldown: 30 Sekunden pro Fahrzeug
+- **MIN_STOPPED_SPEED_KMH = 0.5** – Fahrzeuge mit exakt 0.0 km/h (z.B. Pipo Derani) werden ignoriert (v0.9.0)
+- **Weiße Flagge** prüft ebenfalls `> MIN_STOPPED_SPEED_KMH` (v0.9.1)
 
-### Session-Buttons (NEU in v0.8.8)
+### Session-Buttons (v0.8.8)
 - Session-Buttons in FahrerfeldView + VorfaelleView sind **reine Info-Anzeigen** (nicht klickbar)
 - `session?.session_type` aus LMU bestimmt den active State (Practice / Qualifying / Race)
 - Gleiche Höhe (36px) + Breite (flex:1) wie Filter-Buttons
+
+### FCY (Full Course Yellow)
+- **Countdown** (10 Sekunden, konfigurierbar) → dann **Active**
+- Während Active: Prüft alle Fahrzeuge auf **> 60 km/h + 3 km/h Toleranz = 63 km/h**
+- Jeder Verstoß wird **einmal pro Fahrzeug und FCY-Phase** gemeldet
+- Verstöße werden als GELB-Vorfälle mit Typ "FCY-Verstoß" gespeichert
 
 ### Splashscreen (v0.8.7)
 - Copyright: "FOKALiS - Film & Medienagentur"
 
 ### Weitere funktionierende Features
 - Fahrer-Fokus per Klick auf Fahrerzeile (REST-API PUT `/rest/watch/focus/{slotID}`)
-- FCY-Überwachung mit roten Verstößen
 - Speed-Anzeige
 - Connect/Disconnect
 - Lizenzsystem (Online-Aktivierung)
@@ -77,6 +84,11 @@
 - Connect-Button deaktiviert wenn nicht lizenziert (v0.8.7)
 - Switch to Live via 86400s-Trick
 - Player-Bar (Play, Vor, Zurück, Slow, Rewind) via SendInput
+- Discord-Webhook (formatiert mit Fahrer, Verwarn-/Strafpunkte, "N.A." bei leerer Kurve)
+- Einstellungen-Überschrift linksbündig
+- Ordnersymbol für LMU-Pfad-Auswahl in Einstellungen
+- Archiv: Entscheidungs-Badge öffnet InvestigationModal
+- Fenster-Titel: "LMU RACECONTROL – Das Tool für Rennkommissare"
 
 ## FUNKTIONIERT NICHT ❌ / OFFEN
 
@@ -84,7 +96,7 @@
 2. **Manufacturers-API:** LMU liefert Hersteller-Daten pro Fahrzeug – müssen noch in FahrerfeldView eingebunden werden.
 3. **VE (Verbale Entscheidung):** Noch nicht implementiert.
 4. **Tabellen-Zellen-Ausrichtung:** Soll noch angepasst werden.
-5. **Discord Webhook:** Noch nicht getestet.
+5. **Mehrbenutzer-fähig:** Aktuell nur lokale SQLite-DB – kein gemeinsamer Zugriff für mehrere Stewards.
 
 ## WICHTIGE TECHNISCHE ERKENNTNISSE
 
@@ -114,7 +126,7 @@
 - Dauer-Zoom sendet Taste alle 15ms via Hintergrund-Thread
 - Hold-Tasten (F7, F8, F9, F10) drücken KEYDOWN und halten bis Stop
 
-## ICON-PROBLEM GELÖST ✅ (v0.8.5, Chat vom 04.08.2026)
+## ICON-PROBLEM GELÖST ✅ (v0.8.5)
 
 ### Ursache (2 Probleme kombiniert)
 1. **Fehlende Windows-Skalierungsgrößen** – Die ICO hatte nur 7 Größen (16, 24, 32, 48, 64, 128, 256). Windows braucht aber auch **20, 40 und 96** für DPI-Skalierungen (100%, 125%, 150%, 175%, 200%).
@@ -143,6 +155,11 @@
 - `src-tauri/src/lmu_client.rs` – REST-Client (fetch, put, seek_replay_to)
 - `src-tauri/src/incidents.rs` – Vorfall-Erkennung (ROT/GELB/WEISS), Heuristik
 - `src-tauri/src/shared_memory.rs` – LMU Shared Memory Zugriff (LMU_Data, Impact-Offsets)
+- `src-tauri/src/fcy.rs` – FCY-Statusmaschine (Idle → Countdown → Active)
+- `src-tauri/src/db.rs` – SQLite-Datenbank (Incidents, Settings, License)
+- `src-tauri/src/discord.rs` – Discord-Webhook-Versand
+- `src-tauri/src/settings.rs` – Settings-Speicher (JSON-Datei)
+- `src-tauri/src/license.rs` – Lizenzsystem (Online-Aktivierung)
 
 ## WICHTIGE FRONTEND-DATEIEN
 - `frontend/src/App.tsx` – Haupt-App, Routing, View-Steuerung, session-Prop für Views
@@ -157,6 +174,19 @@
 - `frontend/src/i18n/translations.ts` – Übersetzungen (DE/EN)
 
 ## CHANGELOG – Änderungen pro Version
+
+### v0.9.1 (06.08.2026)
+- **Weiße Flagge Fix:** Auch die weiße Flagge (langsames Fahrzeug) prüft jetzt `> MIN_STOPPED_SPEED_KMH (0.5 km/h)`, damit Fahrzeuge mit exakt 0.0 km/h (Pipo Derani) nicht fälschlich als "langsam" gemeldet werden
+- **Commit:** `52d1e2b` – gepusht auf `origin/main`
+
+### v0.9.0 (06.08.2026)
+- **Pipo Derani Fix:** `MIN_STOPPED_SPEED_KMH = 0.5` eingeführt – Fahrzeuge mit 0.0 km/h werden nicht mehr als Stillstand erkannt
+- **Discord-Webhook:** Formatierung überarbeitet (Fahrer, Verwarn-/Strafpunkte, "N.A." bei leerer Kurve)
+- **Einstellungen:** Überschrift linksbündig (text-align: center → left)
+- **Ordnersymbol (📂)** für LMU-Pfad-Auswahl wieder eingebaut
+- **Archiv:** Entscheidungs-Badge öffnet jetzt InvestigationModal
+- **Fenster-Titel:** "LMU RACECONTROL – Das Tool für Rennkommissare"
+- **Builds:** NSIS + MSI auf GitHub Releases hochgeladen
 
 ### v0.8.8 (05.08.2026)
 - **Vorfall-Erkennung überarbeitet:**
@@ -193,12 +223,76 @@
 5. **Shared Memory Impact-Daten testen** – Wenn LMU läuft, ob `impact_mag` Daten liefert
 6. **Replay-Zeit ausführlich testen** – Doppel-Zeitsprung in der Praxis prüfen
 
+## 🚀 GROSSES ZIEL: Server-Architektur für Enterprise (geplant ab 07.08.2026)
+
+### Problem
+Mehrere Rennkommissare sitzen verteilt (Dresden, Bayreuth, Ulm, ...) – jeder hat aktuell seine eigene lokale SQLite-DB. Keiner sieht die Vorfälle der anderen.
+
+### Infrastruktur
+- **V-Server von ZAP:** Intel Xeon E5-2650 v2 @ 2.60GHz, 32 GB RAM, Windows Server 2019
+- **Build 17763.8146** – läuft 24/7 im Rechenzentrum
+
+### Lösungs-Architektur (Monorepo)
+
+```
+lmu-race-control/          ← EIN Repository (das bestehende)
+├── src-tauri/             ← Das Tool (Client) – bleibt wie es ist
+│   ├── src/
+│   │   ├── main.rs        ← Client-Logik
+│   │   ├── db.rs          ← Wird erweitert (LocalDb + RemoteDb)
+│   │   └── ...
+├── frontend/              ← Die UI – bleibt wie sie ist
+├── server/                ← NEU: Die Server-Komponente (Enterprise)
+│   ├── Cargo.toml
+│   └── src/
+│       ├── main.rs        ← REST-API (Axum)
+│       ├── db.rs          ← Zentrale DB (SQLite, gleiches Schema wie Client)
+│       └── ...
+```
+
+### Phasen
+
+#### Phase 1: Server-Backend (server/ Ordner)
+- **Technologie:** Rust mit Axum + SQLite (sqlx)
+- **API-Endpunkte:**
+  - `POST /api/incidents` – Vorfall melden
+  - `GET /api/incidents` – alle Vorfälle abrufen
+  - `PATCH /api/incidents/:id` – Entscheidung/Notiz setzen
+  - `POST /api/incidents/:id/decision` – Entscheidung setzen
+  - `GET /api/standings` – aktuelle Wertung (optional)
+- **Mandanten-Verwaltung:** Jeder Kunde = ein Tenant mit API-Key
+- **Authentifizierung:** `Authorization: Bearer <api_key>`
+- **Windows-Dienst:** Läuft als .exe auf dem V-Server
+
+#### Phase 2: Tool-Umbau (Client)
+- **`ConnectionMode`-Enum:** `Local` oder `Server { url, api_key }`
+- **`Db`-Trait:** `LocalDb` (bestehendes SQLite) + `RemoteDb` (ruft REST-API auf)
+- **Settings-Erweiterung:** Neuer Tab "Server" mit URL + API-Key-Feld
+- **Feature-Flags:** Basic-Kunden nutzen nur LocalDb, Enterprise-Kunden schalten Server frei
+
+#### Phase 3: Vertriebsmodell
+- **LMU RACECONTROL Basic** (lokal, kostenlos/einmalig) – für 1-2 Stewards an einem Rechner
+- **LMU RACECONTROL Enterprise** (Server, Monatsabo) – für mehrere Stewards remote
+
+### Feature-Grenzen
+| Feature | Basic | Enterprise |
+|---------|-------|------------|
+| Vorfall-Erkennung | ✅ | ✅ |
+| Discord-Webhook | ✅ | ✅ |
+| FCY-Überwachung | ✅ | ✅ |
+| Kamera-Steuerung | ✅ | ✅ |
+| Replay-Steuerung | ✅ | ✅ |
+| Server-Anbindung | ❌ | ✅ |
+| Team-Übersicht | ❌ | ✅ |
+| Mandanten-Verwaltung | ❌ | ✅ (nur Admin) |
+
 ## BUILD-Prozess
 ```bash
 cd "C:\Users\Administrator\Documents\AI\Software Entwicklung\LMU Racecontrol\Tool\lmu-race-control"
 cargo tauri build
 ```
-- Installer: `src-tauri\target\release\bundle\nsis\LMU RACECONTROL_0.8.8_x64-setup.exe`
-- MSI: `src-tauri\target\release\bundle\msi\LMU RACECONTROL_0.8.8_x64_en-US.msi`
+- Installer: `src-tauri\target\release\bundle\nsis\LMU RACECONTROL_0.9.0_x64-setup.exe`
+- MSI: `src-tauri\target\release\bundle\msi\LMU RACECONTROL_0.9.0_x64_en-US.msi`
 - "A public key found, but no private key" Fehler = nur für Auto-Update, Installer funktionieren trotzdem
 - Vor Build: Version in `src-tauri/Cargo.toml`, `package.json`, `src-tauri/tauri.conf.json` anpassen
+- Server-Build: `cargo build --release -p lmu-server` (separate .exe)
