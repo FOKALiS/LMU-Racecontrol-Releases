@@ -1,6 +1,20 @@
 //! Sendet eine Discord-Embed-Nachricht, sobald ein Vorfall von der
 //! Rennkommission entschieden und archiviert wurde. Nutzt einen normalen
 //! Discord-Webhook (Server-Einstellungen -> Integrationen -> Webhooks).
+//!
+//! Format der Nachricht (Farbe #b66a00 = 11958784):
+//!
+//! Vorfall #1
+//! Zum Vorfall Reko gegen #Carnumber im Rennen, Runde x - Kurve x, hat die
+//! Rennkommission wie folgt entschieden:
+//!
+//! Vorwurf: <incident_type>
+//! Strafe: <decision>
+//! Strafpunkte: <penalty_points>
+//! Verwarnpunkte: <warning_points>
+//!
+//! Begründung:
+//! <reasoning>
 
 use crate::db::Incident;
 use anyhow::Result;
@@ -8,50 +22,48 @@ use anyhow::Result;
 pub async fn send_incident_decision(webhook_url: &str, incident: &Incident) -> Result<()> {
     let webhook_url = webhook_url.trim();
     if webhook_url.is_empty() {
-        // Kein Webhook konfiguriert - bewusst kein Fehler, damit das
-        // Archivieren von Vorfällen auch ohne Discord-Anbindung klappt.
         return Ok(());
     }
 
-    let is_no_action = incident
-        .decision
-        .as_deref()
-        .map(|d| d.to_lowercase().contains("keine"))
-        .unwrap_or(false);
-    let color = if is_no_action { 0x2FBF4F } else { 0xE62837 };
+    // Farbe #b66a00 = 11958784
+    let color = 0xB66A00;
 
-    let mut fields = vec![
-        serde_json::json!({"name": "Runde", "value": incident.lap.to_string(), "inline": true}),
-        serde_json::json!({"name": "Kurve", "value": non_empty(&incident.corner), "inline": true}),
-        serde_json::json!({"name": "Zeitstempel", "value": non_empty(&incident.timestamp_label), "inline": true}),
-        serde_json::json!({
-            "name": "Verursacher",
-            "value": format!("#{} {} ({})", non_empty(&incident.car_number_a), non_empty(&incident.driver_a), non_empty(&incident.class_a)),
-            "inline": false
-        }),
-    ];
-    if !incident.driver_b.trim().is_empty() {
-        fields.push(serde_json::json!({
-            "name": "Geschädigter",
-            "value": format!("#{} {} ({})", non_empty(&incident.car_number_b), non_empty(&incident.driver_b), non_empty(&incident.class_b)),
-            "inline": false
-        }));
-    }
-    fields.push(serde_json::json!({"name": "Vorfall-Art", "value": non_empty(&incident.incident_type), "inline": false}));
-    fields.push(serde_json::json!({
-        "name": "Entscheidung",
-        "value": non_empty(incident.decision.as_deref().unwrap_or("")),
-        "inline": false
-    }));
-    if !incident.reasoning.trim().is_empty() {
-        fields.push(serde_json::json!({"name": "Begründung", "value": incident.reasoning, "inline": false}));
-    }
+    // Beschreibungstext
+    let car_number = if !incident.car_number_a.is_empty() {
+        &incident.car_number_a
+    } else {
+        "??"
+    };
+    let driver = if !incident.driver_a.is_empty() {
+        &incident.driver_a
+    } else {
+        "Unbekannt"
+    };
+    let description = format!(
+        "Zum Vorfall Rennkommission gegen **{}** im Rennen, Runde **{}** - Kurve **{}**, hat die Rennkommission wie folgt entschieden:\n\n\
+        **Vorwurf:** {}\n\
+        **Strafe:** {}\n\
+        **Verwarnpunkte:** {}\n\
+        **Strafpunkte:** {}\n\n\
+        **Begründung:**\n{}",
+        driver,
+        incident.lap,
+        if incident.corner.trim().is_empty() { "N.A." } else { &incident.corner },
+        non_empty(&incident.incident_type),
+        non_empty(incident.decision.as_deref().unwrap_or("")),
+        incident.warning_points,
+        incident.penalty_points,
+        if incident.reasoning.trim().is_empty() { "–" } else { &incident.reasoning },
+    );
 
     let payload = serde_json::json!({
         "embeds": [{
-            "title": format!("Vorfall #{} entschieden", incident.incident_number),
+            "title": format!("Vorfall #{}", incident.incident_number),
             "color": color,
-            "fields": fields,
+            "description": description,
+            "footer": {
+                "text": "Bei Fragen zur Entscheidung der Rennkommission öffnet im Ticketsystem bitte ein Ticket. Um einen Einspruch einzulegen (1 x pro Saison) nutzt bitte unsere Website „Strafantrag / Einspruch“."
+            }
         }]
     });
 

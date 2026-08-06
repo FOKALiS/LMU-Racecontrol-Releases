@@ -3,12 +3,12 @@
 ## Projekt
 **LMU RACECONTROL** – Tauri-basiertes Desktop-Tool für Le Mans Ultimate Rennkommissionen.
 - **Pfad:** `C:\Users\Administrator\Documents\AI\Software Entwicklung\LMU Racecontrol\Tool\lmu-race-control`
-- **Aktuelle Version:** v0.8.5
+- **Aktuelle Version:** v0.8.8
 - **Build-Workflow:** https://github.com/FOKALiS/LMU-Racecontrol/actions
-- **Release-Versionierung:** Zweite Kommastelle erhöhen (z. B. 0.8.x → 0.8.6)
+- **Release-Versionierung:** Zweite Kommastelle erhöhen (z. B. 0.8.8 → 0.8.9)
 - **WICHTIG:** Nur lokale Builds & Releases – KEINE GitHub-Pushes!
 - **User ist Grafik Designer, kein Coder** – Schritt-für-Schritt-Anleitung nötig
-- **Letzter Commit:** `c4b20d8eb4a745358a13c93a1db54e8a1a357a8b`
+- **Letzter Commit:** `52fa03b421ea6d9542995404558523b46b74f3ad`
 
 ## Wichtige Pfade
 - **LMU-Installation:** `C:\Program Files (x86)\Steam\steamapps\common\Le Mans Ultimate`
@@ -22,14 +22,16 @@
   - `C:\Users\Administrator\Documents\AI\Software Entwicklung\LMU Racecontrol\Logo\LMU RC Logo - hell.png` (1024x486, breites Banner)
   - `C:\Users\Administrator\Documents\AI\Software Entwicklung\LMU Racecontrol\Logo\LMU RC - Icon transparent.png` (1024x1024, Flaggen-Symbol)
 
-## FUNKTIONIERT ✅ (Stand v0.8.5)
+## FUNKTIONIERT ✅ (Stand v0.8.8)
 
 ### Kamera-Steuerung
-- **3 Kamera-Buttons:** "Bord", "Heli", "TV" (vorher "Helmet" – matched in Rust korrekt)
+- **3 Kamera-Buttons:** "Bord", "TV", "Heck"
 - **Tastatur-Simulation (SendInput/Scancodes)** statt REST-API (REST gab 200, tat aber nichts)
-- **Zoom + / Zoom -** als Dauer-Zoom (KP7/KP9, 15ms Intervall)
+- **Zoom + / Zoom -** als Dauer-Zoom (über keyboard.json konfigurierbar)
 - Keyboard-Layout wird aus **`keyboard.json`** gelesen (LMU Tastenbelegung)
-- **AKTUELLER STAND:** "Bord" matched in Rust, 1 Hintergrund-Thread statt setInterval-Flut, KP9 Scancode 0x49
+- **Onboard Cameras** wird ebenfalls aus keyboard.json ausgelesen und angezeigt
+- **Reload-Button** in Einstellungen lädt Tastenbelegung neu (OnceLock → RwLock gefixt)
+- **Datei-Browser (📂)** zur Auswahl des LMU-Installationspfads
 
 ### Auge-Symbol (jumpToReplay) – funktioniert im Ansatz
 - **Ablauf:** R-Taste (Replay aktivieren) → 1s warten → Zeitsprung API → 500ms warten → F11 (Play) → **Zeitsprung wiederholen** (weil F11 Position auf 0:00 zurücksetzt!) → Fahrer-Fokus
@@ -48,21 +50,41 @@
 - **Standardwerte: 20 Sekunden / 20 Sekunden** (`pre_roll_seconds` / `post_roll_seconds`)
 - Slider in den **Vorfällen** speichern direkt in die Settings (via `save_settings`)
 - **Einstellungen** und **Vorfälle**-Ansicht sind synchron
-- Auto-Stop nach Nachlaufzeit (F6-Taste) via Timer
+- Auto-Stop nach Nachlaufzeit (F11-Taste) via Timer
+
+### Vorfall-Erkennung (NEU in v0.8.8)
+- **ROT (Crash):** Impact >3.0g (Shared Memory), Rundenzeit >30% zum eigenen Schnitt, Stillstand <10 km/h
+- **GELB (Auffälligkeit):** Rundenzeit >15%, Positionsverlust ≥3 ohne Boxenstopp, FCY-Verstoß
+- **WEISS (dauerhaft langsam):** >30 Sekunden unter 50 km/h (Timer-basiert, NEU!)
+- **Impact-Schwelle gesenkt:** 5.0 → 3.0g (sensibler)
+- Cooldown: 30 Sekunden pro Fahrzeug
+
+### Session-Buttons (NEU in v0.8.8)
+- Session-Buttons in FahrerfeldView + VorfaelleView sind **reine Info-Anzeigen** (nicht klickbar)
+- `session?.session_type` aus LMU bestimmt den active State (Practice / Qualifying / Race)
+- Gleiche Höhe (36px) + Breite (flex:1) wie Filter-Buttons
+
+### Splashscreen (v0.8.7)
+- Copyright: "FOKALiS - Film & Medienagentur"
 
 ### Weitere funktionierende Features
 - Fahrer-Fokus per Klick auf Fahrerzeile (REST-API PUT `/rest/watch/focus/{slotID}`)
 - FCY-Überwachung mit roten Verstößen
 - Speed-Anzeige
 - Connect/Disconnect
-- Lizenzsystem
+- Lizenzsystem (Online-Aktivierung)
 - Standings-Updates per Polling (1s Intervall)
+- Connect-Button deaktiviert wenn nicht lizenziert (v0.8.7)
+- Switch to Live via 86400s-Trick
+- Player-Bar (Play, Vor, Zurück, Slow, Rewind) via SendInput
 
 ## FUNKTIONIERT NICHT ❌ / OFFEN
 
-1. **Replay-Zeit:** Zeitsprung funktioniert, aber Nutzer muss noch genauer testen (v0.7.8 mit Doppel-Zeitsprung ist der aktuellste Fix – noch nicht ausführlich getestet)
-2. **Shared Memory Offsets:** Aktuelle Offsets 0x24/0x28 sind für rFactor2, LMU braucht andere. Nicht aktiv genutzt.
-3. **Kamera via Tastatur** erzwingt kurz den LMU-Fokus (Fenster in den Vordergrund) – funktioniert aber
+1. **Shared Memory Impact-Daten:** `read_impact_data()` ist codiert, aber LMU-Offsets sind geschätzt (aus SM Bridge Logs). Python-Tests schlagen fehl (Error 5 – Admin/User Session Problem). Die Tauri-App hat als normaler User potenziell Zugriff.
+2. **Manufacturers-API:** LMU liefert Hersteller-Daten pro Fahrzeug – müssen noch in FahrerfeldView eingebunden werden.
+3. **VE (Verbale Entscheidung):** Noch nicht implementiert.
+4. **Tabellen-Zellen-Ausrichtung:** Soll noch angepasst werden.
+5. **Discord Webhook:** Noch nicht getestet.
 
 ## WICHTIGE TECHNISCHE ERKENNTNISSE
 
@@ -79,11 +101,18 @@
 - slotID, driverName, fullTeamName, carClass, lapsCompleted, lastLapTime, bestLapTime, pitting, carVelocity.velocity (m/s)
 
 ### LMU Tastenbelegung (keyboard.json)
-- R = Replay aktivieren
-- F11 = Replay Play
-- F6 = Replay Stop
-- KP7 / KP9 = Zoom + / Zoom -
-- TV = Kamera TV, F2-Artige Tasten für Kameras (aus keyboard.json)
+- Die Tastenbelegung wird aus `{Installation}/UserData/player/keyboard.json` gelesen
+- Format: `{"Input": {"Aktion": DIK_Scancode, ...}, "Type": "Keyboard"}`
+- DIK-Scancodes werden in Windows-Scancodes (+ extended-Flag) übersetzt
+- **Relevante Actions:** "Tracking Cameras", "Driving Cameras", "Onboard Cameras", "Swingman Camera", "Swingman Zoom In/Out", "Instant Replay", "Replay Play/Stop/Slowmotion/Fast Forward/Fast Rewind/Reverse"
+- Standard-Presets dienen als Fallback, wenn keyboard.json nicht lesbar ist
+
+### Tastatur-Simulation (keyboard.rs)
+- Verwendet `SendInput` mit Scancodes (KEIN externer Helper nötig)
+- `OnceLock` → **RwLock** umgestellt (v0.8.8), damit Reload mehrfach funktioniert
+- Kamera-Wechsel holt LMU kurz in den Vordergrund, sendet 1x Scancode und geht zurück
+- Dauer-Zoom sendet Taste alle 15ms via Hintergrund-Thread
+- Hold-Tasten (F7, F8, F9, F10) drücken KEYDOWN und halten bis Stop
 
 ## ICON-PROBLEM GELÖST ✅ (v0.8.5, Chat vom 04.08.2026)
 
@@ -97,97 +126,79 @@
 - **`tauri.conf.json`** – `icon.ico` an erster Stelle der Icon-Liste, `installerIcon` gesetzt
 - **`build.rs`** – `rerun-if-changed` für Icons hinzugefügt
 
-### Wichtige Erkenntnisse zum Icon-Problem
-- **`app.windows[].icon` existiert NICHT in Tauri v2** – "Additional properties are not allowed ('icon' was unexpected)"
-- **`app.set_icon()` existiert NICHT auf `tauri::App`** – nur `Image::new_owned(rgba, w, h)` für Laufzeit-Icons
-- **PIL ICO-Erstellung:** `img.save('icon.ico', format='ICO', sizes=[(s,s) for s in sizes], append_images=[...])` – Standard-PIL-Format
-- **Windows liest `System.Drawing.Icon` immer als 32x32** – das ist normal, prüft die tatsächlichen Größen mit PIL: `Image.open('icon.ico').info.get('sizes')`
-- **BMP-basierte ICO (372KB)** vs. **PIL-ICO (60-75KB):** Die BMP-ICO wurde nicht verwendet, PIL-ICO mit 10 Größen hat funktioniert
-- **Icon-Cache:** `%LocalAppData%\IconCache.db` und `%LocalAppData%\Microsoft\Windows\Explorer\iconcache_*.db` – nach Installation **PC neu starten** zum Leeren!
-
-### Verifikation
-- **EXE:** 8.443.904 Bytes, 10 PNGs, 40 BMPs
-- **ICO:** 75.655 Bytes, 10 Größen: 16, 20, 24, 32, 40, 48, 64, 96, 128, 256
-- **Ergebnis:** Desktop-Icon + Taskleisten-Icon nach Neustart **SCHARF** ✅
-
 ## WICHTIGE SKRIPTE (scripts/ Ordner)
 - `test_replaytime_metrics.py` – prüft ob Zeitsprung funktioniert (WebSocket + REST gleichzeitig)
 - `search_bcuk_urls.py` / `search_bcuk_commands.py` – analysiert BCUK DLLs
 - `test_websocket_commands.py` – maskierte WebSocket-Befehle senden
 - `dump_shared_memory.py`, `read_lmu_sm.py` – Shared Memory Analyse
 - `generate-icons.py` – generiert alle Icons + Logo aus den Quellbildern
-- `generate_all_icons.py` – generiert Icons + BMP-basierte ICO (für Tests)
 - `check_icons_final.py` – prüft Icon-Größen + erstellt ICO mit 10 Windows-Größen
-- `create_bmp_ico.py` – erstellt BMP-basierte ICO (372KB, Windows-nativ)
-- `patch_icon.py` – versucht Icon direkt in EXE zu patchen (rcedit, nicht erfolgreich)
-- `verify_icons.py` / `verify_icons2.py` – verifiziert Icon-Größen in ICO/EXE
 
 ## WICHTIGE RUST-DATEIEN
-- `src-tauri/src/main.rs` – `jump_to_incident_replay` Command (Doppel-Zeitsprung-Logik)
+- `src-tauri/src/main.rs` – `jump_to_incident_replay` Command (Doppel-Zeitsprung-Logik), Commands
 - `src-tauri/src/lmu_ws.rs` – WebSocket-Client (aktiviert Replay-API)
-- `src-tauri/src/keyboard.rs` – Tastatur-Simulation (SendInput/Scancodes)
-- `src-tauri/src/settings.rs` – Settings (pre_roll_seconds=20, post_roll_seconds=20)
+- `src-tauri/src/keyboard.rs` – Tastatur-Simulation (SendInput/Scancodes, RwLock-basierte Config)
+- `src-tauri/src/keyboard_config.rs` – Liest keyboard.json, übersetzt DIK→Windows-Scancodes
+- `src-tauri/src/settings.rs` – Settings (pre_roll_seconds=20, post_roll_seconds=20, lmu_install_path)
 - `src-tauri/src/lmu_client.rs` – REST-Client (fetch, put, seek_replay_to)
+- `src-tauri/src/incidents.rs` – Vorfall-Erkennung (ROT/GELB/WEISS), Heuristik
+- `src-tauri/src/shared_memory.rs` – LMU Shared Memory Zugriff (LMU_Data, Impact-Offsets)
 
 ## WICHTIGE FRONTEND-DATEIEN
-- `frontend/src/App.tsx` – Haupt-App, Routing, View-Steuerung
-- `frontend/src/components/Sidebar.tsx` – Sidebar (Logo, Language Toggle, Server, Navigation, FCY, Footer)
-- `frontend/src/views/HomeView.tsx` – Disconnected Startseite (Logo, Willkommen, Lizenz-Eingabe)
-- `frontend/src/views/FahrerfeldView.tsx` – Fahrerfeld-Ansicht
-- `frontend/src/views/VorfaelleView.tsx` – Vorfälle-Ansicht
+- `frontend/src/App.tsx` – Haupt-App, Routing, View-Steuerung, session-Prop für Views
+- `frontend/src/components/Sidebar.tsx` – Sidebar (Logo, Language Toggle, Server, Navigation, FCY, Footer, Placeholder_SB)
+- `frontend/src/views/HomeView.tsx` – Disconnected Startseite (Logo, Willkommen)
+- `frontend/src/views/FahrerfeldView.tsx` – Fahrerfeld-Ansicht (Session-Info, Player, Filter, Tabelle)
+- `frontend/src/views/VorfaelleView.tsx` – Vorfälle-Ansicht (Session-Info, Player, Filter, Vor/Nachlauf, Tabelle)
 - `frontend/src/views/ArchivView.tsx` – Archiv-Ansicht
-- `frontend/src/views/EinstellungenView.tsx` – Einstellungen (Discord Webhook, FCY, Vorlauf/Nachlauf, Danger Zone)
+- `frontend/src/views/EinstellungenView.tsx` – Einstellungen (Discord Webhook, FCY, Vorlauf/Nachlauf, LMU-Pfad mit Datei-Browser, Tastenbelegung, Danger Zone)
 - `frontend/src/splashscreen.tsx` – Splashscreen (Logo, Version, Update-Check)
 - `frontend/src/styles.css` – Alle Styles (~2200 Zeilen)
 - `frontend/src/i18n/translations.ts` – Übersetzungen (DE/EN)
 
-## LETZTE ÄNDERUNGEN (Chat v0.8.5)
+## CHANGELOG – Änderungen pro Version
 
-### 1. Doppelte Lizenznummer entfernt (`frontend/src/views/HomeView.tsx`)
-- Die Zeile `<div className="home-license-hint">123a-234b-345YZ</div>` unter dem Eingabefeld wurde gelöscht
-- Der Placeholder `123a-234b-345YZ` im Input-Feld bleibt erhalten
+### v0.8.8 (05.08.2026)
+- **Vorfall-Erkennung überarbeitet:**
+  - ROT: Impact >3.0g, Rundenzeit >30%, Stillstand <10 km/h
+  - GELB: Rundenzeit >15%, Positionsverlust ≥3, FCY-Verstoß
+  - WEISS (NEU): >30s unter 50 km/h (Timer-basiert)
+- **Session-Buttons:** Nicht mehr klickbar, active State aus LMU (`session?.session_type`)
+- **Keyboard-Config gefixt:**
+  - Vollständige Scancode-Tabelle (fehlende Tasten ergänzt)
+  - "Onboard Cameras" unterstützt
+  - OnceLock → RwLock (Reload funktioniert jetzt mehrfach)
+- **Datei-Browser (📂)** für LMU-Installationspfad in Einstellungen
+- `@tauri-apps/plugin-dialog` installiert
 
-### 2. Placeholder_SB in der Sidebar (`frontend/src/components/Sidebar.tsx` + `styles.css`)
-- Ein Container `sidebar-placeholder` mit `min-height: 393px` und `flex: 1` wurde zwischen Server Section und Software Infos Section eingefügt (nur im disconnected Zustand, wenn `!licensed`)
-- **CSS:** `.sidebar-placeholder { flex: 1; min-height: 393px; display: flex; ... }`
+### v0.8.7 (05.08.2026)
+- Timer: replay_pause() via F11 nach Vorlauf+Nachlauf
+- LIVE-Button: onSwitchToLive?.() in allen 3 Views
+- Splashscreen: Copyright "FOKALiS - Film & Medienagentur"
+- Connect-Button deaktiviert wenn nicht lizenziert
+- Session-Buttons/Player-Bar/Filter-Tabs als eigene CSS-Klassen
 
-### 3. Einstellungen-Layout (`frontend/src/views/EinstellungenView.tsx` + `styles.css`)
-- Discord Webhook auf volle Breite
-- FCY-/Vorlauf-Nachlauf nebeneinander
-- Neue CSS-Klassen: `settings-row`, `settings-block-half`, `settings-block-full`
+### v0.8.6–0.8.7 (Zwischen-Versionen)
+- Wartezeiten in jump_to_incident_replay optimiert
+- Incident-Erkennung gefixt (Impact, Stillstand, Feld-basierte Rundenzeit)
+- switch_to_live auf 86400s-Trick zurückgesetzt
+- Fenstertitel "Tool für Rennkommissare"
 
-### 4. ConfirmModal-Titel (`frontend/src/views/EinstellungenView.tsx` + `styles.css`)
-- Titel verkleinert auf h2, 20px, `white-space: nowrap`
+## NÄCHSTE SCHRITTE (Offene Punkte)
 
-### 5. Sidebar-Abstand (`styles.css`)
-- `sidebar-section-infos` und `sidebar-section-server` haben `margin-top: 38px` für 48px Abstand zum Footer
-
-### 6. onFocusDriver (`frontend/src/views/VorfaelleView.tsx` + `App.tsx`)
-- `onFocusDriver` Prop an VorfaelleView übergeben (für Fokus-Funktion)
-
-### 7. Logo/Icons aktualisiert
-- Logo: `LMU RC Logo - hell.png` (1024x486, breites Banner)
-- Icons: `LMU RC - Icon transparent.png` (1024x1024, Flaggen-Symbol)
-- Icons generiert via `scripts/generate-icons.py`
-
-### 8. Icon-Problem gelöst (Desktop + Taskleiste unscharf → SCHARF)
-- ICO mit 10 Windows-Skalierungsgrößen erstellt (16, 20, 24, 32, 40, 48, 64, 96, 128, 256)
-- `icon.ico` an erste Stelle in `tauri.conf.json` Icon-Liste gesetzt
-- `installerIcon` auf `icon.ico` gesetzt
-- `build.rs` mit `rerun-if-changed` für Icons
-- **Lösung war: PC neu starten nach Installation** (Icon-Cache leeren!)
-
-## NÄCHSTE SCHRITTE
-1. **v0.8.5 ausführlich testen** (Placeholder_SB, Disconnected-Layout, Einstellungen, Icon-Qualität)
-2. Weitere UI-Anpassungen nach Figma-Design besprechen
-3. Build als nächste Version (z.B. v0.8.6)
+1. **Manufacturers einbinden** – Hersteller-Daten aus LMU-API in FahrerfeldView anzeigen
+2. **VE (Verbale Entscheidung) einbinden** – Neue Funktion/Feature für mündliche Urteile
+3. **Tabellen-Zellen-Ausrichtung** – Zellen-Inhalte in den Tabellen korrekt ausrichten
+4. **Discord Webhook testen** – Webhook-Funktionalität prüfen und ggf. korrigieren
+5. **Shared Memory Impact-Daten testen** – Wenn LMU läuft, ob `impact_mag` Daten liefert
+6. **Replay-Zeit ausführlich testen** – Doppel-Zeitsprung in der Praxis prüfen
 
 ## BUILD-Prozess
 ```bash
 cd "C:\Users\Administrator\Documents\AI\Software Entwicklung\LMU Racecontrol\Tool\lmu-race-control"
 cargo tauri build
 ```
-- Installer: `src-tauri\target\release\bundle\nsis\LMU RACECONTROL_0.8.5_x64-setup.exe`
-- MSI: `src-tauri\target\release\bundle\msi\LMU RACECONTROL_0.8.5_x64_en-US.msi`
+- Installer: `src-tauri\target\release\bundle\nsis\LMU RACECONTROL_0.8.8_x64-setup.exe`
+- MSI: `src-tauri\target\release\bundle\msi\LMU RACECONTROL_0.8.8_x64_en-US.msi`
 - "A public key found, but no private key" Fehler = nur für Auto-Update, Installer funktionieren trotzdem
 - Vor Build: Version in `src-tauri/Cargo.toml`, `package.json`, `src-tauri/tauri.conf.json` anpassen

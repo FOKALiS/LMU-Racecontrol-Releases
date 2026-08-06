@@ -6,6 +6,7 @@ use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::time::Duration;
+use crate::manufacturer;
 
 const DEFAULT_BASE_URL: &str = "http://localhost:6397";
 
@@ -34,6 +35,21 @@ pub struct CarStanding {
     pub impact_et: f64,
     #[serde(default)]
     pub impact_mag: f64,
+    /// Hersteller-Name für Logo-Anzeige (z.B. "bmw", "ferrari", "aston_martin")
+    #[serde(default)]
+    pub manufacturer: String,
+    /// Fahrzeugmodell-Name (z.B. "BMW M4 LMGT3", "Ferrari 499P")
+    #[serde(default)]
+    pub vehicle_model: String,
+    /// Virtuelle Energie (0.0..1.0, aus Shared Memory)
+    #[serde(default)]
+    pub virtual_energy: f64,
+    /// Treibstoff-Füllstand (0.0..1.0, aus Shared Memory)
+    #[serde(default)]
+    pub fuel_fraction: f64,
+    /// Batterie-Ladung (0.0..1.0, aus Shared Memory)
+    #[serde(default)]
+    pub battery_charge: f64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -217,6 +233,11 @@ fn parse_standings(raw: &Value) -> Result<Vec<CarStanding>> {
             .unwrap_or(0.0);
         let speed_kmh = speed_mps * 3.6;
 
+        let vehicle_filename = field_string(entry, &["vehicleFilename", "vehicleFile", "filename"]);
+        let vehicle_name = field_string(entry, &["vehicleName", "carModel", "vehicle", "carType"]);
+        let manufacturer_name = manufacturer::detect_manufacturer(&vehicle_filename, &vehicle_name);
+        let vehicle_model_name = manufacturer::detect_vehicle_model(&vehicle_filename, &vehicle_name);
+
         out.push(CarStanding {
             slot_id: field_i64(entry, &["slotID", "slotId", "id", "vehicleId"]).unwrap_or(idx as i64),
             position: field_i64(entry, &["position", "place", "pos"]).unwrap_or(0) as i32,
@@ -224,7 +245,7 @@ fn parse_standings(raw: &Value) -> Result<Vec<CarStanding>> {
             team: field_string(entry, &["fullTeamName", "team", "teamName"]),
             driver: field_string(entry, &["driverName", "driver", "name"]),
             class: field_string(entry, &["carClass", "class", "vehicleClass"]),
-            car_model: field_string(entry, &["vehicleName", "carModel", "vehicle", "carType"]),
+            car_model: vehicle_name.clone(),
             class_position: field_i64(entry, &["classPosition", "picPosition", "pic"]).unwrap_or(0) as i32,
             laps: field_i64(entry, &["lapsCompleted", "laps", "totalLaps"]).unwrap_or(0) as i32,
             gap: field_string(entry, &["gap", "gapToLeader"]),
@@ -238,6 +259,11 @@ fn parse_standings(raw: &Value) -> Result<Vec<CarStanding>> {
             in_pits: field_bool(entry, &["pitting", "inPits", "isInPit", "pit"]).unwrap_or(false),
             impact_et: 0.0,
             impact_mag: 0.0,
+            manufacturer: manufacturer_name,
+            vehicle_model: vehicle_model_name,
+            virtual_energy: field_f64(entry, &["veFraction", "virtualEnergy", "mVirtualEnergy"]).unwrap_or(-1.0),
+            fuel_fraction: field_f64(entry, &["fuelFraction", "fuel", "fuelLevel"]).unwrap_or(-1.0),
+            battery_charge: field_f64(entry, &["batteryChargeFraction", "batteryCharge", "battery"]).unwrap_or(-1.0),
         });
     }
     Ok(out)

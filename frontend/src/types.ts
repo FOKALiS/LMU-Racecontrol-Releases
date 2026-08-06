@@ -27,6 +27,8 @@ export interface Incident {
   incident_type: string;
   decision: string | null;
   reasoning: string;
+  penalty_points: number;
+  warning_points: number;
 
   archived: boolean;
 }
@@ -50,6 +52,16 @@ export interface CarStanding {
   top_speed_kmh: number;
   speed_kmh: number;
   in_pits: boolean;
+  /** Hersteller-Name für Logo-Anzeige (z.B. "bmw", "ferrari", "aston_martin") */
+  manufacturer?: string;
+  /** Fahrzeugmodell-Name (z.B. "BMW M4 LMGT3", "Ferrari 499P") */
+  vehicle_model?: string;
+  /** Virtuelle Energie (Shared Memory) – 0.0..1.0 oder -1 wenn unbekannt */
+  virtual_energy: number;
+  /** Treibstoff (Shared Memory) – 0.0..1.0 oder -1 wenn unbekannt */
+  fuel_fraction: number;
+  /** Batterie-Ladung (Shared Memory) – 0.0..1.0 oder -1 wenn unbekannt */
+  battery_charge: number;
 }
 
 export interface SessionInfo {
@@ -99,4 +111,6 @@ export interface IncidentDraft {
   incident_type: string;
   decision: string;
   reasoning: string;
+  penalty_points: number;
+  warning_points: number;
 }

@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { open } from "@tauri-apps/plugin-dialog";
 import type { Settings } from "../types";
 import { useLanguage } from "../i18n/LanguageContext";
 import ConfirmModal from "../components/ConfirmModal";
@@ -279,11 +280,39 @@ export default function EinstellungenView({ settings, onSave, onClearAll }: Prop
           <div className="einstellungen-lmu-path-input-wrapper">
             <div className="einstellungen-field-label-small">{t("settings_lmu_path_label")}</div>
             <div className="einstellungen-field-hint-small">{t("settings_lmu_path_hint")}</div>
-            <input
-              className="einstellungen-input"
-              value={form.lmu_install_path}
-              onChange={(e) => setForm({ ...form, lmu_install_path: e.target.value })}
-            />
+            <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+              <input
+                className="einstellungen-input"
+                style={{ flex: 1 }}
+                value={form.lmu_install_path}
+                onChange={(e) => setForm({ ...form, lmu_install_path: e.target.value })}
+              />
+              <button
+                style={{
+                  background: "transparent",
+                  border: "1px solid rgba(114, 114, 114, 1)",
+                  borderRadius: "10px",
+                  width: "40px",
+                  height: "40px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  cursor: "pointer",
+                  flexShrink: 0,
+                }}
+                onClick={async () => {
+                  const selected = await open({ directory: true, title: "LMU-Installationsordner auswählen" });
+                  if (selected && typeof selected === "string") {
+                    setForm({ ...form, lmu_install_path: selected });
+                  }
+                }}
+                title="Ordner auswählen"
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.7)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+                </svg>
+              </button>
+            </div>
           </div>
           <button
             className="einstellungen-lmu-reload-btn"

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { Incident, Settings } from "../types";
+import type { Incident, Settings, SessionInfo, CarStanding } from "../types";
 import EyeIcon from "../components/EyeIcon";
 import { useLanguage } from "../i18n/LanguageContext";
 import { classColor } from "../classColors";
@@ -7,6 +7,7 @@ import { invoke } from "@tauri-apps/api/core";
 
 interface Props {
   incidents: Incident[];
+  standings: CarStanding[];
   settings: Settings;
   onSaveSettings: (settings: Settings) => void;
   onNewIncident: () => void;
@@ -23,10 +24,12 @@ interface Props {
   onSwitchToLive?: () => void;
   imageMode: "live" | "replay";
   onImageModeChange: (m: "live" | "replay") => void;
+  session?: SessionInfo | null;
 }
 
 export default function VorfaelleView({
   incidents,
+  standings,
   settings,
   onSaveSettings,
   onNewIncident,
@@ -43,19 +46,20 @@ export default function VorfaelleView({
   onSwitchToLive,
   imageMode,
   onImageModeChange,
+  session,
 }: Props) {
   const { t } = useLanguage();
   const [showRed, setShowRed] = useState(true);
   const [showYellow, setShowYellow] = useState(true);
   const [showWhite, setShowWhite] = useState(true);
 
-  // Session-Tabs (Platzhalter ohne Funktion)
-  const [sessionTab, setSessionTab] = useState<"Practice" | "Qualifying" | "Race">("Practice");
+  // Aktuelle Session aus LMU
+  const currentSession = session?.session_type ?? null;
 
   function handleImageModeChange(mode: "live" | "replay") {
     onImageModeChange(mode);
     if (mode === "live") {
-      invoke("switch_to_live").catch(console.error);
+      onSwitchToLive?.();
     } else {
       invoke("replay_activate").catch(console.error);
       invoke("switch_to_replay").catch(console.error);
@@ -83,6 +87,11 @@ export default function VorfaelleView({
   }
 
   const filteredIncidents = incidents.filter(matchesFilter);
+
+  function manufacturerFor(carNumber: string): string | undefined {
+    const car = standings.find((s) => s.car_number === carNumber);
+    return car?.manufacturer;
+  }
 
   return (
     <div className="view-vorfaelle">
@@ -152,13 +161,13 @@ export default function VorfaelleView({
             <div className="vorfaelle-label">{t("col_session")}</div>
             <div className="session-tabs session-tabs-vorfaelle">
               {(["Practice", "Qualifying", "Race"] as const).map((tab) => (
-                <button
+                <div
                   key={tab}
-                  className={`session-tab ${sessionTab === tab ? "active" : ""}`}
-                  onClick={() => setSessionTab(tab)}
+                  className={`session-tab ${currentSession === tab ? "active" : ""}`}
+                  style={{ cursor: "default" }}
                 >
                   {tab}
-                </button>
+                </div>
               ))}
             </div>
           </div>
@@ -312,9 +321,11 @@ export default function VorfaelleView({
                 <th className="vorfaelle-th-incident">{t("col_incident")}</th>
                 <th className="vorfaelle-th-class">{t("col_class")}</th>
                 <th className="vorfaelle-th-num">{t("col_number")}</th>
+                <th className="vorfaelle-th-logo">{t("col_car")}</th>
                 <th className="vorfaelle-th-driver">{t("col_driver_name")}</th>
                 <th className="vorfaelle-th-class">{t("col_class")}</th>
                 <th className="vorfaelle-th-num">{t("col_number")}</th>
+                <th className="vorfaelle-th-logo">{t("col_car")}</th>
                 <th className="vorfaelle-th-driver">{t("col_driver_name")}</th>
                 <th className="vorfaelle-th-lap">{t("col_lap")}</th>
                 <th className="vorfaelle-th-timestamp">{t("col_timestamp")}</th>
@@ -325,7 +336,7 @@ export default function VorfaelleView({
             <tbody>
               {filteredIncidents.length === 0 && (
                 <tr>
-                  <td colSpan={11} className="empty-row">
+                  <td colSpan={13} className="empty-row">
                     {t("vorfaelle_empty")}
                   </td>
                 </tr>
@@ -344,6 +355,20 @@ export default function VorfaelleView({
                     )}
                   </td>
                   <td>{i.car_number_a}</td>
+                  <td className="vorfaelle-td-logo">
+                    {(() => {
+                      const m = manufacturerFor(i.car_number_a);
+                      return m ? (
+                        <img
+                          src={`/manufacturers/${m}.png`}
+                          alt={m}
+                          className="manufacturer-logo"
+                          title={m}
+                          onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                        />
+                      ) : null;
+                    })()}
+                  </td>
                   <td>{i.driver_a}</td>
                   <td>
                     {i.class_b && (
@@ -353,6 +378,20 @@ export default function VorfaelleView({
                     )}
                   </td>
                   <td>{i.car_number_b}</td>
+                  <td className="vorfaelle-td-logo">
+                    {(() => {
+                      const m = manufacturerFor(i.car_number_b);
+                      return m ? (
+                        <img
+                          src={`/manufacturers/${m}.png`}
+                          alt={m}
+                          className="manufacturer-logo"
+                          title={m}
+                          onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                        />
+                      ) : null;
+                    })()}
+                  </td>
                   <td>{i.driver_b}</td>
                   <td>{i.lap}</td>
                   <td>{i.timestamp_label}</td>

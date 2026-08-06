@@ -61,6 +61,8 @@ const de = {
   modal_select_decision: "Entscheidung auswählen...",
   modal_reasoning: "Begründung",
   modal_reasoning_placeholder: "Begründung eingeben...",
+  modal_warning_points: "Verwarnpunkte",
+  modal_penalty_points: "Strafpunkte",
   modal_cancel: "Abbrechen",
   modal_submit: "Entscheidung absenden",
 
@@ -99,6 +101,7 @@ const de = {
   col_lap: "Runde",
   col_corner: "Kurve",
   col_timestamp: "Zeitstempel",
+  col_ve: "VE",
   fahrerfeld_no_data: "Keine Live-Daten – warte auf LMU-Verbindung...",
   investigate: "Investigate",
 
@@ -140,7 +143,7 @@ const de = {
   settings_post_roll_hint: "Replay läuft diese Zeit nach dem Vorfall weiter",
   settings_database: "Datenbank",
   settings_database_hint: "Vorfälle werden automatisch 26 Stunden gespeichert und danach entfernt. Archivierte Vorfälle bleiben bis dahin erhalten.",
-  settings_clear_database: "Datenbank leeren\n(Alle Vorfälle)",
+  settings_clear_database: "Datenbank leeren",
 
   // Hilfe-Button (Tooltip)
   help_tooltip: "Hilfe & Übersicht öffnen",
@@ -229,6 +232,8 @@ const en: typeof de = {
   modal_select_decision: "Select decision...",
   modal_reasoning: "Reasoning",
   modal_reasoning_placeholder: "Enter reasoning...",
+  modal_warning_points: "Warning Points",
+  modal_penalty_points: "Penalty Points",
   modal_cancel: "Cancel",
   modal_submit: "Submit Decision",
 
@@ -265,6 +270,7 @@ const en: typeof de = {
   col_lap: "Lap",
   col_corner: "Corner",
   col_timestamp: "Timestamp",
+  col_ve: "VE",
   fahrerfeld_no_data: "No live data – waiting for LMU connection...",
   investigate: "Investigate",
 
@@ -303,7 +309,7 @@ const en: typeof de = {
   settings_post_roll_hint: "Replay continues this time after the incident",
   settings_database: "Database",
   settings_database_hint: "Incidents are automatically stored for 26 hours and then removed. Archived incidents remain until then.",
-  settings_clear_database: "Clear Database\n(All Incidents)",
+  settings_clear_database: "Clear Database",
 
   help_tooltip: "Open help & overview",
 

@@ -23,7 +23,7 @@ const TEXT = {
     installing: "Update wird installiert...",
     installError: "Update-Installation fehlgeschlagen",
     website: "www.lmu-racecontrol.gg",
-    copyright: "Copyright © 2026 by Matthias Weggel",
+    copyright: "Copyright © 2026 by FOKALiS - Film & Medienagentur",
   },
   en: {
     updateAvailable: "UPDATE AVAILABLE",
@@ -31,7 +31,7 @@ const TEXT = {
     installing: "Installing update...",
     installError: "Update installation failed",
     website: "www.lmu-racecontrol.gg",
-    copyright: "Copyright © 2026 by Matthias Weggel",
+    copyright: "Copyright © 2026 by FOKALiS - Film & Medienagentur",
   },
 };
 

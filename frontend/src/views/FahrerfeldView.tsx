@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import type { CarStanding, Incident } from "../types";
+import type { CarStanding, Incident, SessionInfo } from "../types";
 import EyeIcon from "../components/EyeIcon";
 import { useLanguage } from "../i18n/LanguageContext";
 import { classColor } from "../classColors";
@@ -20,6 +20,7 @@ interface Props {
   onSwitchToLive?: () => void;
   imageMode: "live" | "replay";
   onImageModeChange: (m: "live" | "replay") => void;
+  session?: SessionInfo | null;
 }
 
 export default function FahrerfeldView({
@@ -37,14 +38,12 @@ export default function FahrerfeldView({
   onSwitchToLive,
   imageMode,
   onImageModeChange,
+  session,
 }: Props) {
   const { t } = useLanguage();
   const [showRed, setShowRed] = useState(true);
   const [showYellow, setShowYellow] = useState(true);
   const [showWhite, setShowWhite] = useState(true);
-
-  // Session-Tabs (Platzhalter ohne Funktion)
-  const [sessionTab, setSessionTab] = useState<"Practice" | "Qualifying" | "Race">("Practice");
 
   const sortedStandings = useMemo(() => {
     return [...standings].sort((a, b) => a.position - b.position);
@@ -53,7 +52,7 @@ export default function FahrerfeldView({
   function handleImageModeChange(mode: "live" | "replay") {
     onImageModeChange(mode);
     if (mode === "live") {
-      invoke("switch_to_live").catch(console.error);
+      onSwitchToLive?.();
     } else {
       invoke("replay_activate").catch(console.error);
       invoke("switch_to_replay").catch(console.error);
@@ -77,6 +76,9 @@ export default function FahrerfeldView({
     if (color === "white" && !showWhite) return false;
     return true;
   }
+
+  // Aktuelle Session aus session?.session_type ableiten (z.B. "Practice", "Qualifying", "Race")
+  const currentSession = session?.session_type ?? null;
 
   return (
     <div className="view-fahrerfeld">
@@ -139,20 +141,20 @@ export default function FahrerfeldView({
         </div>
       </div>
 
-      {/* Zeile 1b: Session | Player | Filter – auf gleicher Höhe */}
+      {/* Zeile 1b: Session (Info) | Player | Filter – auf gleicher Höhe */}
       <div className="fahrerfeld-toolbar-row">
         <div className="fahrerfeld-col">
           <div className="fahrerfeld-section">
             <div className="fahrerfeld-label">{t("col_session")}</div>
             <div className="session-tabs session-tabs-fahrerfeld">
               {(["Practice", "Qualifying", "Race"] as const).map((tab) => (
-                <button
+                <div
                   key={tab}
-                  className={`session-tab ${sessionTab === tab ? "active" : ""}`}
-                  onClick={() => setSessionTab(tab)}
+                  className={`session-tab ${currentSession === tab ? "active" : ""}`}
+                  style={{ cursor: "default" }}
                 >
                   {tab}
-                </button>
+                </div>
               ))}
             </div>
           </div>
@@ -227,10 +229,11 @@ export default function FahrerfeldView({
                 <th className="fahrerfeld-th-pos">{t("col_pos")}</th>
                 <th className="fahrerfeld-th-class">{t("col_class")}</th>
                 <th className="fahrerfeld-th-num">{t("col_number")}</th>
+                <th className="fahrerfeld-th-logo">{t("col_car")}</th>
                 <th className="fahrerfeld-th-driver">{t("col_driver_name")}</th>
                 <th className="fahrerfeld-th-team">{t("col_team")}</th>
-                <th className="fahrerfeld-th-car">{t("col_car")}</th>
                 <th className="fahrerfeld-th-status">{t("col_status")}</th>
+                <th className="fahrerfeld-th-ve">{t("col_ve")}</th>
                 <th className="fahrerfeld-th-lap">{t("col_fastest_lap")}</th>
                 <th className="fahrerfeld-th-spacer"></th>
                 <th className="fahrerfeld-th-incident">{t("col_incident")}</th>
@@ -261,10 +264,29 @@ export default function FahrerfeldView({
                       </span>
                     </td>
                     <td>{car.car_number}</td>
+                    <td className="fahrerfeld-td-logo">
+                      {car.manufacturer ? (
+                        <img
+                          src={`/manufacturers/${car.manufacturer}.png`}
+                          alt={car.manufacturer}
+                          className="manufacturer-logo"
+                          title={car.vehicle_model || car.manufacturer}
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).style.display = "none";
+                          }}
+                        />
+                      ) : null}
+                    </td>
                     <td>{car.driver}</td>
                     <td>{car.team}</td>
-                    <td>{car.car_model || "–"}</td>
                     <td>{car.in_pits ? "PIT" : ""}</td>
+                    <td className="fahrerfeld-td-ve">
+                      {car.virtual_energy >= 0 ? (
+                        <span className={`ve-badge ve-badge-${veColor(car.virtual_energy)}`}>
+                          {(car.virtual_energy * 100).toFixed(0)}%
+                        </span>
+                      ) : "–"}
+                    </td>
                     <td>{formatLap(car.best_lap_s)}</td>
                     <td className="fahrerfeld-td-spacer"></td>
                     <td className="fahrerfeld-td-incident">
@@ -300,6 +322,12 @@ export default function FahrerfeldView({
       </div>
     </div>
   );
+}
+
+function veColor(ve: number): "green" | "yellow" | "red" {
+  if (ve >= 0.2) return "green";
+  if (ve >= 0.1) return "yellow";
+  return "red";
 }
 
 function formatLap(seconds: number): string {

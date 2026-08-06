@@ -69,6 +69,8 @@ pub struct Incident {
     pub incident_type: String,
     pub decision: Option<String>,
     pub reasoning: String,
+    pub penalty_points: i32,
+    pub warning_points: i32,
 
     pub archived: bool,
 }
@@ -100,6 +102,8 @@ impl Db {
                 incident_type       TEXT NOT NULL DEFAULT '',
                 decision            TEXT,
                 reasoning           TEXT NOT NULL DEFAULT '',
+                penalty_points      INTEGER NOT NULL DEFAULT 0,
+                warning_points      INTEGER NOT NULL DEFAULT 0,
                 archived            INTEGER NOT NULL DEFAULT 0
             )",
             [],
@@ -127,8 +131,9 @@ impl Db {
                 corner, timestamp_label, track_name,
                 class_a, car_number_a, driver_a,
                 class_b, car_number_b, driver_b,
-                flag_color, slot_id_a, incident_type, decision, reasoning, archived
-            ) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20,?21)",
+                flag_color, slot_id_a, incident_type, decision, reasoning,
+                penalty_points, warning_points, archived
+            ) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20,?21,?22,?23)",
             params![
                 incident.id,
                 incident.incident_number,
@@ -150,6 +155,8 @@ impl Db {
                 incident.incident_type,
                 incident.decision,
                 incident.reasoning,
+                incident.penalty_points,
+                incident.warning_points,
                 incident.archived as i32,
             ],
         )?;
@@ -195,6 +202,8 @@ impl Db {
         incident_type: &str,
         decision: &str,
         reasoning: &str,
+        penalty_points: i32,
+        warning_points: i32,
     ) -> Result<Incident> {
         let conn = self.0.lock().unwrap();
         conn.execute(
@@ -203,13 +212,15 @@ impl Db {
                 class_b=?4, car_number_b=?5, driver_b=?6,
                 lap=?7, corner=?8, timestamp_label=?9,
                 incident_type=?10, decision=?11, reasoning=?12,
-                archived=1, decided_at=?13
-             WHERE id=?14",
+                penalty_points=?13, warning_points=?14,
+                archived=1, decided_at=?15
+             WHERE id=?16",
             params![
                 class_a, car_number_a, driver_a,
                 class_b, car_number_b, driver_b,
                 lap, corner, timestamp_label,
                 incident_type, decision, reasoning,
+                penalty_points, warning_points,
                 Utc::now().to_rfc3339(),
                 id,
             ],
@@ -275,6 +286,8 @@ fn row_to_incident(row: &rusqlite::Row) -> rusqlite::Result<Incident> {
         incident_type: row.get("incident_type")?,
         decision: row.get("decision")?,
         reasoning: row.get("reasoning")?,
+        penalty_points: row.get("penalty_points")?,
+        warning_points: row.get("warning_points")?,
         archived: row.get::<_, i32>("archived")? != 0,
     })
 }

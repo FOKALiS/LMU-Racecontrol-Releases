@@ -1,11 +1,12 @@
 //! Liest die LMU-Tastenbelegung aus `keyboard.json` und übersetzt die
 //! DirectInput-Scancodes (DIK) in Windows-Scancodes + extended-Flag für SendInput.
 //!
-//! Die LMU `keyboard.json` speichert die Scancodes im DirectInput-Format (DIK):
-//! - Normale Tasten (R, F6, F11, Numpad, ...) haben Werte < 0xC7 (199)
-//! - Extended-Tasten (Home, End, PageUp, PageDown, Insert, Delete) haben
-//!   Werte im Bereich 0xC7–0xD3. Deren Windows-Scancode ist `Wert - 0x80`
-//!   und sie benötigen das extended-Flag bei SendInput.
+//! Erweiterte Unterstützung für LMU-spezifische Actions:
+//! - "Driving Cameras" = Bord (Wechsel zwischen Fahrer-Innenkameras)
+//! - "Tracking Cameras" = TV (Verfolger-Perspektive)
+//! - "Swingman Camera" = Heck (Schwenkkopf/Hutablage)
+//! - "Onboard Cameras" = Weitere Bord-Kameras (z.B. Frontflügel)
+//! - "Swingman Zoom In/Out" = Zoom+/-
 
 use serde::Deserialize;
 use std::collections::HashMap;
@@ -45,6 +46,7 @@ impl KeyboardConfig {
         let defaults: &[(&str, u16)] = &[
             ("Tracking Cameras", 0xD1),     // PageDown (TV - Verfolger)
             ("Driving Cameras", 0xD2),      // Insert (Bord - Fahrkameras)
+            ("Onboard Cameras", 0x52),      // F12 / Onboard
             ("Swingman Camera", 0xC9),      // PageUp (Heck - Schwenkkopf)
             ("Swingman Zoom In", 0x47),     // KP7 (Zoom+)
             ("Swingman Zoom Out", 0x49),    // KP9 (Zoom-)
@@ -138,6 +140,7 @@ impl KeyboardConfig {
         let relevant = [
             "Tracking Cameras",
             "Driving Cameras",
+            "Onboard Cameras",
             "Swingman Camera",
             "Swingman Zoom In",
             "Swingman Zoom Out",
@@ -191,8 +194,10 @@ fn dik_to_windows(dik: u16) -> KeyBinding {
 }
 
 /// Übersetzt einen DirectInput-Scancode (DIK) in einen lesbaren Tastennamen.
+/// Vollständige Liste basierend auf LMU keyboard.json + Windows Scancodes.
 fn dik_to_key_name(dik: u16) -> &'static str {
     match dik {
+        0x01 => "Esc",
         0x02 => "1",
         0x03 => "2",
         0x04 => "3",
@@ -203,6 +208,8 @@ fn dik_to_key_name(dik: u16) -> &'static str {
         0x09 => "8",
         0x0A => "9",
         0x0B => "0",
+        0x0C => "-",
+        0x0D => "=",
         0x0E => "Backspace",
         0x0F => "Tab",
         0x10 => "Q",
@@ -218,6 +225,7 @@ fn dik_to_key_name(dik: u16) -> &'static str {
         0x1A => "Ü",
         0x1B => "+",
         0x1C => "Enter",
+        0x1D => "Strg",
         0x1E => "A",
         0x1F => "S",
         0x20 => "D",
@@ -242,6 +250,7 @@ fn dik_to_key_name(dik: u16) -> &'static str {
         0x34 => ".",
         0x35 => "-",
         0x39 => "Space",
+        0x3A => "Caps Lock",
         0x3B => "F1",
         0x3C => "F2",
         0x3D => "F3",
@@ -252,26 +261,45 @@ fn dik_to_key_name(dik: u16) -> &'static str {
         0x42 => "F8",
         0x43 => "F9",
         0x44 => "F10",
-        0x45 => "F11", // SCROLL LOCK hat DIK 0x46, F11 = 0x57
+        0x45 => "F11",
+        0x46 => "F12",
         0x47 => "KP7",
         0x48 => "KP8",
         0x49 => "KP9",
+        0x4A => "KP-",
         0x4B => "KP4",
         0x4C => "KP5",
         0x4D => "KP6",
+        0x4E => "KP+",
         0x4F => "KP1",
         0x50 => "KP2",
         0x51 => "KP3",
         0x52 => "KP0",
         0x53 => "KP.",
-        0x57 => "F11",
+        0x57 => "F11",    // F11 kommt doppelt vor (0x45 und 0x57)
         0x58 => "F12",
         0xC7 => "Home",
+        0xC8 => "Up",
         0xC9 => "PageUp",
+        0xCB => "Left",
+        0xCD => "Right",
         0xCF => "End",
+        0xD0 => "Down",
         0xD1 => "PageDown",
         0xD2 => "Insert",
         0xD3 => "Delete",
-        _ => "?",
+        _ => match dik {
+            // Alle Scancodes zwischen 59-68 sind F-Tasten (F1-F10)
+            d if (0x3B..=0x44).contains(&d) => {
+                let n = d - 0x3B + 1;
+                // Statische Referenz, da &str
+                match n {
+                    1 => "F1", 2 => "F2", 3 => "F3", 4 => "F4", 5 => "F5",
+                    6 => "F6", 7 => "F7", 8 => "F8", 9 => "F9", 10 => "F10",
+                    _ => "?",
+                }
+            }
+            _ => "?",
+        },
     }
 }

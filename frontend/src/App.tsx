@@ -178,6 +178,8 @@ export default function App() {
       incident_type: "",
       decision: "",
       reasoning: "",
+      penalty_points: 0,
+      warning_points: 0,
     });
   }
 
@@ -196,6 +198,8 @@ export default function App() {
       incident_type: incident.incident_type,
       decision: incident.decision ?? "",
       reasoning: incident.reasoning,
+      penalty_points: incident.penalty_points ?? 0,
+      warning_points: incident.warning_points ?? 0,
     });
   }
 
@@ -215,6 +219,8 @@ export default function App() {
       incidentType: draft.incident_type,
       decision: draft.decision,
       reasoning: draft.reasoning,
+      penaltyPoints: draft.penalty_points,
+      warningPoints: draft.warning_points,
     });
     setModalDraft(null);
     refreshIncidents();
@@ -245,10 +251,12 @@ export default function App() {
   }
 
   async function switchToLive() {
+    // UI sofort umschalten – bevor der Rust-Call kommt!
+    // So reagiert die App sofort, auch wenn Rust kurz braucht oder der Call fehlschlägt.
+    setReplayActive(false);
+    setImageMode("live");
     try {
       await invoke("switch_to_live");
-      setReplayActive(false);
-      setImageMode("live");
     } catch (err) {
       console.error("Switch to Live fehlgeschlagen:", err);
     }
@@ -336,12 +344,14 @@ export default function App() {
             onSwitchToLive={switchToLive}
             imageMode={imageMode}
             onImageModeChange={setImageMode}
+            session={session}
           />
         )}
 
         {license?.licensed && view === "vorfaelle" && (
           <VorfaelleView
             incidents={pendingIncidents}
+            standings={standings}
             settings={settings}
             onSaveSettings={saveSettings}
             onNewIncident={openNewIncidentModal}
@@ -358,11 +368,12 @@ export default function App() {
             onSwitchToLive={switchToLive}
             imageMode={imageMode}
             onImageModeChange={setImageMode}
+            session={session}
           />
         )}
 
         {license?.licensed && view === "archiv" && (
-          <ArchivView incidents={archivedIncidents} onReplay={jumpToReplay} focusedSlotId={focusedSlotId} selectedCam={selectedCam} onCamSelect={selectCamera} onZoomStart={startZoom} onZoomEnd={stopZoom} replayActive={replayActive} onSwitchToLive={switchToLive} imageMode={imageMode} onImageModeChange={setImageMode} />
+          <ArchivView incidents={archivedIncidents} standings={standings} onReplay={jumpToReplay} onInvestigate={openInvestigateModal} focusedSlotId={focusedSlotId} selectedCam={selectedCam} onCamSelect={selectCamera} onZoomStart={startZoom} onZoomEnd={stopZoom} replayActive={replayActive} onSwitchToLive={switchToLive} imageMode={imageMode} onImageModeChange={setImageMode} />
         )}
 
         {license?.licensed && view === "einstellungen" && (

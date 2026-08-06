@@ -156,6 +156,7 @@ button { cursor: pointer; }
 .nav-btn-connect:hover { background: #313131; border-color: rgba(53, 229, 0, 0.5); }
 .nav-btn-connect.is-connected { background: rgba(89, 255, 0, 0.3); border: 1px solid rgba(89, 255, 0, 0.3); }
 .nav-btn-connect.is-connected:hover { background: rgba(255, 0, 0, 0.3); border-color: rgba(255, 0, 0, 0.3); }
+.nav-btn-disabled { opacity: 0.35; cursor: not-allowed; pointer-events: none; }
 
 /* Outline Buttons – Figma: 193x25.04, border 1px #313131, border-radius 5px, Michroma 10px */
 .nav-btn-outline {
@@ -393,6 +394,29 @@ button { cursor: pointer; }
 .session-tab:first-child { border-radius: 10px 0 0 10px; }
 .session-tab:last-child { border-radius: 0 10px 10px 0; }
 .session-tab.active { background: var(--btn-active); }
+
+/* Session-Tabs – gleiche Höhe und Breite wie Filter-Tabs */
+.session-tabs-fahrerfeld { width: 100%; }
+.session-tabs-fahrerfeld .session-tab {
+  flex: 1;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.session-tabs-fahrerfeld .session-tab:first-child { border-radius: 10px 0 0 10px; }
+.session-tabs-fahrerfeld .session-tab:last-child { border-radius: 0 10px 10px 0; }
+
+.session-tabs-vorfaelle { width: 100%; }
+.session-tabs-vorfaelle .session-tab {
+  flex: 1;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.session-tabs-vorfaelle .session-tab:first-child { border-radius: 10px 0 0 10px; }
+.session-tabs-vorfaelle .session-tab:last-child { border-radius: 0 10px 10px 0; }
 
 /* ---------- Filter-Tabs ---------- */
 .filter-tabs { display: flex; gap: 0; }
@@ -690,17 +714,25 @@ button { cursor: pointer; }
 .fahrerfeld-cam-btn.active { background: #0a5989; }
 .fahrerfeld-cam-btn.zoom-btn { width: auto; padding: 0 10px; }
 
-/* Session-Tabs – Figma: flex-1 gleiche Breiten, h-9 (36px) */
-.session-tabs-fahrerfeld { width: 100%; }
-.session-tabs-fahrerfeld .session-tab {
-  flex: 1;
+/* Session-Info – reine Anzeige (keine Buttons) */
+.session-info-fahrerfeld {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
   height: 36px;
-  padding: 6px 10px;
-  border-radius: 0;
+  padding: 0 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
 }
-.session-tabs-fahrerfeld .session-tab:first-child { border-radius: 10px 0 0 10px; }
-.session-tabs-fahrerfeld .session-tab:last-child { border-radius: 0 10px 10px 0; }
-.session-tabs-fahrerfeld .session-tab.active { background: #0a5989; }
+.session-info-item {
+  font-size: 13px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.45);
+  padding: 4px 10px;
+  border-radius: 6px;
+}
 
 /* Filter-Tabs – Figma: h-9 (36px), outline-farbig */
 .filter-tabs-fahrerfeld { width: 100%; }
@@ -772,6 +804,10 @@ button { cursor: pointer; }
   min-height: 30px;
   font-size: 12px;
   line-height: 18px;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: #141414;
 }
 .fahrerfeld-table td {
   border: 1px solid rgba(114, 114, 114, 1);
@@ -780,57 +816,100 @@ button { cursor: pointer; }
   height: 30px;
 }
 .fahrerfeld-table th:first-child { border-radius: 10px 0 0 10px; }
-.fahrerfeld-table th:nth-child(8) {
+.fahrerfeld-table th:nth-child(9) {
   border-right: 1px solid rgba(114, 114, 114, 1);
   border-radius: 0 10px 10px 0;
 }
-.fahrerfeld-table th:nth-child(9) {
+.fahrerfeld-table th:nth-child(10) {
   border: none;
   padding: 0;
   width: 16px;
   min-width: 16px;
 }
-.fahrerfeld-table th:nth-child(10) {
+.fahrerfeld-table th:nth-child(11) {
   border: 1px solid rgba(114, 114, 114, 1);
   padding: 8px 16px;
   width: 128px;
   border-radius: 10px;
 }
-.fahrerfeld-table td:nth-child(8) {
+.fahrerfeld-table td:nth-child(9) {
   border-right: 1px solid rgba(114, 114, 114, 1);
   border-radius: 0 10px 10px 0;
 }
-.fahrerfeld-table td:nth-child(9) {
+.fahrerfeld-table td:nth-child(10) {
   border: none;
   padding: 0;
   width: 16px;
   min-width: 16px;
 }
-.fahrerfeld-table td:nth-child(10) {
+.fahrerfeld-table td:nth-child(11) {
   border: none;
   padding: 0;
 }
+.fahrerfeld-table td:nth-child(4) { text-align: center; }
 
 /* Zellbreiten – Figma */
 .fahrerfeld-th-pos { width: 48px; }
 .fahrerfeld-th-class { width: 72px; }
 .fahrerfeld-th-num { width: 40px; }
+.fahrerfeld-th-ve {
+  width: 60px;
+  text-align: center;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: #141414;
+}
+.fahrerfeld-td-ve {
+  text-align: center;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+.ve-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-weight: 700;
+  font-size: 10px;
+  min-width: 40px;
+  text-align: center;
+}
+.ve-badge-green {
+  background-color: #1b5e20;
+  color: #a5d6a7;
+}
+.ve-badge-yellow {
+  background-color: #f57f17;
+  color: #fff9c4;
+}
+.ve-badge-red {
+  background-color: #b71c1c;
+  color: #ef9a9a;
+}
+.fahrerfeld-th-logo { width: 38px; text-align: center; }
+.fahrerfeld-td-logo { text-align: center; vertical-align: middle; padding: 0 2px; }
+.manufacturer-logo { width: 32px; height: 32px; object-fit: contain; display: inline-block; vertical-align: middle; }
 .fahrerfeld-th-driver { width: auto; }
 .fahrerfeld-th-team { width: auto; }
-.fahrerfeld-th-car { width: 120px; }
 .fahrerfeld-th-status { width: 52px; }
 .fahrerfeld-th-lap {
   width: 110px;
   text-align: right;
 }
+.fahrerfeld-th-spacer { width: 40px; }
 .fahrerfeld-th-incident {
   width: 128px;
   text-align: center;
 }
+.fahrerfeld-td-spacer { width: 40px; }
+.fahrerfeld-td-incident { white-space: nowrap; }
 .fahrerfeld-table td:first-child { text-align: center; border-radius: 10px 0 0 10px; }
-.fahrerfeld-table td:nth-child(2) { text-align: center; }
-.fahrerfeld-table td:nth-child(3) { text-align: center; }
-.fahrerfeld-table td:nth-child(8) { text-align: right; }
+.fahrerfeld-table td:nth-child(2) { text-align: center; }  /* Class */
+.fahrerfeld-table td:nth-child(3) { text-align: center; }  /* Number */
+.fahrerfeld-table td:nth-child(5) { text-align: left; }    /* Driver Name */
+.fahrerfeld-table td:nth-child(6) { text-align: left; }    /* Team */
+.fahrerfeld-table td:nth-child(8) { text-align: center; }  /* VE */
+.fahrerfeld-table td:nth-child(9) { text-align: right; }   /* Fastest Lap */
 
 /* Row-Fokus – Figma: bg-sky-800/40 */
 .fahrerfeld-table tbody tr.row-focused td {
@@ -1046,17 +1125,18 @@ button { cursor: pointer; }
 .vorfaelle-cam-btn.active { background: #0a5989; }
 .vorfaelle-cam-btn.zoom-btn { width: auto; padding: 0 10px; }
 
-/* Session-Tabs – Figma: wie Fahrerfeld h-9 (36px) */
-.session-tabs-vorfaelle { width: 100%; }
-.session-tabs-vorfaelle .session-tab {
-  flex: 1;
+/* Session-Info – reine Anzeige (keine Buttons) */
+.session-info-vorfaelle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
   height: 36px;
-  padding: 6px 10px;
-  border-radius: 0;
+  padding: 0 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
 }
-.session-tabs-vorfaelle .session-tab:first-child { border-radius: 10px 0 0 10px; }
-.session-tabs-vorfaelle .session-tab:last-child { border-radius: 0 10px 10px 0; }
-.session-tabs-vorfaelle .session-tab.active { background: #0a5989; }
 
 /* Filter-Tabs – Figma: wie Fahrerfeld h-9 (36px) */
 .filter-tabs-vorfaelle { width: 100%; }
@@ -1274,43 +1354,52 @@ button { cursor: pointer; }
   min-height: 30px;
   font-size: 12px;
   line-height: 18px;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: #141414;
 }
 .vorfaelle-table td {
   height: 30px;
 }
 .vorfaelle-table th:first-child { border-radius: 10px 0 0 10px; }
-.vorfaelle-table th:nth-child(9) {
+.vorfaelle-table th:nth-child(11) {
   border-right: 1px solid rgba(114, 114, 114, 1);
   border-radius: 0 10px 10px 0;
   text-align: right;
 }
-.vorfaelle-table th:nth-child(10) {
+.vorfaelle-table th:nth-child(12) {
   border: none;
   padding: 0;
   width: 16px;
   min-width: 16px;
 }
-.vorfaelle-table th:nth-child(11) {
+.vorfaelle-table th:nth-child(13) {
   border: 1px solid rgba(114, 114, 114, 1);
   padding: 8px 16px;
   border-radius: 10px;
 }
-.vorfaelle-table td:nth-child(9) {
+.vorfaelle-table td:nth-child(11) {
   border-right: 1px solid rgba(114, 114, 114, 1);
   border-radius: 0 10px 10px 0;
   text-align: right;
 }
-.vorfaelle-table td:nth-child(10) {
+.vorfaelle-table td:nth-child(12) {
   border: none;
   padding: 0;
   width: 16px;
   min-width: 16px;
 }
-.vorfaelle-table td:nth-child(11) {
+.vorfaelle-table td:nth-child(13) {
   border: none;
   padding: 0;
 }
+.vorfaelle-th-logo { width: 38px; text-align: center; }
+.vorfaelle-td-logo { text-align: center; vertical-align: middle; padding: 0 2px; }
 .vorfaelle-table td:first-child { border-radius: 10px 0 0 10px; }
+/* Driver + Team linksbündig */
+.vorfaelle-table td:nth-child(5) { text-align: left; }
+.vorfaelle-table td:nth-child(6) { text-align: left; }
 
 /* Zellbreiten – Figma */
 .vorfaelle-th-incident { width: 80px; }
@@ -1549,48 +1638,57 @@ button { cursor: pointer; }
   min-height: 30px;
   font-size: 12px;
   line-height: 18px;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: #141414;
 }
 .archiv-table td {
   height: 30px;
 }
 .archiv-table th:first-child { border-radius: 10px 0 0 10px; }
-.archiv-table th:nth-child(9) {
+.archiv-table th:nth-child(11) {
   border-right: 1px solid rgba(114, 114, 114, 1);
   border-radius: 0 10px 10px 0;
   text-align: right;
 }
-.archiv-table th:nth-child(10) {
+.archiv-table th:nth-child(12) {
   border: none;
   padding: 0;
   width: 16px;
   min-width: 16px;
 }
-.archiv-table th:nth-child(11) {
+.archiv-table th:nth-child(13) {
   border: 1px solid rgba(114, 114, 114, 1);
   padding: 8px 16px;
   border-radius: 10px;
 }
-.archiv-table td:nth-child(9) {
+.archiv-table td:nth-child(11) {
   border-right: 1px solid rgba(114, 114, 114, 1);
   border-radius: 0 10px 10px 0;
   text-align: right;
 }
-.archiv-table td:nth-child(10) {
+.archiv-table td:nth-child(12) {
   border: none;
   padding: 0;
   width: 16px;
   min-width: 16px;
 }
-.archiv-table td:nth-child(11) {
+.archiv-table td:nth-child(13) {
   border: none;
   padding: 0;
 }
 .archiv-table td:first-child { border-radius: 10px 0 0 10px; }
+/* Driver + Team linksbündig */
+.archiv-table td:nth-child(5) { text-align: left; }
+.archiv-table td:nth-child(6) { text-align: left; }
 
 /* Zellbreiten – Figma */
 .archiv-th-incident { width: 80px; }
 .archiv-th-class { width: 80px; }
 .archiv-th-num { width: 64px; }
+.archiv-th-logo { width: 38px; text-align: center; }
+.archiv-td-logo { text-align: center; vertical-align: middle; padding: 0 2px; }
 .archiv-th-driver { width: auto; flex: 1; }
 .archiv-th-lap { width: 80px; }
 .archiv-th-timestamp {
@@ -1981,7 +2079,7 @@ button { cursor: pointer; }
   line-height: 54px;
   letter-spacing: 0.03em;
   color: #ffffff;
-  text-align: center;
+  text-align: left;
   width: 100%;
 }
 

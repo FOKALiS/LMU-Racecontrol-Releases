@@ -153,6 +153,25 @@ export default function InvestigationModal({ draft, standings, settings, onClose
             </div>
           </div>
 
+          <div className="field">
+            <label>{t("modal_warning_points")}</label>
+            <input
+              type="number"
+              min={0}
+              value={form.warning_points}
+              onChange={(e) => set("warning_points", Number(e.target.value))}
+            />
+          </div>
+          <div className="field">
+            <label>{t("modal_penalty_points")}</label>
+            <input
+              type="number"
+              min={0}
+              value={form.penalty_points}
+              onChange={(e) => set("penalty_points", Number(e.target.value))}
+            />
+          </div>
+
           <div className="field field-full">
             <label>{t("modal_reasoning")}</label>
             <textarea

@@ -59,8 +59,9 @@ export default function Sidebar({
         <div className="sidebar-section-label">{t("sidebar_server")}</div>
         <div className="sidebar-divider" />
         <button
-          className={`nav-btn nav-btn-connect ${connected ? "is-connected" : ""}`}
-          onClick={onConnect}
+          className={`nav-btn nav-btn-connect ${connected ? "is-connected" : ""} ${!licensed ? "nav-btn-disabled" : ""}`}
+          onClick={!licensed ? undefined : onConnect}
+          disabled={!licensed}
           onMouseEnter={() => setIsHoveringConnect(true)}
           onMouseLeave={() => setIsHoveringConnect(false)}
         >

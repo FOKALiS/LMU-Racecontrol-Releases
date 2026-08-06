@@ -5,21 +5,23 @@
 
 use std::thread;
 use std::time::Duration;
-use std::sync::OnceLock;
+use std::sync::RwLock;
 use crate::keyboard_config::{KeyboardConfig, KeyBinding};
 
-// ─── Globale Konfiguration (wird einmal beim Start geladen) ────────────
-static KEYBOARD_CONFIG: OnceLock<KeyboardConfig> = OnceLock::new();
+// ─── Globale Konfiguration (kann jederzeit neu geladen werden) ─────────
+static KEYBOARD_CONFIG: RwLock<Option<KeyboardConfig>> = RwLock::new(None);
 
 /// Initialisiert die Tastenbelegung aus der LMU keyboard.json.
-/// Muss vor dem ersten Tastendruck aufgerufen werden (in main.rs).
+/// Kann mehrfach aufgerufen werden (z.B. nach Änderung des LMU-Pfads).
 pub fn init(config: KeyboardConfig) {
-    let _ = KEYBOARD_CONFIG.set(config);
+    if let Ok(mut guard) = KEYBOARD_CONFIG.write() {
+        *guard = Some(config);
+    }
 }
 
 /// Gibt die aktuelle Tastenbelegung zurück.
-fn config() -> &'static KeyboardConfig {
-    KEYBOARD_CONFIG.get().expect("keyboard_config::init() wurde nicht aufgerufen!")
+fn config() -> std::sync::RwLockReadGuard<'static, Option<KeyboardConfig>> {
+    KEYBOARD_CONFIG.read().expect("keyboard_config RwLock ist vergiftet!")
 }
 
 /// Sonder-Scancodes für Tasten, die nicht in der LMU keyboard.json vorkommen
@@ -81,6 +83,8 @@ extern "system" {
     fn GetCurrentThreadId() -> u32;
     fn GetWindowThreadProcessId(hWnd: HANDLE, lpdwProcessId: *mut u32) -> u32;
     fn BringWindowToTop(hWnd: HANDLE) -> BOOL;
+    fn PostMessageW(hWnd: HANDLE, Msg: u32, wParam: usize, lParam: isize) -> BOOL;
+    fn MapVirtualKeyW(uCode: u32, uMapType: u32) -> u32;
 }
 
 /// Erzwingt den Fokus zuverlässig (Windows blockiert SetForegroundWindow sonst manchmal).
@@ -184,7 +188,11 @@ fn send_scancode_fast(scan: u16, extended: bool) {
 
 /// Hilfsfunktion: Holt ein Binding aus der Konfiguration.
 fn get_binding(action: &str) -> Result<KeyBinding, String> {
-    config().get(action).ok_or_else(|| format!("Taste '{}' nicht in LMU-Tastenbelegung gefunden", action))
+    let guard = config();
+    guard
+        .as_ref()
+        .and_then(|cfg| cfg.get(action))
+        .ok_or_else(|| format!("Taste '{}' nicht in LMU-Tastenbelegung gefunden", action))
 }
 
 // ─── Öffentliche API ─────────────────────────────────────────────────
@@ -350,6 +358,68 @@ pub fn replay_pause() -> Result<(), String> {
         }
         println!("[replay_pause] Play/Pause gesendet (schnell)");
     });
+    Ok(())
+}
+
+/// Pausiert das Replay via PostMessageW – sendet WM_KEYDOWN/WM_KEYUP
+/// DIREKT an das LMU-Fenster, OHNE Fenster-Fokus-Wechsel!
+/// PostMessageW funktioniert auch dann, wenn LMU NICHT im Vordergrund ist,
+/// weil es die Message direkt in die Message-Queue des Ziel-Fensters einreiht.
+pub fn replay_pause_postmessage() -> Result<(), String> {
+    let binding = get_binding("Replay Play")?;
+
+    let hwnd = find_lmu_window();
+    if hwnd.is_none() {
+        eprintln!("[replay_pause_postmessage] LMU-Fenster nicht gefunden – versuche SendInput...");
+        return replay_pause_simple_fallback(&binding);
+    }
+    let hwnd = hwnd.unwrap();
+
+    // Virtual-Key-Code aus dem Scancode ermitteln (MapVirtualKeyW)
+    let vk = unsafe { MapVirtualKeyW(binding.scan as u32, 1) };
+
+    // lParam zusammensetzen:
+    //   Bits 0-15: Scancode
+    //   Bit 16: extended flag
+    //   Bit 30: previous key state (1 = wurde bereits gedrückt)
+    //   Bit 31: transition state (0 = key down, 1 = key up)
+    let scan = binding.scan as isize;
+    let extended_bit = if binding.extended { 0x0100_0000 } else { 0 };
+    let lparam_down = scan | extended_bit;
+    let lparam_up = scan | extended_bit | 0xC000_0000; // Bit 30 + Bit 31 = key up + previous key state
+
+    unsafe {
+        // WM_KEYDOWN mit VK und lParam senden
+        PostMessageW(hwnd, WM_KEYDOWN, vk as usize, lparam_down);
+        thread::sleep(Duration::from_millis(10));
+        // WM_KEYUP mit VK und lParam senden
+        PostMessageW(hwnd, WM_KEYUP, vk as usize, lparam_up);
+    }
+
+    println!("[replay_pause_postmessage] F11 via PostMessageW an LMU gesendet (HWND={:?})", hwnd);
+    Ok(())
+}
+
+/// Fallback: SendInput ohne Fokus-Wechsel (falls LMU-Fenster nicht gefunden wurde).
+fn replay_pause_simple_fallback(binding: &KeyBinding) -> Result<(), String> {
+    let mut flags_down: DWORD = KEYEVENTF_SCANCODE;
+    let mut flags_up: DWORD = KEYEVENTF_SCANCODE | KEYEVENTF_KEYUP;
+    if binding.extended {
+        flags_down |= KEYEVENTF_EXTENDEDKEY;
+        flags_up |= KEYEVENTF_EXTENDEDKEY;
+    }
+
+    unsafe {
+        let ki = KEYBDINPUT { wVk: 0, wScan: binding.scan, dwFlags: flags_down, time: 0, dwExtraInfo: 0 };
+        let mut inp = INPUT { type_: INPUT_KEYBOARD, u: INPUT_UNION { ki: std::mem::ManuallyDrop::new(ki) } };
+        SendInput(1, &mut inp, std::mem::size_of::<INPUT>() as i32);
+        thread::sleep(Duration::from_millis(10));
+        let ki_up = KEYBDINPUT { wVk: 0, wScan: binding.scan, dwFlags: flags_up, time: 0, dwExtraInfo: 0 };
+        let mut inp_up = INPUT { type_: INPUT_KEYBOARD, u: INPUT_UNION { ki: std::mem::ManuallyDrop::new(ki_up) } };
+        SendInput(1, &mut inp_up, std::mem::size_of::<INPUT>() as i32);
+    }
+
+    println!("[replay_pause_simple_fallback] Play/Pause via SendInput gesendet");
     Ok(())
 }
 
@@ -626,7 +696,11 @@ fn char_to_scancode(c: char) -> Option<u16> {
 /// Gibt die relevanten Tastenbelegungen für das Frontend zurück.
 /// Format: Vec<(action, scan, extended, key_name)> als einfache Struktur.
 pub fn get_relevant_bindings() -> Vec<KeyboardMappingEntryFrontend> {
-    let bindings = config().relevant_bindings();
+    let guard = config();
+    let bindings = guard
+        .as_ref()
+        .map(|cfg| cfg.relevant_bindings())
+        .unwrap_or_default();
     bindings
         .into_iter()
         .map(|(action, binding, key_name)| KeyboardMappingEntryFrontend {

@@ -9,6 +9,7 @@ mod keyboard_config;
 mod license;
 mod lmu_client;
 mod lmu_ws;
+mod manufacturer;
 mod settings;
 mod shared_memory;
 
@@ -171,6 +172,8 @@ async fn submit_incident_decision(
     incident_type: String,
     decision: String,
     reasoning: String,
+    penalty_points: Option<i32>,
+    warning_points: Option<i32>,
 ) -> Result<Incident, String> {
     let target_id = match id {
         Some(existing) if !existing.is_empty() => existing,
@@ -182,6 +185,8 @@ async fn submit_incident_decision(
         }
     };
 
+    let p_pts = penalty_points.unwrap_or(0);
+    let w_pts = warning_points.unwrap_or(0);
     let updated = state
         .db
         .decide(
@@ -198,6 +203,8 @@ async fn submit_incident_decision(
             &incident_type,
             &decision,
             &reasoning,
+            p_pts,
+            w_pts,
         )
         .map_err(|e| e.to_string())?;
 
@@ -635,7 +642,7 @@ async fn poll_loop(app: tauri::AppHandle, state: Arc<AppState>) {
                     }
                 }
 
-                if !fcy_active {
+                {
                     let mut detector = state.detector.lock().await;
                     let ctx = DetectionContext {
                         session_time_s,

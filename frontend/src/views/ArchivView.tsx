@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { Incident } from "../types";
+import type { Incident, CarStanding } from "../types";
 import EyeIcon from "../components/EyeIcon";
 import { useLanguage } from "../i18n/LanguageContext";
 import { classColor } from "../classColors";
@@ -7,7 +7,9 @@ import { invoke } from "@tauri-apps/api/core";
 
 interface Props {
   incidents: Incident[];
+  standings: CarStanding[];
   onReplay: (incident: Incident) => void;
+  onInvestigate: (incident: Incident) => void;
   focusedSlotId?: number | null;
   selectedCam?: string;
   onCamSelect?: (cam: string) => void;
@@ -21,7 +23,9 @@ interface Props {
 
 export default function ArchivView({
   incidents,
+  standings,
   onReplay,
+  onInvestigate,
   focusedSlotId,
   selectedCam = "TV",
   onCamSelect,
@@ -34,10 +38,15 @@ export default function ArchivView({
 }: Props) {
   const { t } = useLanguage();
 
+  function manufacturerFor(carNumber: string): string | undefined {
+    const car = standings.find((s) => s.car_number === carNumber);
+    return car?.manufacturer;
+  }
+
   function handleImageModeChange(mode: "live" | "replay") {
     onImageModeChange(mode);
     if (mode === "live") {
-      invoke("switch_to_live").catch(console.error);
+      onSwitchToLive?.();
     } else {
       invoke("replay_activate").catch(console.error);
       invoke("switch_to_replay").catch(console.error);
@@ -132,9 +141,11 @@ export default function ArchivView({
                 <th className="archiv-th-incident">{t("col_incident")}</th>
                 <th className="archiv-th-class">{t("col_class")}</th>
                 <th className="archiv-th-num">{t("col_number")}</th>
+                <th className="archiv-th-logo">{t("col_car")}</th>
                 <th className="archiv-th-driver">{t("col_driver_name")}</th>
                 <th className="archiv-th-class">{t("col_class")}</th>
                 <th className="archiv-th-num">{t("col_number")}</th>
+                <th className="archiv-th-logo">{t("col_car")}</th>
                 <th className="archiv-th-driver">{t("col_driver_name")}</th>
                 <th className="archiv-th-lap">{t("col_lap")}</th>
                 <th className="archiv-th-timestamp">{t("col_timestamp")}</th>
@@ -145,7 +156,7 @@ export default function ArchivView({
             <tbody>
               {incidents.length === 0 && (
                 <tr>
-                  <td colSpan={11} className="empty-row">
+                  <td colSpan={13} className="empty-row">
                     {t("archiv_empty")}
                   </td>
                 </tr>
@@ -164,6 +175,20 @@ export default function ArchivView({
                     )}
                   </td>
                   <td>{i.car_number_a}</td>
+                  <td className="archiv-td-logo">
+                    {(() => {
+                      const m = manufacturerFor(i.car_number_a);
+                      return m ? (
+                        <img
+                          src={`/manufacturers/${m}.png`}
+                          alt={m}
+                          className="manufacturer-logo"
+                          title={m}
+                          onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                        />
+                      ) : null;
+                    })()}
+                  </td>
                   <td>{i.driver_a}</td>
                   <td>
                     {i.class_b && (
@@ -173,6 +198,20 @@ export default function ArchivView({
                     )}
                   </td>
                   <td>{i.car_number_b}</td>
+                  <td className="archiv-td-logo">
+                    {(() => {
+                      const m = manufacturerFor(i.car_number_b);
+                      return m ? (
+                        <img
+                          src={`/manufacturers/${m}.png`}
+                          alt={m}
+                          className="manufacturer-logo"
+                          title={m}
+                          onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                        />
+                      ) : null;
+                    })()}
+                  </td>
                   <td>{i.driver_b}</td>
                   <td>{i.lap}</td>
                   <td>{i.timestamp_label}</td>
@@ -186,7 +225,12 @@ export default function ArchivView({
                       >
                         <EyeIcon color="#ffffff" />
                       </button>
-                      <span className={`archiv-decision-badge ${isPenalty(i.decision) ? "penalty" : "nfa"}`}>
+                      <span
+                        className={`archiv-decision-badge ${isPenalty(i.decision) ? "penalty" : "nfa"}`}
+                        onClick={() => onInvestigate(i)}
+                        style={{ cursor: "pointer" }}
+                        title="Entscheidung anzeigen"
+                      >
                         {isPenalty(i.decision) ? t("decision_penalty") : t("decision_nfa")}
                       </span>
                     </div>
