@@ -93,7 +93,7 @@ impl IncidentDetector {
             // eine Status-Anzeige. Aber wir wollen nicht jede Sekunde einen
             // neuen Eintrag. Daher: nur alle 30s einen neuen, wenn noch
             // langsam.
-            let is_slow = car.speed_kmh < SLOW_SPEED_KMH && !car.in_pits && car.speed_kmh >= 0.0;
+            let is_slow = car.speed_kmh > MIN_STOPPED_SPEED_KMH && car.speed_kmh < SLOW_SPEED_KMH && !car.in_pits && car.speed_kmh >= 0.0;
             let slow_detected = if is_slow {
                 if hist.slow_since.is_none() {
                     hist.slow_since = Some(ctx.session_time_s);
