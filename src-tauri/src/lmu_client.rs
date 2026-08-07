@@ -270,8 +270,23 @@ fn parse_standings(raw: &Value) -> Result<Vec<CarStanding>> {
 }
 
 fn parse_session_info(raw: &Value) -> SessionInfo {
+    // session_type kann ein String ("Practice") oder eine Zahl (0=Practice, 1=Qualifying, 2=Race) sein
+    let session_type = {
+        let s = field_string(raw, &["sessionType", "session", "type"]);
+        if s.is_empty() {
+            // LMU liefert sessionType manchmal als Integer
+            match field_i64(raw, &["sessionType", "session", "type"]) {
+                Some(0) => "Practice".to_string(),
+                Some(1) => "Qualifying".to_string(),
+                Some(2) => "Race".to_string(),
+                _ => String::new(),
+            }
+        } else {
+            s
+        }
+    };
     SessionInfo {
-        session_type: field_string(raw, &["sessionType", "session", "type"]),
+        session_type,
         track_name: field_string(raw, &["trackName", "track"]),
         time_of_day: field_string(raw, &["timeOfDay", "tod"]),
         session_time_remaining_s: field_f64(raw, &["timeRemaining", "sessionTimeRemaining", "timeRemainingInGamePhase"]).unwrap_or(0.0),
