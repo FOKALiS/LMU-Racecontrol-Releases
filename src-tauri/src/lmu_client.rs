@@ -270,19 +270,37 @@ fn parse_standings(raw: &Value) -> Result<Vec<CarStanding>> {
 }
 
 fn parse_session_info(raw: &Value) -> SessionInfo {
-    // session_type kann ein String ("Practice") oder eine Zahl (0=Practice, 1=Qualifying, 2=Race) sein
+    // session_type kann ein String ("Practice", "Qualifying", "Race") oder eine Zahl
+    // (0=Practice, 1=Qualifying, 2=Race) sein.
+    // LMU verwendet verschiedene Key-Namen – wir probieren alle bekannten durch.
     let session_type = {
-        let s = field_string(raw, &["sessionType", "session", "type"]);
-        if s.is_empty() {
-            // LMU liefert sessionType manchmal als Integer
-            match field_i64(raw, &["sessionType", "session", "type"]) {
+        // 1. Als String versuchen (mit vielen Key-Varianten)
+        let keys_str = &["sessionType", "session", "type", "mSessionType", "session_id", "gamePhase", "phase", "GamePhase", "SessionType", "sessionTypeName"];
+        let s = field_string(raw, keys_str);
+        if !s.is_empty() {
+            // Prüfen, ob der String selbst eine Zahl ist (z.B. "0" statt 0)
+            match s.as_str() {
+                "0" => "Practice".to_string(),
+                "1" => "Qualifying".to_string(),
+                "2" => "Race".to_string(),
+                _ => {
+                    // Ersten Buchstaben großschreiben, falls LMU z.B. "practice" liefert
+                    let mut chars = s.chars();
+                    match chars.next() {
+                        Some(c) => c.to_uppercase().collect::<String>() + chars.as_str(),
+                        None => s,
+                    }
+                }
+            }
+        } else {
+            // 2. Als Integer versuchen (mit vielen Key-Varianten)
+            let keys_int = &["sessionType", "session", "type", "mSessionType", "session_id", "gamePhase", "phase", "GamePhase", "SessionType", "sessionTypeId", "sessionTypeNum"];
+            match field_i64(raw, keys_int) {
                 Some(0) => "Practice".to_string(),
                 Some(1) => "Qualifying".to_string(),
                 Some(2) => "Race".to_string(),
                 _ => String::new(),
             }
-        } else {
-            s
         }
     };
     SessionInfo {
