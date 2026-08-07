@@ -22,6 +22,12 @@ pub struct Settings {
     /// Standard: C:\Program Files (x86)\Steam\steamapps\common\Le Mans Ultimate
     #[serde(default = "default_lmu_install_path")]
     pub lmu_install_path: String,
+    /// Server-URL für Enterprise (z.B. http://v-server-ip:3000)
+    #[serde(default)]
+    pub server_url: String,
+    /// API-Key für Enterprise-Server-Zugriff
+    #[serde(default)]
+    pub api_key: String,
 }
 
 fn default_lmu_install_path() -> String {
@@ -57,6 +63,8 @@ impl Default for Settings {
             post_roll_seconds: 20.0,
             license_key: String::new(),
             lmu_install_path: default_lmu_install_path(),
+            server_url: String::new(),
+            api_key: String::new(),
         }
     }
 }

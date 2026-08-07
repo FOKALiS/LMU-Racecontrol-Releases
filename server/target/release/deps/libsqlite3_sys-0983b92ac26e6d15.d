@@ -1,0 +1,11 @@
+c:\Users\Administrator\Documents\AI\Software Entwicklung\LMU Racecontrol\Tool\lmu-race-control\server\target\release\deps\libsqlite3_sys-0983b92ac26e6d15.d: C:\Users\Administrator\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\libsqlite3-sys-0.30.1\src\lib.rs C:\Users\Administrator\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\libsqlite3-sys-0.30.1\src\error.rs c:\Users\Administrator\Documents\AI\Software\ Entwicklung\LMU\ Racecontrol\Tool\lmu-race-control\server\target\release\build\libsqlite3-sys-28d420201e1655b5\out/bindgen.rs
+
+c:\Users\Administrator\Documents\AI\Software Entwicklung\LMU Racecontrol\Tool\lmu-race-control\server\target\release\deps\liblibsqlite3_sys-0983b92ac26e6d15.rlib: C:\Users\Administrator\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\libsqlite3-sys-0.30.1\src\lib.rs C:\Users\Administrator\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\libsqlite3-sys-0.30.1\src\error.rs c:\Users\Administrator\Documents\AI\Software\ Entwicklung\LMU\ Racecontrol\Tool\lmu-race-control\server\target\release\build\libsqlite3-sys-28d420201e1655b5\out/bindgen.rs
+
+c:\Users\Administrator\Documents\AI\Software Entwicklung\LMU Racecontrol\Tool\lmu-race-control\server\target\release\deps\liblibsqlite3_sys-0983b92ac26e6d15.rmeta: C:\Users\Administrator\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\libsqlite3-sys-0.30.1\src\lib.rs C:\Users\Administrator\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\libsqlite3-sys-0.30.1\src\error.rs c:\Users\Administrator\Documents\AI\Software\ Entwicklung\LMU\ Racecontrol\Tool\lmu-race-control\server\target\release\build\libsqlite3-sys-28d420201e1655b5\out/bindgen.rs
+
+C:\Users\Administrator\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\libsqlite3-sys-0.30.1\src\lib.rs:
+C:\Users\Administrator\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\libsqlite3-sys-0.30.1\src\error.rs:
+c:\Users\Administrator\Documents\AI\Software\ Entwicklung\LMU\ Racecontrol\Tool\lmu-race-control\server\target\release\build\libsqlite3-sys-28d420201e1655b5\out/bindgen.rs:
+
+# env-dep:OUT_DIR=c:\\Users\\Administrator\\Documents\\AI\\Software Entwicklung\\LMU Racecontrol\\Tool\\lmu-race-control\\server\\target\\release\\build\\libsqlite3-sys-28d420201e1655b5\\out

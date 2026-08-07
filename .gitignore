@@ -1,11 +1,15 @@
 # Rust / Tauri
 /src-tauri/target/
 /src-tauri/gen/
+/admin-app/src-tauri/target/
+/admin-app/src-tauri/gen/
 
 # Node / Frontend
 /frontend/node_modules/
 /frontend/dist/
 /node_modules/
+/admin-app/node_modules/
+/admin-app/dist/
 
 # OS
 .DS_Store

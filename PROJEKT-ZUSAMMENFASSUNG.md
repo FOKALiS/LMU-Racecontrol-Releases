@@ -3,11 +3,11 @@
 ## Projekt
 **LMU RACECONTROL** – Tauri-basiertes Desktop-Tool für Le Mans Ultimate Rennkommissionen.
 - **Pfad:** `C:\Users\Administrator\Documents\AI\Software Entwicklung\LMU Racecontrol\Tool\lmu-race-control`
-- **Aktuelle Version:** v0.9.1
+- **Aktuelle Version:** v0.9.4
 - **Build-Workflow:** https://github.com/FOKALiS/LMU-Racecontrol/actions
 - **Release-Versionierung:** Zweite Kommastelle erhöhen (z. B. 0.9.0 → 0.9.1)
-- **User ist Grafik Designer, kein Coder** – Schritt-für-Schritt-Anleitung nötig
-- **Letzter Commit:** `52d1e2b` (v0.9.1 – Weiße Flagge Fix)
+- **User ist Grafik Designer, kein Code** – Schritt-für-Schritt-Anleitung nötig
+- **Letzter Commit:** `2929eda` (v0.9.4 – API-Key Lookup + Server-Bereinigung)
 - **GitHub:** `origin/main` auf dem aktuellsten Stand, Arbeitsverzeichnis sauber
 
 ## Wichtige Pfade
@@ -174,6 +174,16 @@
 - `frontend/src/i18n/translations.ts` – Übersetzungen (DE/EN)
 
 ## CHANGELOG – Änderungen pro Version
+
+### v0.9.4 (07.08.2026)
+- **Server-Endpunkt `POST /api/lookup-api-key`:** Validiert License-Key live bei Keygen, legt automatisch Tenant + API-Key mit korrektem Tier an (Enterprise L/XL/HOWE)
+- **Button "API-Key abfragen":** In Einstellungen → Server Verbindung – fragt API-Key zum License-Key ab (nur bei lizenzierter Enterprise)
+- **Version in Lizenz-Überschrift:** "Lizenz Informationen – Version: Enterprise XL (Server)"
+- **Server-URL-Feld entfernt:** Muss vom User nicht änderbar sein
+- **Server `DELETE /api/incidents`:** Löscht nur Incidents des eigenen Tenants (team-sicher)
+- **Server `purge_old_incidents`:** Auto-Bereinigung alter Vorfälle (>26h) alle 30 Minuten
+- **`clear_all_incidents`:** Löscht jetzt auch Server-Vorfälle des eigenen Tenants (kein fremdes Team)
+- **Server-EXE + App-EXE gebaut:** v0.9.4
 
 ### v0.9.1 (06.08.2026)
 - **Weiße Flagge Fix:** Auch die weiße Flagge (langsames Fahrzeug) prüft jetzt `> MIN_STOPPED_SPEED_KMH (0.5 km/h)`, damit Fahrzeuge mit exakt 0.0 km/h (Pipo Derani) nicht fälschlich als "langsam" gemeldet werden

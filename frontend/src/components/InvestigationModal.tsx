@@ -155,21 +155,41 @@ export default function InvestigationModal({ draft, standings, settings, onClose
 
           <div className="field">
             <label>{t("modal_warning_points")}</label>
-            <input
-              type="number"
-              min={0}
-              value={form.warning_points}
-              onChange={(e) => set("warning_points", Number(e.target.value))}
-            />
+            <div className="modal-input-with-arrows">
+              <input
+                type="number"
+                min={0}
+                value={form.warning_points}
+                onChange={(e) => set("warning_points", Number(e.target.value))}
+              />
+              <div className="input-arrows">
+                <button className="input-arrow-btn" onClick={() => set("warning_points", form.warning_points + 1)}>
+                  <img src="/icons/Pfeil oben.png" alt="+" className="input-arrow-icon" />
+                </button>
+                <button className="input-arrow-btn" onClick={() => set("warning_points", Math.max(0, form.warning_points - 1))}>
+                  <img src="/icons/Pfeil unten.png" alt="-" className="input-arrow-icon" />
+                </button>
+              </div>
+            </div>
           </div>
           <div className="field">
             <label>{t("modal_penalty_points")}</label>
-            <input
-              type="number"
-              min={0}
-              value={form.penalty_points}
-              onChange={(e) => set("penalty_points", Number(e.target.value))}
-            />
+            <div className="modal-input-with-arrows">
+              <input
+                type="number"
+                min={0}
+                value={form.penalty_points}
+                onChange={(e) => set("penalty_points", Number(e.target.value))}
+              />
+              <div className="input-arrows">
+                <button className="input-arrow-btn" onClick={() => set("penalty_points", form.penalty_points + 1)}>
+                  <img src="/icons/Pfeil oben.png" alt="+" className="input-arrow-icon" />
+                </button>
+                <button className="input-arrow-btn" onClick={() => set("penalty_points", Math.max(0, form.penalty_points - 1))}>
+                  <img src="/icons/Pfeil unten.png" alt="-" className="input-arrow-icon" />
+                </button>
+              </div>
+            </div>
           </div>
 
           <div className="field field-full">

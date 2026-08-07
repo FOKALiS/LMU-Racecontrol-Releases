@@ -15,6 +15,9 @@ interface Props {
   fcyRemaining: number;
   onFcyClick: () => void;
   licensed: boolean;
+  serverConnected: boolean;
+  serverConnecting: boolean;
+  onConnectServer: () => void;
 }
 
 export default function Sidebar({
@@ -26,11 +29,15 @@ export default function Sidebar({
   fcyRemaining,
   onFcyClick,
   licensed,
+  serverConnected,
+  serverConnecting,
+  onConnectServer,
 }: Props) {
   const { t } = useLanguage();
   const [helpOpen, setHelpOpen] = useState(false);
   const [appVersion, setAppVersion] = useState("");
   const [isHoveringConnect, setIsHoveringConnect] = useState(false);
+  const [isHoveringServer, setIsHoveringServer] = useState(false);
 
   useEffect(() => {
     getVersion().then(setAppVersion).catch(console.error);
@@ -54,7 +61,7 @@ export default function Sidebar({
         <LanguageToggle full />
       </div>
 
-      {/* Server Section – Figma: Label "Server" + Divider + Connect-Button (56px) */}
+      {/* Server Section – Figma: Label "Server" + Divider + Connect-Buttons (56px) */}
       <div className="sidebar-section sidebar-section-server">
         <div className="sidebar-section-label">{t("sidebar_server")}</div>
         <div className="sidebar-divider" />
@@ -66,6 +73,20 @@ export default function Sidebar({
           onMouseLeave={() => setIsHoveringConnect(false)}
         >
           {getConnectLabel()}
+        </button>
+        {/* Remote Server Button (Enterprise) */}
+        <button
+          className={`nav-btn nav-btn-connect ${serverConnected ? "is-connected" : ""} ${!licensed ? "nav-btn-disabled" : ""}`}
+          onClick={!licensed ? undefined : onConnectServer}
+          disabled={!licensed}
+          onMouseEnter={() => setIsHoveringServer(true)}
+          onMouseLeave={() => setIsHoveringServer(false)}
+        >
+          {serverConnecting
+            ? t("server_remote_connecting")
+            : serverConnected
+              ? (isHoveringServer ? t("server_remote_disconnected") : t("server_remote_connected"))
+              : t("server_remote_connect")}
         </button>
       </div>
 

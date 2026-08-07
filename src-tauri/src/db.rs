@@ -19,7 +19,7 @@ pub enum FlagColor {
     None,
 }
 impl FlagColor {
-    fn as_str(&self) -> &'static str {
+    pub fn as_str(&self) -> &'static str {
         match self {
             FlagColor::Red => "red",
             FlagColor::Yellow => "yellow",

@@ -32,6 +32,8 @@ const DEFAULT_SETTINGS: Settings = {
   post_roll_seconds: 20,
   license_key: "",
   lmu_install_path: "C:\\Program Files (x86)\\Steam\\steamapps\\common\\Le Mans Ultimate",
+  server_url: "",
+  api_key: "",
 };
 
 export default function App() {
@@ -47,6 +49,9 @@ export default function App() {
 
   const [fcyPhase, setFcyPhase] = useState<FcyPhase>("idle");
   const [fcyRemaining, setFcyRemaining] = useState(0);
+
+  const [serverConnected, setServerConnected] = useState(false);
+  const [serverConnecting, setServerConnecting] = useState(false);
 
   const [selectedCam, setSelectedCam] = useState<string>("TV");
   /** Wird true, wenn ein Replay über das Auge-Symbol gestartet wurde */
@@ -77,6 +82,7 @@ export default function App() {
           valid: false,
           last_validated_at: null,
           last_error: String(err),
+          tier: "basic",
         });
       });
   }, []);
@@ -152,6 +158,27 @@ export default function App() {
       setConnected(ok);
       if (ok) setView("fahrerfeld");
       else alert(t("alert_connect_failed"));
+    }
+  }
+
+  async function handleConnectServer() {
+    if (serverConnected) {
+      // Trennen – einfach Status zurücksetzen
+      setServerConnected(false);
+      return;
+    }
+    setServerConnecting(true);
+    try {
+      const ok = await invoke<boolean>("check_server_connection");
+      setServerConnected(ok);
+      if (!ok) {
+        alert("Server nicht erreichbar. Bitte Server-URL und API-Key in den Einstellungen prüfen.");
+      }
+    } catch (err) {
+      console.error("Server-Verbindung fehlgeschlagen:", err);
+      setServerConnected(false);
+    } finally {
+      setServerConnecting(false);
     }
   }
 
@@ -305,6 +332,9 @@ export default function App() {
         fcyRemaining={fcyRemaining}
         onFcyClick={handleFcyClick}
         licensed={license?.licensed ?? false}
+        serverConnected={serverConnected}
+        serverConnecting={serverConnecting}
+        onConnectServer={handleConnectServer}
       />
 
       <main className={`main-content ${fcyPhase !== "idle" ? "fcy-frame" : ""}`}>
@@ -377,7 +407,7 @@ export default function App() {
         )}
 
         {license?.licensed && view === "einstellungen" && (
-          <EinstellungenView settings={settings} onSave={saveSettings} onClearAll={() => refreshIncidents()} />
+          <EinstellungenView settings={settings} onSave={saveSettings} onClearAll={() => refreshIncidents()} licenseData={license} />
         )}
       </main>
 

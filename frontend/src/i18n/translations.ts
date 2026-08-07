@@ -101,6 +101,7 @@ const de = {
   col_lap: "Runde",
   col_corner: "Kurve",
   col_timestamp: "Zeitstempel",
+  col_laps: "Runde",
   col_ve: "VE",
   fahrerfeld_no_data: "Keine Live-Daten – warte auf LMU-Verbindung...",
   investigate: "Investigate",
@@ -137,6 +138,10 @@ const de = {
   settings_decision_types_hint: "Eine Entscheidung pro Zeile, in dieser Reihenfolge im Dropdown.",
   settings_save: "Einstellungen speichern",
   settings_saved: "Gespeichert",
+  settings_fetch_api_key: "API-Key abfragen",
+  settings_fetch_api_key_loading: "Frage ab...",
+  settings_fetch_api_key_error: "Fehler: {error}",
+  settings_fetch_api_key_success: "API-Key eingetragen!",
   settings_pre_roll_label: "Vorfall - Vorlaufzeit",
   settings_pre_roll_hint: "Replay startet diese Zeit vor dem Vorfall",
   settings_post_roll_label: "Vorfall - Nachlaufzeit",
@@ -178,6 +183,12 @@ const de = {
   settings_lmu_replay: "Replay (R)",
   settings_lmu_play: "Play (F11)",
   settings_lmu_stop: "Stop (F6)",
+
+  // Remote Server
+  server_remote_connect: "Remote Server",
+  server_remote_connected: "Remote Server ✓",
+  server_remote_disconnected: "Remote Server ✗",
+  server_remote_connecting: "Verbinde...",
 
   // Allgemein
   loading: "Lädt...",
@@ -270,6 +281,7 @@ const en: typeof de = {
   col_lap: "Lap",
   col_corner: "Corner",
   col_timestamp: "Timestamp",
+  col_laps: "Laps",
   col_ve: "VE",
   fahrerfeld_no_data: "No live data – waiting for LMU connection...",
   investigate: "Investigate",
@@ -303,6 +315,10 @@ const en: typeof de = {
   settings_decision_types_hint: "One decision per line, in this order in the dropdown.",
   settings_save: "Save Settings",
   settings_saved: "Saved",
+  settings_fetch_api_key: "API-Key abfragen",
+  settings_fetch_api_key_loading: "Frage ab...",
+  settings_fetch_api_key_error: "Fehler: {error}",
+  settings_fetch_api_key_success: "API-Key eingetragen!",
   settings_pre_roll_label: "Incident – Pre-roll",
   settings_pre_roll_hint: "Replay starts this time before the incident",
   settings_post_roll_label: "Incident – Post-roll",
@@ -341,6 +357,12 @@ const en: typeof de = {
   settings_lmu_replay: "Replay (R)",
   settings_lmu_play: "Play (F11)",
   settings_lmu_stop: "Stop (F6)",
+
+  // Remote Server
+  server_remote_connect: "Remote Server",
+  server_remote_connected: "Remote Server ✓",
+  server_remote_disconnected: "Remote Server ✗",
+  server_remote_connecting: "Connecting...",
 
   // Allgemein
   loading: "Loading...",

@@ -233,6 +233,7 @@ export default function FahrerfeldView({
                 <th className="fahrerfeld-th-driver">{t("col_driver_name")}</th>
                 <th className="fahrerfeld-th-team">{t("col_team")}</th>
                 <th className="fahrerfeld-th-status">{t("col_status")}</th>
+                <th className="fahrerfeld-th-laps">{t("col_laps")}</th>
                 <th className="fahrerfeld-th-ve">{t("col_ve")}</th>
                 <th className="fahrerfeld-th-lap">{t("col_fastest_lap")}</th>
                 <th className="fahrerfeld-th-spacer"></th>
@@ -280,12 +281,13 @@ export default function FahrerfeldView({
                     <td>{car.driver}</td>
                     <td>{car.team}</td>
                     <td>{car.in_pits ? "PIT" : ""}</td>
+                    <td>{car.laps > 0 ? car.laps : "–"}</td>
                     <td className="fahrerfeld-td-ve">
-                      {car.virtual_energy >= 0 ? (
+                      {car.virtual_energy > 0 ? (
                         <span className={`ve-badge ve-badge-${veColor(car.virtual_energy)}`}>
                           {(car.virtual_energy * 100).toFixed(0)}%
                         </span>
-                      ) : "–"}
+                      ) : "N.A."}
                     </td>
                     <td>{formatLap(car.best_lap_s)}</td>
                     <td className="fahrerfeld-td-spacer"></td>
@@ -325,7 +327,7 @@ export default function FahrerfeldView({
 }
 
 function veColor(ve: number): "green" | "yellow" | "red" {
-  if (ve >= 0.2) return "green";
+  if (ve >= 0.3) return "green";
   if (ve >= 0.1) return "yellow";
   return "red";
 }

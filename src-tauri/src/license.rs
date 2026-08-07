@@ -20,20 +20,63 @@ fn api_base() -> String {
     format!("https://api.keygen.sh/v1/accounts/{KEYGEN_ACCOUNT}")
 }
 
+/// Lizenz-Tier (abgestufte Version)
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub enum LicenseTier {
+    #[serde(rename = "demo")]
+    Demo,
+    #[serde(rename = "basic")]
+    Basic,
+    #[serde(rename = "enterprise_l")]
+    EnterpriseL,
+    #[serde(rename = "enterprise_xl")]
+    EnterpriseXl,
+}
+
+impl LicenseTier {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            LicenseTier::Demo => "Demo",
+            LicenseTier::Basic => "Basic",
+            LicenseTier::EnterpriseL => "Enterprise L",
+            LicenseTier::EnterpriseXl => "Enterprise XL",
+        }
+    }
+
+    /// Ob dieser Tier Server-Zugriff erlaubt
+    pub fn allows_server(&self) -> bool {
+        matches!(self, LicenseTier::EnterpriseL | LicenseTier::EnterpriseXl)
+    }
+
+    /// Maximale Anzahl gleichzeitiger User (nur für Server-Tiers relevant)
+    pub fn max_users(&self) -> Option<i32> {
+        match self {
+            LicenseTier::EnterpriseL => Some(3),
+            LicenseTier::EnterpriseXl => Some(5),
+            _ => None,
+        }
+    }
+}
+
+impl Default for LicenseTier {
+    fn default() -> Self {
+        LicenseTier::Basic
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct LicenseData {
     pub license_key: String,
-    /// Keygen-interne Lizenz-ID (UUID), wird bei der ersten Aktivierung ermittelt.
+    /// Keygen-interne Lizenz-ID (UUID)
     pub license_id: String,
-    /// Eindeutige Kennung DIESER Installation - einmalig zufällig erzeugt und
-    /// dauerhaft gespeichert, NICHT bei jedem Start neu (sonst würde jeder
-    /// Start als neues Gerät zählen und die Aktivierungen aufbrauchen).
+    /// Eindeutige Kennung DIESER Installation
     pub fingerprint: String,
     pub valid: bool,
     pub last_validated_at: Option<DateTime<Utc>>,
-    /// Klartext-Grund, warum eine Prüfung zuletzt fehlgeschlagen ist - wird
-    /// im UI angezeigt, damit der Nutzer weiß, woran es liegt.
+    /// Klartext-Grund, warum eine Prüfung zuletzt fehlgeschlagen ist
     pub last_error: Option<String>,
+    /// Lizenz-Tier: "demo", "basic", "enterprise_l", "enterprise_xl"
+    pub tier: LicenseTier,
 }
 
 impl LicenseData {
@@ -41,9 +84,7 @@ impl LicenseData {
         !self.license_key.is_empty()
     }
 
-    /// Ob die App aktuell freigeschaltet sein soll: entweder frisch online
-    /// bestätigt gültig, ODER innerhalb der Offline-Kulanzfrist seit der
-    /// letzten erfolgreichen Prüfung.
+    /// Ob die App aktuell freigeschaltet sein soll
     pub fn is_currently_licensed(&self) -> bool {
         if !self.has_key() {
             return false;
@@ -55,6 +96,11 @@ impl LicenseData {
             Some(last) => Utc::now().signed_duration_since(last).num_days() < OFFLINE_GRACE_DAYS,
             None => false,
         }
+    }
+
+    /// Zeigt an, ob der Lizenz-Tier Server-Zugriff erlaubt
+    pub fn is_enterprise(&self) -> bool {
+        self.tier.allows_server()
     }
 }
 
@@ -93,14 +139,113 @@ struct ResourceRef {
     id: String,
 }
 #[derive(Debug, Deserialize)]
+struct LicenseAttributes {
+    #[serde(default)]
+    metadata: Option<serde_json::Value>,
+}
+#[derive(Debug, Deserialize)]
+struct LicenseDataObj {
+    id: String,
+    attributes: LicenseAttributes,
+}
+/// Keygen liefert Metadata als separate "included"-Ressourcen
+#[derive(Debug, Deserialize)]
+struct IncludedResource {
+    #[serde(rename = "type")]
+    resource_type: String,
+    attributes: serde_json::Value,
+}
+#[derive(Debug, Deserialize)]
 struct ValidateResponse {
     meta: ValidateMeta,
-    data: Option<ResourceRef>,
+    data: Option<LicenseDataObj>,
+    #[serde(default)]
+    included: Vec<IncludedResource>,
 }
 
-/// Fragt bei Keygen den Status eines Lizenzschlüssels ab. `fingerprint`
-/// optional mitgeben, um zu prüfen, ob die Lizenz FÜR DIESES GERÄT
-/// freigeschaltet ist (nicht nur grundsätzlich gültig).
+impl ValidateResponse {
+    /// Holt die Metadata aus dem "included"-Array (Keygen Standard).
+    /// Wenn nicht vorhanden, fällt es zurück auf data.attributes.metadata.
+    fn metadata(&self) -> Option<&serde_json::Value> {
+        // 1) Versuche "included" (Keygen Standard für Metadata)
+        for inc in &self.included {
+            if inc.resource_type == "metadata" {
+                if let Some(value) = inc.attributes.get("value") {
+                    // Keygen Metadata kann entweder flach sein:
+                    //   { "key": "tier", "value": "enterprise_xl" }
+                    // oder verschachtelt:
+                    //   { "tier": "enterprise_xl" }
+                    // Wir versuchen beides zu lesen.
+                    return Some(&inc.attributes);
+                }
+            }
+        }
+        // 2) Fallback: data.attributes.metadata
+        self.data.as_ref().and_then(|d| d.attributes.metadata.as_ref())
+    }
+
+    fn tier_from_metadata(&self) -> LicenseTier {
+        match self.metadata() {
+            Some(m) => {
+                // Debug
+                println!("[LICENSE] Metadata-Wert: {}", m);
+                // Format 1: { "key": "tier", "value": "enterprise_xl" }
+                if let Some(key) = m.get("key").and_then(|v| v.as_str()) {
+                    if key == "tier" {
+                        let value = m.get("value").and_then(|v| v.as_str());
+                        if let Some(v) = value {
+                            return match v {
+                                "demo" => LicenseTier::Demo,
+                                "basic" => LicenseTier::Basic,
+                                "enterprise_l" => LicenseTier::EnterpriseL,
+                                "enterprise_xl" => LicenseTier::EnterpriseXl,
+                                _ => LicenseTier::Basic,
+                            };
+                        }
+                    }
+                }
+                // Format 2: { "attributes": { "key": "tier", "value": "..." } }
+                if let Some(attrs) = m.get("attributes") {
+                    if let Some(key) = attrs.get("key").and_then(|v| v.as_str()) {
+                        if key == "tier" {
+                            let value = attrs.get("value").and_then(|v| v.as_str());
+                            if let Some(v) = value {
+                                return match v {
+                                    "demo" => LicenseTier::Demo,
+                                    "basic" => LicenseTier::Basic,
+                                    "enterprise_l" => LicenseTier::EnterpriseL,
+                                    "enterprise_xl" => LicenseTier::EnterpriseXl,
+                                    _ => LicenseTier::Basic,
+                                };
+                            }
+                        }
+                    }
+                }
+                // Format 3: Flach: { "tier": "enterprise_xl" }
+                extract_tier(Some(m))
+            }
+            None => LicenseTier::Basic,
+        }
+    }
+}
+
+/// Extrahiert den Tier aus dem Keygen-Metadata-Feld.
+/// Erwartet: `metadata.tier` als String ("demo", "basic", "enterprise_l", "enterprise_xl")
+fn extract_tier(metadata: Option<&serde_json::Value>) -> LicenseTier {
+    match metadata {
+        Some(m) => {
+            match m.get("tier").and_then(|v| v.as_str()) {
+                Some("demo") => LicenseTier::Demo,
+                Some("enterprise_l") => LicenseTier::EnterpriseL,
+                Some("enterprise_xl") => LicenseTier::EnterpriseXl,
+                _ => LicenseTier::Basic, // Default: Basic
+            }
+        }
+        None => LicenseTier::Basic,
+    }
+}
+
+/// Fragt bei Keygen den Status eines Lizenzschlüssels ab
 async fn validate_key(license_key: &str, fingerprint: Option<&str>) -> Result<ValidateResponse> {
     let client = reqwest::Client::new();
     let mut meta = json!({ "key": license_key });
@@ -109,24 +254,50 @@ async fn validate_key(license_key: &str, fingerprint: Option<&str>) -> Result<Va
     }
     let body = json!({ "meta": meta });
 
-    let resp: ValidateResponse = client
-        .post(format!("{}/licenses/actions/validate-key", api_base()))
+    // WICHTIG: Include muss "metadata" enthalten, damit wir den Tier lesen können.
+    // In Keygen ist metadata ein spezielles Attribut, das über ?include=metadata
+    // in der Response mitgeliefert wird.
+    let url = format!("{}/licenses/actions/validate-key", api_base());
+    let client = reqwest::Client::new();
+    let resp_builder = client
+        .post(&url)
+        .query(&[("include", "metadata")])
         .header("Content-Type", "application/vnd.api+json")
         .header("Accept", "application/vnd.api+json")
-        .json(&body)
+        .json(&body);
+
+    // Debug: Roh-Antwort loggen (nur im Dev-Modus)
+    let resp_text = resp_builder
         .send()
         .await
         .context("Konnte Keygen nicht erreichen (Internetverbindung prüfen)")?
-        .json()
+        .text()
         .await
+        .context("Konnte Antworttext nicht lesen")?;
+
+    // Debug-Log
+    println!("[LICENSE] Keygen-Antwort: {}", &resp_text[..resp_text.len().min(2000)]);
+
+    let resp: ValidateResponse = serde_json::from_str(&resp_text)
         .context("Unerwartete Antwort von Keygen")?;
+
+    // Debug: Tier aus Metadata loggen
+    if let Some(ref data) = resp.data {
+        if let Some(ref meta) = data.attributes.metadata {
+            println!("[LICENSE] Metadata gefunden: {}", meta);
+            if let Some(tier) = meta.get("tier").and_then(|v| v.as_str()) {
+                println!("[LICENSE] Tier aus Metadata: {}", tier);
+            } else {
+                println!("[LICENSE] Kein 'tier' in Metadata gefunden!");
+            }
+        } else {
+            println!("[LICENSE] Keine Metadata in der Antwort!");
+        }
+    }
+
     Ok(resp)
 }
 
-/// Registriert dieses Gerät (per Fingerprint) bei der Lizenz. Nutzt den
-/// Lizenzschlüssel selbst als Berechtigungsnachweis (setzt voraus, dass die
-/// Policy in Keygen auf Authentifizierungsstrategie "License" oder "Mixed"
-/// steht - siehe Einrichtungs-Anleitung).
 async fn activate_machine(license_key: &str, license_id: &str, fingerprint: &str, name: &str) -> Result<()> {
     let client = reqwest::Client::new();
     let body = json!({
@@ -149,7 +320,6 @@ async fn activate_machine(license_key: &str, license_id: &str, fingerprint: &str
         .await
         .context("Konnte Keygen nicht erreichen")?;
 
-    // 201 = neu aktiviert. 409 = dieses Gerät war schon aktiviert -> auch ok.
     if resp.status().is_success() || resp.status().as_u16() == 409 {
         Ok(())
     } else {
@@ -176,9 +346,6 @@ fn friendly_error(code: &str, detail: Option<&str>) -> String {
     }
 }
 
-/// Codes, bei denen die Lizenz an sich in Ordnung ist, nur für DIESES
-/// Gerät (diesen Fingerprint) noch keine Aktivierung existiert - in diesem
-/// Fall versuchen wir eine Geräte-Aktivierung, statt sofort abzubrechen.
 fn needs_machine_activation(code: &str) -> bool {
     matches!(
         code,
@@ -186,11 +353,7 @@ fn needs_machine_activation(code: &str) -> bool {
     )
 }
 
-/// Aktiviert einen neu eingegebenen Lizenzschlüssel für dieses Gerät.
-/// `existing_fingerprint`: falls schon eine Fingerprint-ID für diese
-/// Installation gespeichert war (z.B. erneute Aktivierung eines neuen
-/// Schlüssels auf demselben Rechner), wird sie wiederverwendet statt eine
-/// neue Geräte-Aktivierung zu verbrauchen.
+/// Aktiviert einen neu eingegebenen Lizenzschlüssel für dieses Gerät
 pub async fn activate(
     license_key: &str,
     device_name: &str,
@@ -199,23 +362,20 @@ pub async fn activate(
     let license_key = license_key.trim();
     let fingerprint = existing_fingerprint.unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
 
-    // WICHTIG: Die Policy hat "Require Fingerprint Scope" aktiviert - jede
-    // Validierungsanfrage MUSS deshalb von Anfang an einen Fingerprint
-    // mitschicken, sonst weist Keygen die Anfrage direkt zurück. Der volle
-    // Lizenz-Datensatz (inkl. license_id) wird trotzdem immer mitgeliefert,
-    // auch wenn die Prüfung selbst noch "ungültig" zurückgibt.
     let first = validate_key(license_key, Some(&fingerprint)).await?;
-    let license_id = first.data.map(|d| d.id).context("Keine Lizenz-ID in der Antwort")?;
+    let license_id = first.data.as_ref().map(|d| d.id.clone()).context("Keine Lizenz-ID in der Antwort")?;
+
+    // Tier aus Metadata extrahieren (via included oder data.attributes.metadata)
+    let tier = first.tier_from_metadata();
+    println!("[LICENSE] Extrahierter Tier: {:?}", tier);
 
     if !first.meta.valid {
         if !needs_machine_activation(&first.meta.code) {
             anyhow::bail!(friendly_error(&first.meta.code, first.meta.detail.as_deref()));
         }
 
-        // Dieses Gerät ist noch nicht bei der Lizenz registriert -> jetzt tun
         activate_machine(license_key, &license_id, &fingerprint, device_name).await?;
 
-        // Final bestätigen, dass die Lizenz jetzt für DIESES Gerät gültig ist
         let confirm = validate_key(license_key, Some(&fingerprint)).await?;
         if !confirm.meta.valid {
             anyhow::bail!(friendly_error(&confirm.meta.code, confirm.meta.detail.as_deref()));
@@ -229,11 +389,11 @@ pub async fn activate(
         valid: true,
         last_validated_at: Some(Utc::now()),
         last_error: None,
+        tier,
     })
 }
 
-/// Prüft eine bereits aktivierte Lizenz erneut (App-Start, regelmäßig im
-/// Hintergrund).
+/// Prüft eine bereits aktivierte Lizenz erneut (App-Start, regelmäßig im Hintergrund).
 pub async fn revalidate(license_key: &str, fingerprint: &str) -> Result<()> {
     let resp = validate_key(license_key, Some(fingerprint)).await?;
     if !resp.meta.valid {

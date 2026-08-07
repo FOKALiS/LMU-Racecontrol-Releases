@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
-import type { Settings } from "../types";
+import type { Settings, LicenseData } from "../types";
+import { licenseTierName, licenseAllowsServer } from "../types";
 import { useLanguage } from "../i18n/LanguageContext";
 import ConfirmModal from "../components/ConfirmModal";
 
@@ -31,15 +32,19 @@ interface Props {
   settings: Settings;
   onSave: (settings: Settings) => void;
   onClearAll: () => void;
+  licenseData: LicenseData | null;
 }
 
-export default function EinstellungenView({ settings, onSave, onClearAll }: Props) {
+export default function EinstellungenView({ settings, onSave, onClearAll, licenseData }: Props) {
   const { t } = useLanguage();
   const [cleared, setCleared] = useState(false);
   const [clearing, setClearing] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [keyboardMapping, setKeyboardMapping] = useState<KeyboardMappingEntry[]>([]);
   const [reloaded, setReloaded] = useState(false);
+  const [fetchingKey, setFetchingKey] = useState(false);
+  const [fetchKeyError, setFetchKeyError] = useState<string | null>(null);
+  const [fetchKeySuccess, setFetchKeySuccess] = useState(false);
 
   async function clearDatabase() {
     setShowConfirm(false);
@@ -118,7 +123,12 @@ export default function EinstellungenView({ settings, onSave, onClearAll }: Prop
         <div className="einstellungen-col">
           {/* Lizenz Informationen – Figma: self-stretch, flex-col, gap-2.5 */}
           <div className="einstellungen-field">
-            <div className="einstellungen-field-label">Lizenz Informationen</div>
+            <div className="einstellungen-field-label">
+              Lizenz Informationen
+              {licenseData && (
+                <> – Version: {licenseTierName(licenseData.tier)}{licenseAllowsServer(licenseData.tier) && " (Server)"}</>
+              )}
+            </div>
             <div className="einstellungen-field-hint">Nachfolgende Lizenznummer ist für Dein Gerät registriert. Wünschst Du eine weitere Lizenz oder möchtest Deine Lizenz erweitern, dann kontaktiere uns gerne unter www.lmu-racecontrol.gg</div>
             <div className="einstellungen-input-wrapper">
               <input
@@ -188,7 +198,71 @@ export default function EinstellungenView({ settings, onSave, onClearAll }: Prop
             </div>
           </div>
 
-          {/* Save Button – in der linken Spalte unter den Kategorien */}
+          {/* Server-Einstellungen – nur bei Enterprise sichtbar – in der linken Spalte vor dem Save-Button */}
+          {licenseData && licenseAllowsServer(licenseData.tier) && (
+            <div className="einstellungen-field">
+              <div className="einstellungen-field-label">Server Verbindung</div>
+              <div className="einstellungen-field-hint">API-Key für die Enterprise-Server-Anbindung. Klicke auf "API-Key abfragen", um den API-Key zu Deiner Lizenz abzurufen.</div>
+              <div className="einstellungen-input-wrapper" style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                <input
+                  className="einstellungen-input"
+                  value={form.api_key}
+                  placeholder="API-Key eingeben"
+                  onChange={(e) => setForm({ ...form, api_key: e.target.value })}
+                  style={{ flex: 1 }}
+                />
+                {licenseData.licensed && form.server_url.trim() !== "" && (
+                  <button
+                    onClick={async () => {
+                      setFetchingKey(true);
+                      setFetchKeyError(null);
+                      setFetchKeySuccess(false);
+                      try {
+                        const key = await invoke<string>("fetch_api_key_from_server", {
+                          serverUrl: form.server_url,
+                          licenseKey: form.license_key,
+                        });
+                        setForm({ ...form, api_key: key });
+                        setFetchKeySuccess(true);
+                        setTimeout(() => setFetchKeySuccess(false), 3000);
+                      } catch (err: any) {
+                        setFetchKeyError(String(err));
+                        setTimeout(() => setFetchKeyError(null), 5000);
+                      } finally {
+                        setFetchingKey(false);
+                      }
+                    }}
+                    disabled={fetchingKey}
+                    style={{
+                      background: "transparent",
+                      border: "1px solid rgba(114, 114, 114, 1)",
+                      borderRadius: "10px",
+                      padding: "8px 16px",
+                      cursor: "pointer",
+                      color: "#fff",
+                      fontSize: "12px",
+                      whiteSpace: "nowrap",
+                      minWidth: "120px",
+                      textAlign: "center",
+                      opacity: fetchingKey ? 0.5 : 1,
+                    }}
+                    title={fetchKeyError ? fetchKeyError : fetchingKey ? "Frage ab..." : "API-Key zum License-Key abfragen"}
+                  >
+                    {fetchingKey ? "⏳" : fetchKeySuccess ? "✓" : fetchKeyError ? "⚠" : "🔑"}
+                    &nbsp;
+                    {fetchingKey ? t("settings_fetch_api_key_loading") : fetchKeySuccess ? t("settings_fetch_api_key_success") : fetchKeyError ? "Fehler" : t("settings_fetch_api_key")}
+                  </button>
+                )}
+              </div>
+              {fetchKeyError && (
+                <div className="einstellungen-field-hint" style={{ color: "rgba(255,100,100,0.8)", marginTop: "4px" }}>
+                  {fetchKeyError}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Save Button – in der linken Spalte unter den Kategorien und Server-Einstellungen */}
           <button className="einstellungen-save-btn" onClick={save}>
             {saved ? `✓ ${t("settings_saved")}` : t("settings_save")}
           </button>
@@ -267,6 +341,7 @@ export default function EinstellungenView({ settings, onSave, onClearAll }: Prop
               />
             </div>
           </div>
+
         </div>
       </div>
 

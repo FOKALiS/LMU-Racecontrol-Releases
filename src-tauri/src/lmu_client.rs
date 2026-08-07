@@ -143,11 +143,24 @@ impl LmuClient {
 
     pub async fn get_session_info(&self) -> Result<SessionInfo> {
         let raw = self.get_json("/rest/watch/sessionInfo").await?;
-        // DEBUG: Einmal die rohe sessionInfo-Antwort loggen
+        // DEBUG: Einmal die rohe sessionInfo-Antwort mit ALLEN Keys loggen
         static SESSION_RAW_LOGGED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
         if !SESSION_RAW_LOGGED.load(std::sync::atomic::Ordering::SeqCst) {
             SESSION_RAW_LOGGED.store(true, std::sync::atomic::Ordering::SeqCst);
             eprintln!("[session_raw] sessionInfo JSON: {}", serde_json::to_string_pretty(&raw).unwrap_or_default());
+            // Alle Keys + Typen auflisten
+            if let Some(obj) = raw.as_object() {
+                for (k, v) in obj.iter() {
+                    eprintln!("[session_raw] KEY: '{}' = {:?} (type: {})", k, v, match v {
+                        serde_json::Value::String(_) => "String",
+                        serde_json::Value::Number(_) => "Number",
+                        serde_json::Value::Bool(_) => "Bool",
+                        serde_json::Value::Array(_) => "Array",
+                        serde_json::Value::Object(_) => "Object",
+                        serde_json::Value::Null => "Null",
+                    });
+                }
+            }
         }
         Ok(parse_session_info(&raw))
     }
@@ -270,35 +283,43 @@ fn parse_standings(raw: &Value) -> Result<Vec<CarStanding>> {
 }
 
 fn parse_session_info(raw: &Value) -> SessionInfo {
-    // session_type kann ein String ("Practice", "Qualifying", "Race") oder eine Zahl
-    // (0=Practice, 1=Qualifying, 2=Race) sein.
-    // LMU verwendet verschiedene Key-Namen – wir probieren alle bekannten durch.
+    // LMU liefert "session": "PRACTICE1" oder "session": "QUALIFY1"/"RACE".
+    // Der String beginnt mit dem Session-Typ. Zusätzlich gibt es gamePhase
+    // als Integer (Werte sind LMU-spezifisch).
     let session_type = {
-        // 1. Als String versuchen (mit vielen Key-Varianten)
-        let keys_str = &["sessionType", "session", "type", "mSessionType", "session_id", "gamePhase", "phase", "GamePhase", "SessionType", "sessionTypeName"];
+        // 1. String-Keys versuchen – "session" ist der echte LMU-Key!
+        let keys_str = &["session", "sessionType", "type", "mSessionType", "session_id", "SessionType", "sessionTypeName"];
         let s = field_string(raw, keys_str);
         if !s.is_empty() {
-            // Prüfen, ob der String selbst eine Zahl ist (z.B. "0" statt 0)
-            match s.as_str() {
-                "0" => "Practice".to_string(),
-                "1" => "Qualifying".to_string(),
-                "2" => "Race".to_string(),
-                _ => {
-                    // Ersten Buchstaben großschreiben, falls LMU z.B. "practice" liefert
-                    let mut chars = s.chars();
-                    match chars.next() {
-                        Some(c) => c.to_uppercase().collect::<String>() + chars.as_str(),
-                        None => s,
-                    }
+            let upper = s.to_uppercase();
+            if upper.contains("PRACTICE") || upper.starts_with("PRAC") {
+                "Practice".to_string()
+            } else if upper.contains("QUALIFY") || upper.starts_with("QUAL") {
+                "Qualifying".to_string()
+            } else if upper.contains("RACE") || upper.starts_with("RAC") {
+                "Race".to_string()
+            } else {
+                // Ersten Buchstaben großschreiben, falls LMU z.B. "practice" liefert
+                let mut chars = s.chars();
+                match chars.next() {
+                    Some(c) => c.to_uppercase().collect::<String>() + chars.as_str(),
+                    None => s,
                 }
             }
         } else {
-            // 2. Als Integer versuchen (mit vielen Key-Varianten)
-            let keys_int = &["sessionType", "session", "type", "mSessionType", "session_id", "gamePhase", "phase", "GamePhase", "SessionType", "sessionTypeId", "sessionTypeNum"];
-            match field_i64(raw, keys_int) {
+            // 2. gamePhase als Integer (LMU-spezifische Werte)
+            // Empirisch: 5 = Practice (aus echtem LMU-Log)
+            let phase = field_i64(raw, &["gamePhase", "GamePhase", "phase", "sessionPhase", "session_type"]);
+            match phase {
+                Some(5) => "Practice".to_string(),
+                Some(6) => "Qualifying".to_string(),
+                Some(7) => "Race".to_string(),
+                // Fallbacks für andere Nummerierungen
                 Some(0) => "Practice".to_string(),
                 Some(1) => "Qualifying".to_string(),
                 Some(2) => "Race".to_string(),
+                Some(3) => "Qualifying".to_string(),
+                Some(4) => "Race".to_string(),
                 _ => String::new(),
             }
         }

@@ -1,5 +1,5 @@
 {
-"version": "0.8.8",
+"version": "0.9.3",
   "dependencies": {
     "@tauri-apps/api": "^2.11.1",
     "@tauri-apps/plugin-process": "^2.3.1",

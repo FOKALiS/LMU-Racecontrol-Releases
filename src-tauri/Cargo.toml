@@ -1,6 +1,6 @@
 [package]
 name = "lmu-race-control"
-version = "0.8.8"
+version = "0.9.4"
 description = "LIVE Rennkommission Tool für Le Mans Ultimate – Vorfallserkennung und -dokumentation"
 authors = ["Your Race Control Team"]
 edition = "2021"

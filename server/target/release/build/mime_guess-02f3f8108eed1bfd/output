@@ -1,0 +1,1 @@
+cargo:rustc-env=MIME_TYPES_GENERATED_PATH=c:\Users\Administrator\Documents\AI\Software Entwicklung\LMU Racecontrol\Tool\lmu-race-control\server\target\release\build\mime_guess-02f3f8108eed1bfd\out\mime_types_generated.rs

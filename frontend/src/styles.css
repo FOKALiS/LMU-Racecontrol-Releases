@@ -25,6 +25,17 @@
 
 * { box-sizing: border-box; }
 html, body { height: 100%; }
+
+/* Browser-Standard-Pfeile bei type="number" ausblenden – wir nutzen eigene Icons */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
 body {
   margin: 0;
   background: var(--bg);
@@ -816,33 +827,33 @@ button { cursor: pointer; }
   height: 30px;
 }
 .fahrerfeld-table th:first-child { border-radius: 10px 0 0 10px; }
-.fahrerfeld-table th:nth-child(9) {
+.fahrerfeld-table th:nth-child(10) {
   border-right: 1px solid rgba(114, 114, 114, 1);
   border-radius: 0 10px 10px 0;
 }
-.fahrerfeld-table th:nth-child(10) {
+.fahrerfeld-table th:nth-child(11) {
   border: none;
   padding: 0;
   width: 16px;
   min-width: 16px;
 }
-.fahrerfeld-table th:nth-child(11) {
+.fahrerfeld-table th:nth-child(12) {
   border: 1px solid rgba(114, 114, 114, 1);
   padding: 8px 16px;
   width: 128px;
   border-radius: 10px;
 }
-.fahrerfeld-table td:nth-child(9) {
+.fahrerfeld-table td:nth-child(10) {
   border-right: 1px solid rgba(114, 114, 114, 1);
   border-radius: 0 10px 10px 0;
 }
-.fahrerfeld-table td:nth-child(10) {
+.fahrerfeld-table td:nth-child(11) {
   border: none;
   padding: 0;
   width: 16px;
   min-width: 16px;
 }
-.fahrerfeld-table td:nth-child(11) {
+.fahrerfeld-table td:nth-child(12) {
   border: none;
   padding: 0;
 }
@@ -892,6 +903,7 @@ button { cursor: pointer; }
 .fahrerfeld-th-driver { width: auto; }
 .fahrerfeld-th-team { width: auto; }
 .fahrerfeld-th-status { width: 52px; }
+.fahrerfeld-th-laps { width: 52px; }
 .fahrerfeld-th-lap {
   width: 110px;
   text-align: right;
@@ -2069,6 +2081,8 @@ button { cursor: pointer; }
   gap: 16px;
   height: 100%;
   overflow-y: auto;
+  padding-right: 16px;
+  position: relative;
 }
 
 /* Titel – Figma: text-4xl (36px), leading-[54px], tracking-wide, center */
@@ -2295,7 +2309,11 @@ button { cursor: pointer; }
 .einstellungen-save-btn:disabled { background: #313131; border-color: #313131; cursor: not-allowed; filter: none; }
 
 /* Danger Zone – Figma: h-44 (176px), py-6, bg-red-600/20, rounded-[10px], outline-red-600 */
+/* Sticky am unteren Rand – Inhalt scrollt darunter durch */
 .einstellungen-danger {
+  position: sticky;
+  bottom: 0;
+  z-index: 10;
   width: 100%;
   height: 176px;
   padding: 24px 0;
@@ -2309,6 +2327,9 @@ button { cursor: pointer; }
   align-items: center;
   gap: 16px;
   text-align: center;
+  backdrop-filter: blur(8px);
+  margin-top: 16px;
+  flex-shrink: 0;
 }
 .einstellungen-danger-title {
   font-family: "Michroma", sans-serif;

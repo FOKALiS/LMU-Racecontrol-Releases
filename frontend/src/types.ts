@@ -82,9 +82,13 @@ export interface Settings {
   post_roll_seconds: number;
   license_key: string;
   lmu_install_path: string;
+  server_url: string;
+  api_key: string;
 }
 
 export type View = "home" | "fahrerfeld" | "vorfaelle" | "archiv" | "einstellungen";
+
+export type LicenseTier = "demo" | "basic" | "enterprise_l" | "enterprise_xl";
 
 export interface LicenseData {
   licensed: boolean;
@@ -94,6 +98,20 @@ export interface LicenseData {
   valid: boolean;
   last_validated_at: string | null;
   last_error: string | null;
+  tier: LicenseTier;
+}
+
+export function licenseTierName(tier: LicenseTier): string {
+  switch (tier) {
+    case "demo": return "Demo";
+    case "basic": return "Basic";
+    case "enterprise_l": return "Enterprise L";
+    case "enterprise_xl": return "Enterprise XL";
+  }
+}
+
+export function licenseAllowsServer(tier: LicenseTier): boolean {
+  return tier === "enterprise_l" || tier === "enterprise_xl";
 }
 
 /** Vorbelegung für das Investigation-Modal - kann leer sein ("Neuer Vorfall") */

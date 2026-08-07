@@ -10,6 +10,7 @@ mod license;
 mod lmu_client;
 mod lmu_ws;
 mod manufacturer;
+mod server_client;
 mod settings;
 mod shared_memory;
 
@@ -19,9 +20,11 @@ use incidents::{DetectionContext, IncidentDetector};
 use license::{LicenseData, LicenseStore};
 use lmu_client::{CarStanding, LmuClient, SessionInfo};
 use serde::Serialize;
+use server_client::ServerClient;
 use settings::{Settings, SettingsStore};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use serde::Deserialize;
 use tauri::{Emitter, Manager, State};
 use tokio::sync::Mutex as AsyncMutex;
 use tokio::time::{sleep, Duration};
@@ -41,6 +44,7 @@ struct AppState {
     /// Wird auf `true` gesetzt, wenn `switch_to_live` aufgerufen wird,
     /// damit der Timer kein F6 mehr sendet.
     replay_cancel_token: Arc<AtomicBool>,
+    server_client: Arc<ServerClient>,
 }
 
 #[derive(Serialize, Clone)]
@@ -147,11 +151,27 @@ async fn list_archived_incidents(state: State<'_, AppState>) -> Result<Vec<Incid
     state.db.list_archived().map_err(|e| e.to_string())
 }
 
-/// Löscht ALLE Vorfälle (offene + archivierte).
+/// Löscht ALLE lokalen Vorfälle (offene + archivierte).
+/// Löscht auch die Server-Vorfälle des eigenen Tenants (nur das eigene Team).
 /// Wird über den Button "Datenbank leeren" in den Einstellungen aufgerufen.
 #[tauri::command]
 async fn clear_all_incidents(state: State<'_, AppState>) -> Result<(), String> {
-    state.db.clear_all().map_err(|e| e.to_string())
+    state.db.clear_all().map_err(|e| e.to_string())?;
+
+    // Auch Server-Vorfälle des eigenen Tenants löschen
+    let settings = state.settings.lock().await;
+    let server_url = settings.server_url.clone();
+    let api_key = settings.api_key.clone();
+    drop(settings);
+
+    if !server_url.is_empty() && !api_key.is_empty() {
+        match state.server_client.delete_all_incidents(&server_url, &api_key).await {
+            Ok(count) => println!("[clear_all] {} Vorfälle des eigenen Tenants auf dem Server gelöscht", count),
+            Err(e) => eprintln!("[clear_all] Server-Löschung fehlgeschlagen: {}", e),
+        }
+    }
+
+    Ok(())
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -518,6 +538,105 @@ async fn check_lmu_connection(state: State<'_, AppState>) -> Result<bool, String
     Ok(state.lmu.is_available().await)
 }
 
+/// Prüft, ob der konfigurierte Server erreichbar ist.
+#[tauri::command]
+async fn check_server_connection(state: State<'_, AppState>) -> Result<bool, String> {
+    let settings = state.settings.lock().await;
+    let server_url = settings.server_url.clone();
+    if server_url.is_empty() {
+        return Ok(false);
+    }
+    state.server_client.check_health(&server_url).await.map_err(|e| e.to_string())
+}
+
+/// Hilfsfunktion: Sendet einen Vorfall an den Server, falls konfiguriert.
+/// Fehler werden nur geloggt, nicht zurückgegeben – der Sync ist optional.
+async fn sync_incident_if_configured(state: &AppState, incident: &Incident) {
+    let settings = state.settings.lock().await;
+    let server_url = settings.server_url.clone();
+    let api_key = settings.api_key.clone();
+    drop(settings);
+
+    if server_url.is_empty() || api_key.is_empty() {
+        return; // Server nicht konfiguriert – kein Sync
+    }
+
+    let server_incident = server_client::ServerIncident {
+        id: incident.id.clone(),
+        incident_number: incident.incident_number,
+        car_number_a: incident.car_number_a.clone(),
+        car_number_b: Some(incident.car_number_b.clone()),
+        flag_color: incident.flag_color.as_str().to_string(),
+        incident_type: incident.incident_type.clone(),
+        session_type: incident.track_name.clone(),
+        lap_number: incident.lap as i64,
+        timestamp: incident.timestamp_label.clone(),
+    };
+
+    match state.server_client.create_incident(&server_url, &api_key, &server_incident).await {
+        Ok(_) => eprintln!("[sync] Incident {} an Server gesynct", incident.id),
+        Err(e) => eprintln!("[sync] Incident-Sync fehlgeschlagen: {} (id={})", e, incident.id),
+    }
+}
+
+/// Sendet einen lokalen Vorfall an den Server.
+#[tauri::command]
+async fn sync_incident_to_server(state: State<'_, AppState>, incident: Incident) -> Result<(), String> {
+    sync_incident_if_configured(&state, &incident).await;
+    Ok(())
+}
+
+/// Holt alle Vorfälle vom Server und gibt sie zurück.
+#[tauri::command]
+async fn fetch_incidents_from_server(state: State<'_, AppState>) -> Result<Vec<server_client::ServerIncident>, String> {
+    let settings = state.settings.lock().await;
+    let server_url = settings.server_url.clone();
+    let api_key = settings.api_key.clone();
+    
+    if server_url.is_empty() || api_key.is_empty() {
+        return Err("Server-URL oder API-Key nicht konfiguriert".to_string());
+    }
+
+    state.server_client.get_incidents(&server_url, &api_key).await
+        .map_err(|e| e.to_string())
+}
+
+/// Ruft den API-Key anhand des License-Keys vom Server ab.
+/// Wird verwendet, wenn der User in Einstellungen > Server auf "API-Key abfragen" klickt.
+#[tauri::command]
+async fn fetch_api_key_from_server(server_url: String, license_key: String) -> Result<String, String> {
+    if server_url.is_empty() || license_key.is_empty() {
+        return Err("Server-URL oder License-Key ist leer".to_string());
+    }
+    
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(10))
+        .build()
+        .map_err(|e| format!("HTTP-Client-Fehler: {}", e))?;
+    
+    let url = format!("{}/api/lookup-api-key", server_url.trim_end_matches('/'));
+    let resp = client
+        .post(&url)
+        .json(&serde_json::json!({ "license_key": license_key }))
+        .send()
+        .await
+        .map_err(|e| format!("Server nicht erreichbar: {}", e))?;
+    
+    let status = resp.status();
+    let body: serde_json::Value = resp.json().await
+        .map_err(|e| format!("Ungültige Antwort: {}", e))?;
+    
+    if status.is_success() {
+        body.get("api_key")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string())
+            .ok_or_else(|| "Kein API-Key in der Antwort".to_string())
+    } else {
+        let error = body.get("error").and_then(|v| v.as_str()).unwrap_or("Unbekannter Fehler");
+        Err(format!("Server-Fehler ({}): {}", status.as_u16(), error))
+    }
+}
+
 #[tauri::command]
 async fn start_fcy(app: tauri::AppHandle, state: State<'_, AppState>) -> Result<(), String> {
     if state.fcy.current_phase() != FcyPhase::Idle {
@@ -636,6 +755,7 @@ async fn poll_loop(app: tauri::AppHandle, state: Arc<AppState>) {
                         if car.speed_kmh > threshold && state.fcy.should_flag(car.slot_id) {
                             let mut incident = incidents::make_fcy_violation(&ctx, car, limit);
                             if state.db.insert(&mut incident).is_ok() {
+                                sync_incident_if_configured(&state, &incident).await;
                                 let _ = app.emit("new-incident", NewIncidentEvent { incident });
                             }
                         }
@@ -651,6 +771,7 @@ async fn poll_loop(app: tauri::AppHandle, state: Arc<AppState>) {
                     for incident in detector.analyze(&standings, &ctx) {
                         let mut incident = incident;
                         if state.db.insert(&mut incident).is_ok() {
+                            sync_incident_if_configured(&state, &incident).await;
                             let _ = app.emit("new-incident", NewIncidentEvent { incident });
                         }
                     }
@@ -733,6 +854,8 @@ fn main() {
 
             let replay_cancel_token = Arc::new(AtomicBool::new(false));
 
+            let server_client = Arc::new(ServerClient::new());
+
             let state = Arc::new(AppState {
                 db: db.clone(),
                 lmu: lmu.clone(),
@@ -745,6 +868,7 @@ fn main() {
                 license_store: license_store.clone(),
                 license: license.clone(),
                 replay_cancel_token: replay_cancel_token.clone(),
+                server_client: server_client.clone(),
             });
 
             app.manage(AppState {
@@ -759,6 +883,7 @@ fn main() {
                 license_store: license_store.clone(),
                 license: license.clone(),
                 replay_cancel_token,
+                server_client,
             });
 
             let app_handle = app.handle().clone();
@@ -789,6 +914,10 @@ fn main() {
             get_keyboard_mapping,
             reload_keyboard_mapping,
             check_lmu_connection,
+            check_server_connection,
+            sync_incident_to_server,
+            fetch_incidents_from_server,
+            fetch_api_key_from_server,
             switch_to_live,
             switch_to_replay,
             start_fcy,
