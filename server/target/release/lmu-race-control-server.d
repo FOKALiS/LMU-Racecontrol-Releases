@@ -1,1 +1,0 @@
-c:\Users\Administrator\Documents\AI\Software\ Entwicklung\LMU\ Racecontrol\Tool\lmu-race-control\server\target\release\lmu-race-control-server.exe: c:\Users\Administrator\Documents\AI\Software\ Entwicklung\LMU\ Racecontrol\Tool\lmu-race-control\server\src\main.rs

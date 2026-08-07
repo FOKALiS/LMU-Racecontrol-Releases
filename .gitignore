@@ -3,6 +3,7 @@
 /src-tauri/gen/
 /admin-app/src-tauri/target/
 /admin-app/src-tauri/gen/
+/server/target/
 
 # Node / Frontend
 /frontend/node_modules/
