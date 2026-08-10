@@ -36,6 +36,10 @@ jobs:
           if [ -n "${{ inputs.tag }}" ]; then
             RELEASE_TAG="${{ inputs.tag }}"
           fi
+          # Bei workflow_dispatch ist RELEASE_URL leer – Fallback auf den Tag-basierten Link
+          if [ -z "$RELEASE_URL" ]; then
+            RELEASE_URL="https://github.com/FOKALiS/LMU-Racecontrol-Releases/releases/tag/${RELEASE_TAG}"
+          fi
           VERSION="${RELEASE_TAG#v}"
 
           # Changelog parsen – den Abschnitt für diese Version extrahieren
