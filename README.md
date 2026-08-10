@@ -40,21 +40,6 @@ LMU RACECONTROL unterstützt die Rennkommission dabei, Vorfälle während eines 
 4. Vorfälle werden automatisch erkannt – einfach auf **"Investigate"** klicken
 
 ---
-
-## ⌨️ Tastenkürzel
-
-| Taste | Funktion |
-|-------|----------|
-| `F6` | Replay Stop |
-| `F7` | Rückwärts |
-| `F8` | Schnell Zurück |
-| `F9` | Vorspulen |
-| `F10` | Slow-Motion |
-| `F11` | Play/Pause |
-| `R` | Replay öffnen |
-
----
-
 ## ⚙️ Einstellungen
 
 - **Vorfall-Kategorien** – eigene Kategorien für das Investigation-Fenster
