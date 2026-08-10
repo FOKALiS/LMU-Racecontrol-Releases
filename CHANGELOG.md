@@ -259,7 +259,7 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
 ### Geändert
 - Sprachumschalter (DE/EN) aus dem Logo-Bereich in den Bereich "Software Infos"
   verschoben (war zu eng, wurde abgeschnitten)
-- Website-Zeile (www.lmu-racecontrol.gg) in Sidebar UND Splashscreen ist jetzt
+- Website-Zeile (www.lmu-racecontrol.com) in Sidebar UND Splashscreen ist jetzt
   klickbar und öffnet die Seite im Standardbrowser
 - Sekunden-Eingabefelder bei "Vorlaufzeit"/"Nachlaufzeit" verbreitert, damit
   die Pfeile zum Ändern nicht mehr auf der Zahl kleben
