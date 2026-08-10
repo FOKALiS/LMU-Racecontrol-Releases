@@ -21,7 +21,7 @@ jobs:
         shell: bash
         run: |
           if [ -z "$DISCORD_WEBHOOK" ]; then
-            echo "⚠️ Kein Discord Webhook konfiguriert (DISCORD_RELEASE_WEBHOOK)"
+            echo "⚠️ No Discord webhook configured (DISCORD_RELEASE_WEBHOOK)"
             exit 0
           fi
 
@@ -70,7 +70,7 @@ jobs:
           fi
 
           if [ -z "$DESCRIPTION" ]; then
-            DESCRIPTION="Alle Änderungen gibt es auf GitHub."
+            DESCRIPTION="See the release notes on GitHub for details."
           fi
 
           # Discord-Nachricht bauen: @everyone als Content + Embed mit Changelog
@@ -92,4 +92,4 @@ jobs:
           )
 
           curl -H "Content-Type: application/json" -d "$JSON" "$DISCORD_WEBHOOK"
-          echo "✅ Discord-Benachrichtigung gesendet"
+          echo "✅ Discord notification sent"
