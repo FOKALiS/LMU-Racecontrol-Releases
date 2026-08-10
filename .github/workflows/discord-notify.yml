@@ -1,0 +1,50 @@
+name: Discord Release Notification
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version tag (e.g. v0.9.5)'
+        required: true
+        default: 'v0.9.5'
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Send Discord Notification
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_RELEASE_WEBHOOK }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          RELEASE_BODY: ${{ github.event.release.body }}
+        shell: bash
+        run: |
+          if [ -z "$DISCORD_WEBHOOK" ]; then exit 0; fi
+          if [ -z "$RELEASE_TAG" ]; then RELEASE_TAG="${{ github.event.inputs.version }}"; fi
+          MESSAGE="🚀 **LMU RACECONTROL $RELEASE_TAG is out!**\n\n"
+          if [ -n "$RELEASE_BODY" ]; then
+            while IFS= read -r line; do
+              if [[ "$line" =~ ^###\ (.+) ]]; then
+                HEADER="${BASH_REMATCH[1]}"
+                case "$HEADER" in
+                  "Hinzugefügt"|"Added"|"Neu"|"New") MESSAGE+="✨ **Added**\n" ;;
+                  "Geändert"|"Changed") MESSAGE+="🔧 **Changed**\n" ;;
+                  "Behoben"|"Fixed"|"Bug Fixes"|"Fixes") MESSAGE+="🛠️ **Fixed**\n" ;;
+                  "Bekannt"|"Known issues"|"Known Issues") MESSAGE+="⚠️ **Known issues**\n" ;;
+                  "Quelle"|"Source"|"Technisch"|"Technical"|"Technical Details"|"Wichtig") continue ;;
+                  *) MESSAGE+="**$HEADER**\n" ;;
+                esac
+              elif [[ "$line" =~ ^-\ \*\*(.+)\*\*:\ (.*) ]]; then
+                MESSAGE+="- **${BASH_REMATCH[1]}**: ${BASH_REMATCH[2]}\n"
+              elif [[ "$line" =~ ^-\ (.+) ]]; then
+                MESSAGE+="- ${BASH_REMATCH[1]}\n"
+              fi
+            done <<< "$RELEASE_BODY"
+          else
+            MESSAGE+="See release notes on GitHub for details."
+          fi
+          if [ ${#MESSAGE} -gt 1990 ]; then MESSAGE="${MESSAGE:0:1987}..."; fi
+          curl -H "Content-Type: application/json" -d "{\"content\":\"$MESSAGE\"}" "$DISCORD_WEBHOOK"
