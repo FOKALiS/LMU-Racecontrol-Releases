@@ -51,25 +51,46 @@ jobs:
 
           DESCRIPTION=""
           CURRENT_SECTION=""
+          FIRST_SECTION=true
 
           if [ -n "$MATCH" ]; then
             while IFS= read -r line; do
-              # Deutsche Sektionstitel auf Emoji-Englisch mappen
+              # Deutsche Sektionstitel auf Emoji-Englisch + Discord-Überschrift mappen
               if [[ "$line" =~ ^###\ Hinzugefügt ]]; then
+                if [ "$FIRST_SECTION" = false ]; then
+                  DESCRIPTION+="\n"
+                fi
                 CURRENT_SECTION="added"
-                DESCRIPTION+="✨ **Added**\n"
+                DESCRIPTION+="## ✨ Added\n"
+                FIRST_SECTION=false
               elif [[ "$line" =~ ^###\ Geändert ]]; then
+                if [ "$FIRST_SECTION" = false ]; then
+                  DESCRIPTION+="\n"
+                fi
                 CURRENT_SECTION="changed"
-                DESCRIPTION+="🔧 **Changed**\n"
+                DESCRIPTION+="## 🔧 Changed\n"
+                FIRST_SECTION=false
               elif [[ "$line" =~ ^###\ Behoben ]]; then
+                if [ "$FIRST_SECTION" = false ]; then
+                  DESCRIPTION+="\n"
+                fi
                 CURRENT_SECTION="fixed"
-                DESCRIPTION+="🛠️ **Fixed**\n"
+                DESCRIPTION+="## 🛠️ Fixed\n"
+                FIRST_SECTION=false
               elif [[ "$line" =~ ^###\ Neu ]]; then
+                if [ "$FIRST_SECTION" = false ]; then
+                  DESCRIPTION+="\n"
+                fi
                 CURRENT_SECTION="added"
-                DESCRIPTION+="✨ **Added**\n"
+                DESCRIPTION+="## ✨ Added\n"
+                FIRST_SECTION=false
               elif [[ "$line" =~ ^###\ Technisch ]]; then
+                if [ "$FIRST_SECTION" = false ]; then
+                  DESCRIPTION+="\n"
+                fi
                 CURRENT_SECTION="technical"
-                DESCRIPTION+="⚙️ **Technical**\n"
+                DESCRIPTION+="## ⚙️ Technical\n"
+                FIRST_SECTION=false
               elif [[ "$line" =~ ^###\ Quelle ]]; then
                 CURRENT_SECTION=""
               elif [[ "$line" =~ ^###\ Wichtig ]]; then
@@ -79,7 +100,7 @@ jobs:
               elif [[ "$line" =~ ^-\ (.+) ]]; then
                 ITEM="${BASH_REMATCH[1]}"
                 if [ -n "$CURRENT_SECTION" ]; then
-                  DESCRIPTION+="$ITEM\n"
+                  DESCRIPTION+="• $ITEM\n"
                 fi
               fi
             done <<< "$MATCH"
@@ -100,7 +121,7 @@ jobs:
             --arg title "🚀 LMU RACECONTROL v${VERSION} is out!" \
             --arg url "$RELEASE_URL" \
             --arg desc "$DESCRIPTION_FMT" \
-            --arg footer "LMU RACECONTROL – Das Tool für Rennkommissare" \
+            --arg footer "LMU RACECONTROL – The tool for race stewards" \
             --arg ts "$TIMESTAMP" \
             '{
               content: $content,
@@ -123,7 +144,7 @@ jobs:
               --arg title "🚀 LMU RACECONTROL v${VERSION} is out!" \
               --arg url "$RELEASE_URL" \
               --arg desc "@everyone\n\n$DESCRIPTION_FMT" \
-              --arg footer "LMU RACECONTROL – Das Tool für Rennkommissare" \
+              --arg footer "LMU RACECONTROL – The tool for race stewards" \
               --arg ts "$TIMESTAMP" \
               '{
                 embeds: [{
