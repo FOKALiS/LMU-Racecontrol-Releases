@@ -39,10 +39,11 @@ jobs:
           VERSION="${RELEASE_TAG#v}"
 
           # Changelog parsen – den Abschnitt für diese Version extrahieren
-          CHANGELOG=$(cat CHANGELOG.md)
-          # Extrahiert den Block von "## [VERSION]" bis zur nächsten "## [" oder Ende
-          PATTERN="## \\[$VERSION\\][^#]*"
-          MATCH=$(echo "$CHANGELOG" | grep -Pzo "$PATTERN" | tr '\0' '\n' || true)
+          MATCH=$(awk -v ver="[$VERSION]" '
+            /^## / {found=0}
+            index($0, "## " ver) == 1 {found=1}
+            found {print}
+          ' CHANGELOG.md)
 
           DESCRIPTION=""
           CURRENT_SECTION=""
