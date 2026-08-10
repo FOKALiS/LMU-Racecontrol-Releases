@@ -89,45 +89,52 @@ jobs:
             DESCRIPTION="See the release notes on GitHub for details."
           fi
 
-          # Versuch 1: Mit @everyone
-          JSON=$(cat <<EOF
-          {
-            "content": "@everyone",
-            "embeds": [{
-              "title": "🚀 LMU RACECONTROL v${VERSION} is out!",
-              "url": "$RELEASE_URL",
-              "color": 5242880,
-              "description": "$DESCRIPTION",
-              "footer": {
-                "text": "LMU RACECONTROL – Das Tool für Rennkommissare"
-              },
-              "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%S.000Z)"
-            }]
-          }
-          EOF
-          )
+          # \n durch echte Newlines ersetzen für jq
+          DESCRIPTION_FMT=$(echo -e "$DESCRIPTION")
 
+          # Versuch 1: Mit @everyone
           echo "Sending to Discord with @everyone..."
+          TIMESTAMP=$(date -u +%Y-%m-%dT%H:%M:%S.000Z)
+          JSON=$(jq -n \
+            --arg content "@everyone" \
+            --arg title "🚀 LMU RACECONTROL v${VERSION} is out!" \
+            --arg url "$RELEASE_URL" \
+            --arg desc "$DESCRIPTION_FMT" \
+            --arg footer "LMU RACECONTROL – Das Tool für Rennkommissare" \
+            --arg ts "$TIMESTAMP" \
+            '{
+              content: $content,
+              embeds: [{
+                title: $title,
+                url: $url,
+                color: 5242880,
+                description: $desc,
+                footer: { text: $footer },
+                timestamp: $ts
+              }]
+            }')
+
           RESPONSE=$(curl -sS -f -X POST -H "Content-Type: application/json" -d "$JSON" "$DISCORD_WEBHOOK" 2>&1)
           if [ $? -ne 0 ]; then
             echo "⚠️ Failed with @everyone, retrying without mention..."
-            
+
             # Versuch 2: Ohne @everyone (falls Webhook keine @everyone-Berechtigung hat)
-            JSON=$(cat <<EOF
-            {
-              "embeds": [{
-                "title": "🚀 LMU RACECONTROL v${VERSION} is out!",
-                "url": "$RELEASE_URL",
-                "color": 5242880,
-                "description": "@everyone\n\n$DESCRIPTION",
-                "footer": {
-                  "text": "LMU RACECONTROL – Das Tool für Rennkommissare"
-                },
-                "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%S.000Z)"
-              }]
-            }
-            EOF
-            )
+            JSON=$(jq -n \
+              --arg title "🚀 LMU RACECONTROL v${VERSION} is out!" \
+              --arg url "$RELEASE_URL" \
+              --arg desc "@everyone\n\n$DESCRIPTION_FMT" \
+              --arg footer "LMU RACECONTROL – Das Tool für Rennkommissare" \
+              --arg ts "$TIMESTAMP" \
+              '{
+                embeds: [{
+                  title: $title,
+                  url: $url,
+                  color: 5242880,
+                  description: $desc,
+                  footer: { text: $footer },
+                  timestamp: $ts
+                }]
+              }')
 
             RESPONSE=$(curl -sS -f -X POST -H "Content-Type: application/json" -d "$JSON" "$DISCORD_WEBHOOK" 2>&1)
             if [ $? -ne 0 ]; then
