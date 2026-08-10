@@ -1,0 +1,93 @@
+name: Discord Release Notification
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Send Discord Notification
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_RELEASE_WEBHOOK }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          RELEASE_URL: ${{ github.event.release.html_url }}
+          RELEASE_NAME: ${{ github.event.release.name }}
+          DOWNLOAD_URL: ${{ github.event.release.html_url }}
+        shell: bash
+        run: |
+          if [ -z "$DISCORD_WEBHOOK" ]; then
+            echo "⚠️ Kein Discord Webhook konfiguriert (DISCORD_RELEASE_WEBHOOK)"
+            exit 0
+          fi
+
+          VERSION="${RELEASE_TAG#v}"
+
+          # Changelog parsen: Section für diese Version extrahieren
+          CHANGELOG=$(cat CHANGELOG.md)
+          
+          # Extrahiere den Abschnitt für diese Version
+          SECTION=$(echo "$CHANGELOG" | awk "/^## \\[$VERSION\\]/,/^## \\[/" | head -n -1)
+          
+          # Beschreibung aufbereiten
+          DESCRIPTION=""
+          while IFS= read -r line; do
+            if [[ "$line" =~ ^###\ (.+) ]]; then
+              HEADER="${BASH_REMATCH[1]}"
+              DESCRIPTION+="__**${HEADER}**__\n"
+            elif [[ "$line" =~ ^-\ \*\*(.+)\*\*:\ (.*) ]]; then
+              ITEM="${BASH_REMATCH[1]}"
+              DETAIL="${BASH_REMATCH[2]}"
+              DESCRIPTION+="• **${ITEM}**: ${DETAIL}\n"
+            elif [[ "$line" =~ ^-\ (.+) ]]; then
+              ITEM="${BASH_REMATCH[1]}"
+              DESCRIPTION+="• ${ITEM}\n"
+            fi
+          done <<< "$SECTION"
+
+          # Fallback wenn kein Changelog-Eintrag gefunden
+          if [ -z "$DESCRIPTION" ]; then
+            DESCRIPTION="Release Notes auf GitHub ansehen."
+          fi
+
+          # Kürze die Beschreibung auf max 2048 Zeichen (Discord-Limit)
+          if [ ${#DESCRIPTION} -gt 2000 ]; then
+            DESCRIPTION="${DESCRIPTION:0:1997}..."
+          fi
+
+          # Discord-Embed mit schönem Layout
+          JSON=$(cat <<EOF
+          {
+            "content": "",
+            "embeds": [{
+              "title": "🚀 **LMU RACECONTROL $RELEASE_TAG**",
+              "url": "$RELEASE_URL",
+              "color": 10027008,
+              "thumbnail": {
+                "url": "https://raw.githubusercontent.com/FOKALiS/LMU-Racecontrol-Releases/main/lmu-rc-logo.png"
+              },
+              "description": "$DESCRIPTION",
+              "fields": [
+                {
+                  "name": "📥 **Download**",
+                  "value": "• [Installer herunterladen]($RELEASE_URL)\n• [Alle Versionen ansehen](https://github.com/FOKALiS/LMU-Racecontrol-Releases/releases)",
+                  "inline": false
+                }
+              ],
+              "footer": {
+                "text": "LMU RACECONTROL – Das Tool für Rennkommissare",
+                "icon_url": "https://raw.githubusercontent.com/FOKALiS/LMU-Racecontrol-Releases/main/lmu-rc-logo.png"
+              },
+              "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%S.000Z)"
+            }]
+          }
+          EOF
+          )
+
+          curl -H "Content-Type: application/json" -d "$JSON" "$DISCORD_WEBHOOK"
+          echo "✅ Discord-Benachrichtigung gesendet"
