@@ -110,6 +110,37 @@ async fn get_license_status(state: State<'_, AppState>) -> Result<LicenseStatusR
 }
 
 #[tauri::command]
+async fn deactivate_license(state: State<'_, AppState>) -> Result<LicenseStatusResponse, String> {
+    let data = {
+        let d = state.license.lock().await;
+        d.clone()
+    };
+    if !data.has_key() {
+        return Err("Keine aktive Lizenz zum Deaktivieren gefunden.".to_string());
+    }
+    
+    // Bei Keygen die Maschine deregistrieren
+    match license::deactivate_machine(&data.license_key, &data.license_id, &data.fingerprint).await {
+        Ok(_) => {
+            // Lizenz-Daten zurücksetzen
+            let empty = LicenseData::default();
+            state.license_store.save(&empty).map_err(|e| e.to_string())?;
+            *state.license.lock().await = empty.clone();
+            println!("[LICENSE] ✅ Lizenz erfolgreich deaktiviert");
+            Ok(LicenseStatusResponse { licensed: false, data: empty })
+        }
+        Err(e) => {
+            // Auch bei Fehler: Lizenz zurücksetzen (damit User sie neu aktivieren kann)
+            let empty = LicenseData::default();
+            state.license_store.save(&empty).map_err(|e| e.to_string())?;
+            *state.license.lock().await = empty.clone();
+            println!("[LICENSE] ⚠️ Deaktivierung fehlgeschlagen, aber Lizenz zurückgesetzt: {}", e);
+            Ok(LicenseStatusResponse { licensed: false, data: empty })
+        }
+    }
+}
+
+#[tauri::command]
 async fn activate_license(state: State<'_, AppState>, license_key: String) -> Result<LicenseStatusResponse, String> {
     let existing_fingerprint = {
         let data = state.license.lock().await;
@@ -900,6 +931,7 @@ fn main() {
             save_settings,
             get_license_status,
             activate_license,
+            deactivate_license,
             list_pending_incidents,
             list_archived_incidents,
             clear_all_incidents,

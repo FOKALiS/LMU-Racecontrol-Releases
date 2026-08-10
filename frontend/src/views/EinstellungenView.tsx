@@ -45,6 +45,8 @@ export default function EinstellungenView({ settings, onSave, onClearAll, licens
   const [fetchingKey, setFetchingKey] = useState(false);
   const [fetchKeyError, setFetchKeyError] = useState<string | null>(null);
   const [fetchKeySuccess, setFetchKeySuccess] = useState(false);
+  const [deactivating, setDeactivating] = useState(false);
+  const [deactivated, setDeactivated] = useState(false);
 
   async function clearDatabase() {
     setShowConfirm(false);
@@ -129,14 +131,51 @@ export default function EinstellungenView({ settings, onSave, onClearAll, licens
                 <> – Version: {licenseTierName(licenseData.tier)}{licenseAllowsServer(licenseData.tier) && " (Server)"}</>
               )}
             </div>
-            <div className="einstellungen-field-hint">Nachfolgende Lizenznummer ist für Dein Gerät registriert. Wünschst Du eine weitere Lizenz oder möchtest Deine Lizenz erweitern, dann kontaktiere uns gerne unter www.lmu-racecontrol.gg</div>
-            <div className="einstellungen-input-wrapper">
+            <div className="einstellungen-field-hint">Nachfolgende Lizenznummer ist für Dein Gerät registriert. Wünschst Du eine weitere Lizenz oder möchtest Deine Lizenz erweitern, dann kontaktiere uns gerne unter www.lmu-racecontrol.com</div>
+            <div className="einstellungen-input-wrapper" style={{ display: "flex", gap: "8px", alignItems: "center" }}>
               <input
                 className="einstellungen-input"
                 value={form.license_key}
                 placeholder="123B-234C-345YZ"
                 readOnly
+                style={{ flex: 1 }}
               />
+              {licenseData && licenseData.licensed && licenseData.license_key && (
+                <>
+                  <button
+                    onClick={async () => {
+                      if (!confirm("⚠️ Lizenz wirklich deaktivieren?\n\nDie Lizenz wird auf diesem Gerät freigegeben. Du kannst sie dann auf einem anderen Gerät neu aktivieren.\n\nHinweis: Eine Internetverbindung ist erforderlich.")) return;
+                      setDeactivating(true);
+                      try {
+                        await invoke("deactivate_license");
+                        setDeactivated(true);
+                        setTimeout(() => setDeactivated(false), 3000);
+                        window.location.reload();
+                      } catch (err: any) {
+                        window.alert("Fehler bei der Deaktivierung: " + String(err));
+                      } finally {
+                        setDeactivating(false);
+                      }
+                    }}
+                    disabled={deactivating}
+                    style={{
+                      background: "transparent",
+                      border: "1px solid rgba(229, 57, 53, 0.6)",
+                      borderRadius: "10px",
+                      padding: "8px 16px",
+                      cursor: "pointer",
+                      color: deactivating ? "rgba(255,255,255,0.5)" : "rgba(229, 57, 53, 0.9)",
+                      fontSize: "11px",
+                      whiteSpace: "nowrap",
+                      flexShrink: 0,
+                      opacity: deactivating ? 0.5 : 1,
+                    }}
+                    title="Lizenz auf diesem Gerät deaktivieren (für Rechnerwechsel)"
+                  >
+                    {deactivating ? "⏳" : deactivated ? "✓" : "🔓 Deaktivieren"}
+                  </button>
+                </>
+              )}
             </div>
           </div>
 

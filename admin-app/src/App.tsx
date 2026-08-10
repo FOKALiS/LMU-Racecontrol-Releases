@@ -28,6 +28,10 @@ function App() {
   const [syncKey, setSyncKey] = useState("");
   const [syncTier, setSyncTier] = useState("enterprise_xl");
   const [syncName, setSyncName] = useState("");
+  const [backupPath, setBackupPath] = useState("");
+  const [backupMsg, setBackupMsg] = useState("");
+  const [backupLoading, setBackupLoading] = useState(false);
+  const [configLoading, setConfigLoading] = useState(false);
 
   async function api(url: string, method = "GET", body?: string): Promise<any> {
     const r: any = await invoke("api_request", { url, method, body: body || null });
@@ -119,6 +123,32 @@ function App() {
       showMsg(`Sync OK: ${d.status} – ${d.tenant_name} (${d.tier})`); refresh();
     } catch (e: any) { showMsg(`Sync-Fehler: ${e.message}`); }
   }
+  async function loadConfig() {
+    try { const key = await getKey(); if (!key) return;
+      const cfgArr = await apiAuth(`${API}/api/config`, key);
+      if (Array.isArray(cfgArr)) {
+        const cfgMap: Record<string, string> = {};
+        cfgArr.forEach((c: any) => { cfgMap[c.key] = c.value ?? ""; });
+        setBackupPath(cfgMap["backup_path"] ?? "");
+      }
+    } catch { /* leer */ }
+  }
+  async function saveConfig() {
+    setConfigLoading(true);
+    try { const key = await getKey(); if (!key) { setConfigLoading(false); return; }
+      await apiAuth(`${API}/api/config`, key, "POST", JSON.stringify({ key: "backup_path", value: backupPath }));
+      showMsg("Konfiguration gespeichert!"); setConfigLoading(false);
+    } catch (e: any) { showMsg(`Fehler: ${e.message}`); setConfigLoading(false); }
+  }
+  async function runBackup() {
+    if (!confirm("Jetzt ein Backup erstellen?")) return;
+    setBackupLoading(true); setBackupMsg("");
+    try { const key = await getKey(); if (!key) { setBackupLoading(false); setBackupMsg("Kein API-Key!"); return; }
+      const r = await apiAuth(`${API}/api/backup`, key, "POST");
+      setBackupMsg(r?.message || "Backup erfolgreich!"); setBackupLoading(false);
+    } catch (e: any) { setBackupMsg(`Backup-Fehler: ${e.message}`); setBackupLoading(false); }
+    setTimeout(() => setBackupMsg(""), 5000);
+  }
   function showMsg(t: string) { setMsg(t); setTimeout(() => setMsg(""), 4000); }
   const fmt = (s: number) => `${Math.floor(s/3600)}h ${Math.floor((s%3600)/60)}m ${s%60}s`;
 
@@ -132,6 +162,7 @@ function App() {
           <button className={tab==="keys"?"active":""} onClick={()=>setTab("keys")}>🔑 API-Keys</button>
           <button className={tab==="incidents"?"active":""} onClick={()=>setTab("incidents")}>🚨 Vorfälle</button>
           <button className={tab==="sync"?"active":""} onClick={()=>setTab("sync")}>🔄 Keygen Sync</button>
+          <button className={tab==="backup"?"active":""} onClick={()=>{setTab("backup"); loadConfig();}}>💾 Backup</button>
         </nav>
         <div className={`server-status ${online?"online":"offline"}`}>
           {online ? "🟢 Server online" : "🔴 Server offline"}
@@ -227,6 +258,33 @@ function App() {
                   ))}
                 </tbody>
               </table>
+            </div>
+          </>
+        )}
+        {tab === "backup" && (
+          <>
+            <h2>💾 Backup & Konfiguration</h2>
+            <div className="panel">
+              <h3>Server-Konfiguration</h3>
+              <div className="form-row" style={{flexDirection:"column",gap:"8px"}}>
+                <div style={{display:"flex",gap:"8px",alignItems:"center"}}>
+                  <label style={{minWidth:"120px",color:"#9aa0b8"}}>Backup-Pfad:</label>
+                  <input type="text" placeholder="z.B. C:\lmu-race-control-server\backups" value={backupPath} onChange={e => setBackupPath(e.target.value)} style={{flex:1}} />
+                </div>
+                <button className="btn btn-primary" onClick={saveConfig} disabled={configLoading} style={{alignSelf:"flex-start",marginTop:"4px"}}>
+                  {configLoading ? "⏳ Speichern..." : "💾 Konfiguration speichern"}
+                </button>
+              </div>
+            </div>
+            <div className="panel" style={{marginTop:"12px"}}>
+              <h3>Manuelles Backup</h3>
+              <p style={{color:"#9aa0b8",fontSize:"13px",marginBottom:"12px"}}>
+                Ein Backup erstellt eine Kopie der Datenbank und der Konfiguration am eingestellten Backup-Pfad.
+              </p>
+              <button className="btn btn-primary" onClick={runBackup} disabled={backupLoading || !online} style={{fontSize:"15px",padding:"12px 24px"}}>
+                {backupLoading ? "⏳ Backup läuft..." : "💾 Jetzt Backup erstellen"}
+              </button>
+              {backupMsg && <div style={{marginTop:"8px",color:backupMsg.includes("Fehler")?"#e57373":"#81c784",fontSize:"13px"}}>{backupMsg}</div>}
             </div>
           </>
         )}

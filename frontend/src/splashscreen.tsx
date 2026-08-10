@@ -22,7 +22,7 @@ const TEXT = {
     version: "Version",
     installing: "Update wird installiert...",
     installError: "Update-Installation fehlgeschlagen",
-    website: "www.lmu-racecontrol.gg",
+    website: "www.lmu-racecontrol.com",
     copyright: "Copyright © 2026 by FOKALiS - Film & Medienagentur",
   },
   en: {
@@ -30,7 +30,7 @@ const TEXT = {
     version: "Version",
     installing: "Installing update...",
     installError: "Update installation failed",
-    website: "www.lmu-racecontrol.gg",
+    website: "www.lmu-racecontrol.com",
     copyright: "Copyright © 2026 by FOKALiS - Film & Medienagentur",
   },
 };
@@ -123,7 +123,7 @@ function Splashscreen() {
 
           <button
             className="splash-bar splash-bar-link"
-            onClick={() => open("https://www.lmu-racecontrol.gg").catch(console.error)}
+            onClick={() => open("https://www.lmu-racecontrol.com").catch(console.error)}
           >
             {t.website}
           </button>

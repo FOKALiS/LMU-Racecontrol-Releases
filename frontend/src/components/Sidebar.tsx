@@ -156,9 +156,9 @@ export default function Sidebar({
         </button>
         <button
           className="nav-btn-outline"
-          onClick={() => open("https://www.lmu-racecontrol.gg").catch(console.error)}
+          onClick={() => open("https://www.lmu-racecontrol.com").catch(console.error)}
         >
-          www.lmu-racecontrol.gg
+          www.lmu-racecontrol.com
         </button>
       </div>
 

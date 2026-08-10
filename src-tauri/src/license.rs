@@ -401,3 +401,72 @@ pub async fn revalidate(license_key: &str, fingerprint: &str) -> Result<()> {
     }
     Ok(())
 }
+
+/// Deaktiviert DIESE Maschine (Fingerprint) bei Keygen.
+/// Nützlich bei Rechnerwechsel – der User kann die Lizenz am alten Rechner
+/// freigeben, um sie auf einem neuen Rechner zu aktivieren.
+/// Ruft die Keygen Machine-API auf, um die aktuelle Maschine zu löschen.
+pub async fn deactivate_machine(license_key: &str, license_id: &str, fingerprint: &str) -> Result<()> {
+    let client = reqwest::Client::new();
+
+    // 1) Maschinen-Liste für diese Lizenz abrufen
+    let machines_url = format!("{}/licenses/{}/machines", api_base(), license_id);
+    let machines_resp = client
+        .get(&machines_url)
+        .header("Accept", "application/vnd.api+json")
+        .header("Authorization", format!("License {license_key}"))
+        .send()
+        .await
+        .context("Konnte Maschinen-Liste nicht abrufen")?;
+
+    let machines_text = machines_resp.text().await.unwrap_or_default();
+    println!("[LICENSE] Maschinen-Antwort: {}", &machines_text[..machines_text.len().min(500)]);
+
+    // 2) Maschinen parsen und nach Fingerprint suchen
+    #[derive(Deserialize)]
+    struct MachineListResponse {
+        data: Vec<MachineItem>,
+    }
+    #[derive(Deserialize)]
+    struct MachineItem {
+        id: String,
+        attributes: MachineAttributes,
+    }
+    #[derive(Deserialize)]
+    struct MachineAttributes {
+        #[serde(default)]
+        fingerprint: Option<String>,
+    }
+
+    let machines: MachineListResponse = serde_json::from_str(&machines_text)
+        .context("Konnte Maschinen-Liste nicht parsen")?;
+
+    let machine_id = machines.data.iter()
+        .find(|m| m.attributes.fingerprint.as_deref() == Some(fingerprint))
+        .map(|m| m.id.clone());
+
+    if let Some(machine_id) = machine_id {
+        // 3) Maschine löschen
+        let delete_url = format!("{}/machines/{}", api_base(), machine_id);
+        let delete_resp = client
+            .delete(&delete_url)
+            .header("Accept", "application/vnd.api+json")
+            .header("Authorization", format!("License {license_key}"))
+            .send()
+            .await
+            .context("Konnte Maschine nicht löschen")?;
+
+        if delete_resp.status().is_success() || delete_resp.status().as_u16() == 404 {
+            println!("[LICENSE] ✅ Maschine {} erfolgreich deregistriert", machine_id);
+            return Ok(());
+        } else {
+            let status = delete_resp.status();
+            let text = delete_resp.text().await.unwrap_or_default();
+            anyhow::bail!("Maschine konnte nicht gelöscht werden ({status}): {text}");
+        }
+    } else {
+        // Keine Maschine mit unserem Fingerprint gefunden – das ist ok
+        println!("[LICENSE] ⚠️ Keine Maschine mit Fingerprint {} gefunden – bereits deregistriert?", fingerprint);
+        Ok(())
+    }
+}

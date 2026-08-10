@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "LMU RACECONTROL",
-  "version": "0.9.4",
+  "version": "0.9.5",
   "identifier": "com.yourteam.lmuracecontrol",
   "build": {
     "beforeDevCommand": "npm --prefix frontend run dev",
@@ -71,12 +71,12 @@
     "updater": {
       "active": true,
       "endpoints": [
-        "https://github.com/FOKALiS/LMU-Racecontrol/releases/latest/download/latest.json"
+        "https://github.com/FOKALiS/LMU-Racecontrol-Releases/releases/latest/download/latest.json"
       ],
       "windows": {
         "installMode": "passive"
       },
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IERENEZERjg5QjI3RDFCNzQKUldSMEczMnlpZDlQM1gvUmRlYThOWlEyd2g1MmFtcGYxZHY4M0NLb0liNEh5bnRzaExOQk83TXIK"
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEREMTk3NEYwMjdDOTA3RUYKUldUdkI4a244SFFaM2NkdVBuTVQyVm1HaDhHeldqc0Q3VzRwaDF0ZkJISlBlK0FWNUI2VWExNGMK"
     }
   }
 }

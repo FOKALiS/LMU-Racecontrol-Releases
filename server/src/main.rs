@@ -21,6 +21,13 @@ use std::env;
 // ============================================================
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct ServerConfig {
+    pub key: String,
+    pub value: String,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Incident {
     pub id: String,
     pub tenant_id: String,
@@ -88,6 +95,18 @@ pub struct CreateApiKeyRequest {
     pub tenant_id: String,
     pub label: Option<String>,
 }
+
+// ============================================================
+// Config Defaults
+// ============================================================
+
+/// Default-Werte für die Server-Konfiguration
+const CONFIG_DEFAULTS: &[(&str, &str)] = &[
+    ("keygen_token", "admin-2dd5cb265c251f14bf33a9341e172357d1cf90cf696d263a2cd09472706fb6a5v3"),
+    ("keygen_account_id", "65f997d1-bac7-4b1c-b37d-35fce549bde6"),
+    ("discord_webhook_url", ""),
+    ("backup_path", ""),
+];
 
 // ============================================================
 // Rate Limiter
@@ -202,6 +221,29 @@ async fn init_db(pool: &SqlitePool) -> Result<(), sqlx::Error> {
     .execute(pool)
     .await?;
 
+    sqlx::query(
+        r#"
+        CREATE TABLE IF NOT EXISTS server_config (
+            key TEXT PRIMARY KEY,
+            value TEXT NOT NULL,
+            updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+        )
+        "#,
+    )
+    .execute(pool)
+    .await?;
+
+    // Default-Werte für server_config einfügen (falls nicht vorhanden)
+    for (key, value) in CONFIG_DEFAULTS {
+        sqlx::query(
+            "INSERT OR IGNORE INTO server_config (key, value) VALUES (?, ?)"
+        )
+        .bind(key)
+        .bind(value)
+        .execute(pool)
+        .await?;
+    }
+
     let tenant_count: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM tenants")
         .fetch_one(pool)
         .await?;
@@ -268,6 +310,7 @@ async fn auth_middleware(
     next: Next,
 ) -> impl IntoResponse {
     let path = request.uri().path();
+    // Öffentliche Endpunkte (kein API-Key nötig)
     if path == "/health" || path == "/api-key" || path == "/admin" || path == "/api/webhook/keygen" || path == "/api/lookup-api-key" {
         return Ok(next.run(request).await);
     }
@@ -275,6 +318,7 @@ async fn auth_middleware(
     if path.starts_with("/admin/") {
         return Ok(next.run(request).await);
     }
+    // Config-API ist geschützt (braucht API-Key) – wird normal geprüft
 
     let auth_header = headers
         .get("Authorization")
@@ -1030,6 +1074,89 @@ async fn post_api_key(
 }
 
 // ============================================================
+// Config-Helper
+// ============================================================
+
+/// Holt einen Konfigurationswert aus der DB
+async fn get_config_value(pool: &SqlitePool, key: &str) -> Option<String> {
+    sqlx::query_as::<_, (String,)>(
+        "SELECT value FROM server_config WHERE key = ?"
+    )
+    .bind(key)
+    .fetch_optional(pool)
+    .await
+    .ok()
+    .and_then(|r| r.map(|v| v.0))
+}
+
+/// Setzt einen Konfigurationswert in der DB
+async fn set_config_value(pool: &SqlitePool, key: &str, value: &str) -> Result<(), sqlx::Error> {
+    sqlx::query(
+        "INSERT INTO server_config (key, value, updated_at) VALUES (?, ?, datetime('now'))
+         ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = datetime('now')"
+    )
+    .bind(key)
+    .bind(value)
+    .execute(pool)
+    .await?;
+    Ok(())
+}
+
+// ============================================================
+// Handler – Config (geschützt)
+// ============================================================
+
+/// Alle Konfigurationswerte abrufen
+async fn get_config(
+    state: axum::extract::State<AppState>,
+) -> impl IntoResponse {
+    let result = sqlx::query_as::<_, (String, String, String)>(
+        "SELECT key, value, updated_at FROM server_config ORDER BY key"
+    )
+    .fetch_all(&state.db)
+    .await;
+
+    match result {
+        Ok(rows) => {
+            let configs: Vec<ServerConfig> = rows.into_iter().map(|r| ServerConfig {
+                key: r.0,
+                value: r.1,
+                updated_at: r.2,
+            }).collect();
+            (StatusCode::OK, Json(serde_json::json!(configs)))
+        }
+        Err(e) => {
+            (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({ "error": e.to_string() })))
+        }
+    }
+}
+
+/// Einen Konfigurationswert aktualisieren
+/// POST /api/config  { "key": "keygen_token", "value": "..." }
+async fn post_config(
+    state: axum::extract::State<AppState>,
+    Json(req): Json<serde_json::Value>,
+) -> impl IntoResponse {
+    let key = req.get("key").and_then(|v| v.as_str()).unwrap_or("");
+    let value = req.get("value").and_then(|v| v.as_str()).unwrap_or("");
+
+    if key.is_empty() {
+        return (StatusCode::BAD_REQUEST, Json(serde_json::json!({ "error": "key fehlt" })));
+    }
+
+    match set_config_value(&state.db, key, value).await {
+        Ok(_) => {
+            tracing::info!("🔧 Config '{}' aktualisiert", key);
+            (StatusCode::OK, Json(serde_json::json!({ "status": "updated", "key": key })))
+        }
+        Err(e) => {
+            tracing::error!("Fehler beim Aktualisieren von Config '{}': {}", key, e);
+            (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({ "error": e.to_string() })))
+        }
+    }
+}
+
+// ============================================================
 // Handler – Öffentlich
 // ============================================================
 
@@ -1067,12 +1194,22 @@ async fn post_lookup_api_key(
         }
         Ok(None) => {
             // 2. Noch kein Tenant – bei Keygen validieren und anlegen
-            let keygen_token = std::env::var("KEYGEN_TOKEN").unwrap_or_default();
+            // Token aus DB lesen, Fallback auf Umgebungsvariable
+            let keygen_token = get_config_value(&state.db, "keygen_token").await
+                .filter(|s| !s.is_empty())
+                .or_else(|| std::env::var("KEYGEN_TOKEN").ok())
+                .unwrap_or_default();
             if keygen_token.is_empty() {
                 return (StatusCode::SERVICE_UNAVAILABLE, Json(serde_json::json!({
                     "error": "KEYGEN_TOKEN nicht konfiguriert – Server-Admin kontaktieren"
                 })));
             }
+
+            // Account ID aus DB lesen, Fallback auf Umgebungsvariable
+            let keygen_account_id = get_config_value(&state.db, "keygen_account_id").await
+                .filter(|s| !s.is_empty())
+                .or_else(|| std::env::var("KEYGEN_ACCOUNT_ID").ok())
+                .unwrap_or_default();
 
             let client = reqwest::Client::builder()
                 .timeout(std::time::Duration::from_secs(10))
@@ -1081,7 +1218,7 @@ async fn post_lookup_api_key(
 
             let keygen_url = format!(
                 "https://api.keygen.sh/v1/accounts/{}/licenses/{}",
-                std::env::var("KEYGEN_ACCOUNT_ID").unwrap_or_default(),
+                keygen_account_id,
                 license_key
             );
 
@@ -1195,6 +1332,56 @@ async fn get_first_api_key(
 }
 
 // ============================================================
+// Handler – Backup
+// ============================================================
+
+/// Erstellt ein Backup der Datenbank im konfigurierten Backup-Pfad
+/// POST /api/backup (Auth erforderlich)
+async fn post_backup(
+    state: axum::extract::State<AppState>,
+) -> impl IntoResponse {
+    // Backup-Pfad aus der Config laden
+    let backup_path = get_config_value(&state.db, "backup_path").await.unwrap_or_default();
+    
+    if backup_path.is_empty() {
+        return (StatusCode::BAD_REQUEST, Json(serde_json::json!({
+            "error": "Kein Backup-Pfad konfiguriert. Bitte zuerst in der Konfiguration setzen."
+        })));
+    }
+
+    // Backup-Verzeichnis erstellen falls nicht vorhanden
+    let backup_dir = std::path::Path::new(&backup_path);
+    if let Err(e) = std::fs::create_dir_all(backup_dir) {
+        return (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({
+            "error": format!("Backup-Verzeichnis konnte nicht erstellt werden: {}", e)
+        })));
+    }
+
+    // Timestamp für den Dateinamen
+    let timestamp = chrono::Utc::now().format("%Y%m%d_%H%M%S");
+    let db_path = std::path::Path::new("lmu-race-control.db");
+    let backup_file = backup_dir.join(format!("lmu-race-control-backup-{}.db", timestamp));
+
+    // Datenbank kopieren (SQLite ist dateibasiert, einfaches Copy reicht)
+    match std::fs::copy(db_path, &backup_file) {
+        Ok(_) => {
+            tracing::info!("📦 Backup erstellt: {}", backup_file.display());
+            (StatusCode::OK, Json(serde_json::json!({
+                "status": "ok",
+                "message": "Backup erfolgreich erstellt",
+                "path": backup_file.to_string_lossy().to_string()
+            })))
+        }
+        Err(e) => {
+            tracing::error!("Backup fehlgeschlagen: {}", e);
+            (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({
+                "error": format!("Backup fehlgeschlagen: {}", e)
+            })))
+        }
+    }
+}
+
+// ============================================================
 // Auto-Bereinigung: Vorfälle > 26 Stunden löschen
 // ============================================================
 
@@ -1282,10 +1469,14 @@ async fn main() {
         .route("/api/tenants", get(get_tenants).post(post_tenant).patch(patch_tenant))
         .route("/api/tenants/:id", delete(delete_tenant))
         .route("/api/keys", get(get_api_keys_admin).post(post_api_key))
+        // Config-API (geschützt)
+        .route("/api/config", get(get_config).post(post_config))
         // Incident-API (geschützt)
         .route("/api/stats", get(get_stats_admin))
         .route("/api/incidents", post(post_incident).get(get_incidents).delete(delete_all_incidents))
         .route("/api/incidents/:id", patch(patch_incident))
+        // Backup-API (geschützt)
+        .route("/api/backup", post(post_backup))
         // Middleware
         .layer(CorsLayer::permissive())
         .layer(middleware::from_fn_with_state(state.clone(), logging_middleware))

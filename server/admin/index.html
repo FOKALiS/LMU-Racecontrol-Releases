@@ -69,6 +69,7 @@ tr:hover td { background:#20254044; }
     <button onclick="showView('incidents')">🚨 Vorfälle</button>
     <button onclick="showView('apikeys')">🔑 API-Keys</button>
     <button onclick="showView('tenants')">🏢 Mandanten</button>
+    <button onclick="showView('config')">⚙️ Konfiguration</button>
   </div>
   <div class="sidebar-footer">
     Server v0.1.0 · <span id="server-status">...verbinde</span>
@@ -91,7 +92,7 @@ tr:hover td { background:#20254044; }
       <div style="margin-top:15px;padding-top:15px;border-top:1px solid #2a3150;display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
         <button class="btn" style="background:#ff9800;color:#fff;" onclick="restartServer()">🔄 Server neustarten</button>
         <button class="btn btn-danger" onclick="stopServer()">⏹️ Server stoppen</button>
-        <span style="font-size:11px;color:#5a6080;">Neustart: systemd/supervisor startet neu. Stopp: beendet komplett.</span>
+        <span style="font-size:11px;color:#5a6080;">Neustart: startet neu. Stopp: beendet komplett.</span>
       </div>
     </div>
   </div>
@@ -146,6 +147,48 @@ tr:hover td { background:#20254044; }
     </div>
     <div id="tenants-list"></div>
   </div>
+
+  <!-- Konfiguration -->
+  <div id="view-config" class="view" style="display:none;">
+    <h2>⚙️ Server-Konfiguration</h2>
+    <div class="panel">
+      <h3 style="margin-bottom:15px;color:#fff;font-size:16px;">Keygen API Token</h3>
+      <div class="form-group">
+        <label>Keygen API Token (für Lizenz-Prüfung)</label>
+        <input type="text" id="config-keygen-token" placeholder="admin-..." style="font-family:monospace;font-size:12px;">
+      </div>
+      <div class="form-group">
+        <label>Keygen Account ID</label>
+        <input type="text" id="config-keygen-account-id" placeholder="65f997d1-..." style="font-family:monospace;font-size:12px;">
+      </div>
+      <button class="btn" onclick="saveKeygenConfig()">💾 Token speichern</button>
+      <span id="config-save-status" style="margin-left:10px;font-size:12px;color:#4fc3f7;"></span>
+    </div>
+    <div class="panel">
+      <h3 style="margin-bottom:15px;color:#fff;font-size:16px;">Discord Webhook</h3>
+      <div class="form-group">
+        <label>Discord Webhook-URL (für Release-Benachrichtigung)</label>
+        <input type="text" id="config-discord-webhook" placeholder="https://discord.com/api/webhooks/...">
+      </div>
+      <button class="btn" onclick="saveDiscordConfig()">💾 Webhook speichern</button>
+      <span id="config-discord-status" style="margin-left:10px;font-size:12px;color:#4fc3f7;"></span>
+    </div>
+    <div class="panel">
+      <h3 style="margin-bottom:15px;color:#fff;font-size:16px;">Backup-Pfad</h3>
+      <div class="form-group">
+        <label>Backup-Verzeichnis auf dem Server</label>
+        <input type="text" id="config-backup-path" placeholder="C:\backups\lmu-race-control">
+      </div>
+      <button class="btn" onclick="saveBackupConfig()">💾 Pfad speichern</button>
+      <span id="config-backup-status" style="margin-left:10px;font-size:12px;color:#4fc3f7;"></span>
+    </div>
+    <div class="panel">
+      <h3 style="margin-bottom:15px;color:#fff;font-size:16px;">Backup jetzt ausführen</h3>
+      <p style="font-size:12px;color:#7a82a0;margin-bottom:10px;">Erstellt ein ZIP-Backup der Datenbank und speichert es im konfigurierten Backup-Pfad.</p>
+      <button class="btn" style="background:#ff9800;color:#fff;" onclick="runBackup()">📦 Backup jetzt erstellen</button>
+      <span id="config-backup-run-status" style="margin-left:10px;font-size:12px;"></span>
+    </div>
+  </div>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -157,7 +200,6 @@ let tenants = [];
 
 // ---------- Init ----------
 async function init() {
-  // API-Key laden (nur für Stats brauchen wir ihn nicht, aber für Incident-Liste)
   try {
     const res = await fetch('/api-key');
     const data = await res.json();
@@ -172,6 +214,7 @@ async function init() {
   loadStats();
   loadIncidents();
   loadTenants();
+  loadConfig();
 }
 
 // ---------- Navigation ----------
@@ -180,6 +223,7 @@ function showView(name) {
   document.getElementById('view-' + name).style.display = 'block';
   document.querySelectorAll('.nav button').forEach(b => b.classList.remove('active'));
   event.target.classList.add('active');
+  if (name === 'config') loadConfig();
 }
 
 // ---------- Stats ----------
@@ -216,16 +260,7 @@ async function loadIncidents() {
     let html = '<table><thead><tr><th>#</th><th>Flagge</th><th>Auto</th><th>Typ</th><th>Sitzung</th><th>Runde</th><th>Zeit</th><th>Entscheidung</th></tr></thead><tbody>';
     incidents.forEach(inc => {
       const flagColor = inc.flag_color.toLowerCase();
-      html += `<tr>
-        <td>${inc.incident_number}</td>
-        <td><span class="flag flag-${flagColor}"></span>${inc.flag_color}</td>
-        <td>${inc.car_number_a}</td>
-        <td>${inc.incident_type}</td>
-        <td>${inc.session_type}</td>
-        <td>${inc.lap_number}</td>
-        <td>${inc.timestamp}</td>
-        <td>${inc.decision || '<span style="color:#5a6080">–</span>'}</td>
-      </tr>`;
+      html += '<tr><td>' + inc.incident_number + '</td><td><span class="flag flag-' + flagColor + '"></span>' + inc.flag_color + '</td><td>' + inc.car_number_a + '</td><td>' + inc.incident_type + '</td><td>' + inc.session_type + '</td><td>' + inc.lap_number + '</td><td>' + inc.timestamp + '</td><td>' + (inc.decision || '<span style="color:#5a6080">–</span>') + '</td></tr>';
     });
     html += '</tbody></table>';
     container.innerHTML = html;
@@ -242,23 +277,15 @@ async function loadTenants() {
     if (!res.ok) throw new Error('Fehler');
     const data = await res.json();
     tenants = data;
-    // Dropdown aktualisieren
     const sel = document.getElementById('key-tenant');
-    sel.innerHTML = data.map(t => `<option value="${t.id}">${t.name} (${t.max_users} User)</option>`).join('');
-    // Liste
+    sel.innerHTML = data.map(t => '<option value="' + t.id + '">' + t.name + ' (' + t.max_users + ' User)</option>').join('');
     if (!data.length) {
       container.innerHTML = '<div class="empty">Keine Mandanten</div>';
       return;
     }
     let html = '<div class="key-list">';
     data.forEach(t => {
-      html += `<div class="key-item">
-        <div>
-          <div style="font-weight:600;color:#fff;">${t.name}</div>
-          <div class="key-meta">ID: ${t.id} · Tier: ${t.tier} · Max User: ${t.max_users}</div>
-        </div>
-        <span class="badge badge-enterprise">${t.tier}</span>
-      </div>`;
+      html += '<div class="key-item"><div><div style="font-weight:600;color:#fff;">' + t.name + '</div><div class="key-meta">ID: ' + t.id + ' · Tier: ' + t.tier + ' · Max User: ' + t.max_users + '</div></div><span class="badge badge-enterprise">' + t.tier + '</span></div>';
     });
     html += '</div>';
     container.innerHTML = html;
@@ -319,12 +346,7 @@ async function loadApiKeys() {
     }
     let html = '';
     keys.forEach(k => {
-      html += `<div class="key-item">
-        <div>
-          <div class="key-text">${k.key}</div>
-          <div class="key-meta">Label: ${k.label || '–'} · Mandant: ${k.tenant_id} · Erstellt: ${k.created_at}</div>
-        </div>
-      </div>`;
+      html += '<div class="key-item"><div><div class="key-text">' + k.key + '</div><div class="key-meta">Label: ' + (k.label || '–') + ' · Mandant: ' + k.tenant_id + ' · Erstellt: ' + k.created_at + '</div></div></div>';
     });
     container.innerHTML = html;
   } catch(e) {
@@ -332,44 +354,123 @@ async function loadApiKeys() {
   }
 }
 
-// ---------- Server neustarten ----------
-async function restartServer() {
-  if (!confirm('⚠️ Server wirklich neustarten?\n\nAlle aktiven Verbindungen werden getrennt. Der Server startet in ~3 Sekunden neu.')) return;
-
+// ---------- Config ----------
+async function loadConfig() {
   try {
-    const res = await fetch('/api/restart', {
+    const res = await fetch('/api/config', { headers: { 'Authorization': 'Bearer ' + apiKey } });
+    if (!res.ok) return;
+    const configs = await res.json();
+    configs.forEach(c => {
+      if (c.key === 'keygen_token') document.getElementById('config-keygen-token').value = c.value;
+      if (c.key === 'keygen_account_id') document.getElementById('config-keygen-account-id').value = c.value;
+      if (c.key === 'discord_webhook_url') document.getElementById('config-discord-webhook').value = c.value;
+      if (c.key === 'backup_path') document.getElementById('config-backup-path').value = c.value;
+    });
+  } catch(e) {
+    console.error('Config laden fehlgeschlagen', e);
+  }
+}
+
+async function saveKeygenConfig() {
+  const token = document.getElementById('config-keygen-token').value.trim();
+  const accountId = document.getElementById('config-keygen-account-id').value.trim();
+  const status = document.getElementById('config-save-status');
+  try {
+    await fetch('/api/config', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + apiKey },
+      body: JSON.stringify({ key: 'keygen_token', value: token })
+    });
+    await fetch('/api/config', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + apiKey },
+      body: JSON.stringify({ key: 'keygen_account_id', value: accountId })
+    });
+    status.textContent = '✓ Gespeichert!';
+    setTimeout(() => status.textContent = '', 3000);
+    notify('Keygen Token aktualisiert!');
+  } catch(e) {
+    status.textContent = '✗ Fehler';
+    setTimeout(() => status.textContent = '', 3000);
+  }
+}
+
+async function saveDiscordConfig() {
+  const url = document.getElementById('config-discord-webhook').value.trim();
+  const status = document.getElementById('config-discord-status');
+  try {
+    await fetch('/api/config', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + apiKey },
+      body: JSON.stringify({ key: 'discord_webhook_url', value: url })
+    });
+    status.textContent = '✓ Gespeichert!';
+    setTimeout(() => status.textContent = '', 3000);
+    notify('Discord Webhook gespeichert!');
+  } catch(e) {
+    status.textContent = '✗ Fehler';
+    setTimeout(() => status.textContent = '', 3000);
+  }
+}
+
+async function saveBackupConfig() {
+  const path = document.getElementById('config-backup-path').value.trim();
+  const status = document.getElementById('config-backup-status');
+  try {
+    await fetch('/api/config', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + apiKey },
+      body: JSON.stringify({ key: 'backup_path', value: path })
+    });
+    status.textContent = '✓ Gespeichert!';
+    setTimeout(() => status.textContent = '', 3000);
+    notify('Backup-Pfad gespeichert!');
+  } catch(e) {
+    status.textContent = '✗ Fehler';
+    setTimeout(() => status.textContent = '', 3000);
+  }
+}
+
+async function runBackup() {
+  const status = document.getElementById('config-backup-run-status');
+  status.textContent = '⏳ Backup läuft...';
+  status.style.color = '#ff9800';
+  try {
+    const res = await fetch('/api/backup', {
       method: 'POST',
       headers: { 'Authorization': 'Bearer ' + apiKey }
     });
-
     if (res.ok) {
-      notify('🔄 Server wird neu gestartet...');
-      // Nach 3 Sekunden prüfen, ob der Server wieder verfügbar ist
-      setTimeout(() => {
-        fetch('/health').then(r => {
-          if (r.ok) {
-            notify('✅ Server neu gestartet!');
-            loadStats();
-            loadIncidents();
-          }
-        }).catch(() => {
-          // Server ist noch nicht online – weiter warten
-          setTimeout(() => {
-            fetch('/health').then(r => {
-              if (r.ok) {
-                notify('✅ Server neu gestartet!');
-                loadStats();
-                loadIncidents();
-              } else {
-                notify('⚠️ Server antwortet nicht', true);
-              }
-            }).catch(() => notify('⚠️ Server antwortet nicht', true));
-          }, 5000);
-        });
-      }, 3000);
+      const data = await res.json();
+      status.textContent = '✓ ' + (data.message || 'Backup erfolgreich!');
+      status.style.color = '#4fc3f7';
+      notify('Backup erstellt: ' + (data.path || ''));
     } else {
-      notify('Fehler beim Neustart', true);
+      const err = await res.json();
+      status.textContent = '✗ ' + (err.error || 'Fehler');
+      status.style.color = '#e53935';
     }
+    setTimeout(() => { status.textContent = ''; }, 5000);
+  } catch(e) {
+    status.textContent = '✗ Fehler: ' + e.message;
+    status.style.color = '#e53935';
+    setTimeout(() => { status.textContent = ''; }, 5000);
+  }
+}
+
+// ---------- Server neustarten ----------
+async function restartServer() {
+  if (!confirm('⚠️ Server wirklich neustarten?\n\nAlle aktiven Verbindungen werden getrennt. Der Server startet in ~3 Sekunden neu.')) return;
+  try {
+    await fetch('/api/restart', { method: 'POST', headers: { 'Authorization': 'Bearer ' + apiKey } });
+    notify('🔄 Server wird neu gestartet...');
+    setTimeout(() => {
+      fetch('/health').then(r => { if (r.ok) { notify('✅ Server neu gestartet!'); loadStats(); loadIncidents(); } }).catch(() => {
+        setTimeout(() => {
+          fetch('/health').then(r => { if (r.ok) { notify('✅ Server neu gestartet!'); loadStats(); loadIncidents(); } else { notify('⚠️ Server antwortet nicht', true); } }).catch(() => notify('⚠️ Server antwortet nicht', true));
+        }, 5000);
+      });
+    }, 3000);
   } catch(e) {
     notify('Verbindung getrennt – Server startet neu...');
   }
@@ -378,22 +479,13 @@ async function restartServer() {
 // ---------- Server stoppen ----------
 async function stopServer() {
   if (!confirm('⚠️ Server wirklich stoppen?\n\nDer Server wird KOMPLETT beendet und muss manuell neu gestartet werden!')) return;
-
   try {
-    const res = await fetch('/api/stop', {
-      method: 'POST',
-      headers: { 'Authorization': 'Bearer ' + apiKey }
-    });
-
-    if (res.ok) {
-      notify('⏹️ Server wird gestoppt...');
-      setTimeout(() => {
-        document.getElementById('server-status').textContent = 'offline';
-        document.getElementById('server-status').style.color = '#e53935';
-      }, 2000);
-    } else {
-      notify('Fehler beim Stoppen', true);
-    }
+    await fetch('/api/stop', { method: 'POST', headers: { 'Authorization': 'Bearer ' + apiKey } });
+    notify('⏹️ Server wird gestoppt...');
+    setTimeout(() => {
+      document.getElementById('server-status').textContent = 'offline';
+      document.getElementById('server-status').style.color = '#e53935';
+    }, 2000);
   } catch(e) {
     notify('Verbindung getrennt – Server stoppt...');
     document.getElementById('server-status').textContent = 'offline';
@@ -402,7 +494,7 @@ async function stopServer() {
 }
 
 // ---------- Toast ----------
-function notify(msg, isError = false) {
+function notify(msg, isError) {
   const toast = document.getElementById('toast');
   toast.textContent = msg;
   toast.style.borderColor = isError ? '#e53935' : '#4fc3f7';

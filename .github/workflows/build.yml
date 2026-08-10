@@ -68,6 +68,9 @@ jobs:
     runs-on: windows-latest
 
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
       - name: Download NSIS installer
         uses: actions/download-artifact@v4
         with:
@@ -93,3 +96,110 @@ jobs:
           fail_on_unmatched_files: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Send Discord Notification
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_RELEASE_WEBHOOK }}
+          RELEASE_TAG: ${{ github.ref_name }}
+          RELEASE_URL: https://github.com/${{ github.repository }}/releases/tag/${{ github.ref_name }}
+        shell: pwsh
+        run: |
+          if ([string]::IsNullOrEmpty($env:DISCORD_WEBHOOK)) {
+            Write-Host "⚠️ Kein Discord Webhook konfiguriert (DISCORD_RELEASE_WEBHOOK)"
+            exit 0
+          }
+
+          $version = $env:RELEASE_TAG -replace '^v', ''
+
+          # Changelog parsen – Sektionen finden
+          $changelog = Get-Content "CHANGELOG.md" -Raw
+          $pattern = "## \[$version\].*?(?=\n## \[|\Z)"
+          $match = [regex]::Match($changelog, $pattern, [System.Text.RegularExpressions.RegexOptions]::Singleline)
+
+          $sections = @{}
+          $currentSection = ""
+          $sectionMap = @{
+            "Hinzugefügt" = "✨ Added"
+            "Geändert" = "🔧 Changed"
+            "Behoben" = "🛠️ Fixed"
+            "Neu" = "✨ Added"
+            "Wichtig" = "📌 Important"
+            "Bekannt" = "⚠️ Known issues"
+            "Technisch" = "🔧 Changed"
+          }
+
+          if ($match.Success) {
+            $lines = $match.Value -split "`n"
+            $currentSection = ""
+            foreach ($line in $lines) {
+              # Sektions-Header erkennen (###, nicht ##)
+              if ($line -match '^###\s+(.+)') {
+                $header = $matches[1].Trim()
+                # Prüfen ob es ein bekannter Header ist
+                $found = $false
+                foreach ($key in $sectionMap.Keys) {
+                  if ($header -match $key) {
+                    $currentSection = $sectionMap[$key]
+                    $found = $true
+                    break
+                  }
+                }
+                if (-not $found) {
+                  $currentSection = $header
+                }
+                if (-not $sections.ContainsKey($currentSection)) {
+                  $sections[$currentSection] = @()
+                }
+              }
+              # Bullet Points
+              elseif ($line -match '^-\s+(.+)') {
+                $item = $matches[1].Trim()
+                if ($currentSection -ne "" -and $item -ne "") {
+                  if (-not $sections.ContainsKey($currentSection)) {
+                    $sections[$currentSection] = @()
+                  }
+                  $sections[$currentSection] += $item
+                }
+              }
+            }
+          }
+
+          # Beschreibung bauen
+          $description = ""
+          foreach ($sec in $sections.Keys) {
+            $description += "**$sec**`n"
+            foreach ($item in $sections[$sec]) {
+              # Auf 120 Zeichen pro Item kürzen, Nummerierung etc. entfernen
+              $clean = $item -replace '^\d+\.\s*', ''
+              if ($clean.Length -gt 120) { $clean = $clean.Substring(0, 117) + "..." }
+              $description += "$clean`n"
+            }
+            $description += "`n"
+          }
+
+          if ([string]::IsNullOrEmpty($description)) {
+            $description = "Alle Änderungen gibt es auf GitHub."
+          }
+
+          # Discord-Embed-Limit: 4096 Zeichen für Description
+          if ($description.Length -gt 4000) {
+            $description = $description.Substring(0, 3997) + "..."
+          }
+
+          $body = @{
+            embeds = @(
+              @{
+                title = "🚀 v$version is out!"
+                url = $env:RELEASE_URL
+                color = 5242880
+                description = $description.TrimEnd()
+                footer = @{
+                  text = "LMU RACECONTROL – Das Tool für Rennkommissare"
+                }
+                timestamp = (Get-Date -Format "o")
+              }
+            )
+          } | ConvertTo-Json -Depth 10
+          Invoke-RestMethod -Uri $env:DISCORD_WEBHOOK -Method Post -ContentType "application/json" -Body $body
+          Write-Host "✅ Discord-Benachrichtigung gesendet"
