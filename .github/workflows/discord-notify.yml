@@ -3,48 +3,93 @@ name: Discord Release Notification
 on:
   release:
     types: [published]
-  workflow_dispatch:
-    inputs:
-      version:
-        description: 'Version tag (e.g. v0.9.5)'
-        required: true
-        default: 'v0.9.5'
 
 jobs:
   notify:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
       - name: Send Discord Notification
         env:
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_RELEASE_WEBHOOK }}
           RELEASE_TAG: ${{ github.event.release.tag_name }}
-          RELEASE_BODY: ${{ github.event.release.body }}
+          RELEASE_URL: ${{ github.event.release.html_url }}
+          RELEASE_NAME: ${{ github.event.release.name }}
         shell: bash
         run: |
-          if [ -z "$DISCORD_WEBHOOK" ]; then exit 0; fi
-          if [ -z "$RELEASE_TAG" ]; then RELEASE_TAG="${{ github.event.inputs.version }}"; fi
-          MESSAGE="🚀 **LMU RACECONTROL $RELEASE_TAG is out!**\n\n"
-          if [ -n "$RELEASE_BODY" ]; then
-            while IFS= read -r line; do
-              if [[ "$line" =~ ^###\ (.+) ]]; then
-                HEADER="${BASH_REMATCH[1]}"
-                case "$HEADER" in
-                  "Hinzugefügt"|"Added"|"Neu"|"New") MESSAGE+="✨ **Added**\n" ;;
-                  "Geändert"|"Changed") MESSAGE+="🔧 **Changed**\n" ;;
-                  "Behoben"|"Fixed"|"Bug Fixes"|"Fixes") MESSAGE+="🛠️ **Fixed**\n" ;;
-                  "Bekannt"|"Known issues"|"Known Issues") MESSAGE+="⚠️ **Known issues**\n" ;;
-                  "Quelle"|"Source"|"Technisch"|"Technical"|"Technical Details"|"Wichtig") continue ;;
-                  *) MESSAGE+="**$HEADER**\n" ;;
-                esac
-              elif [[ "$line" =~ ^-\ \*\*(.+)\*\*:\ (.*) ]]; then
-                MESSAGE+="- **${BASH_REMATCH[1]}**: ${BASH_REMATCH[2]}\n"
-              elif [[ "$line" =~ ^-\ (.+) ]]; then
-                MESSAGE+="- ${BASH_REMATCH[1]}\n"
-              fi
-            done <<< "$RELEASE_BODY"
-          else
-            MESSAGE+="See release notes on GitHub for details."
+          if [ -z "$DISCORD_WEBHOOK" ]; then
+            echo "⚠️ Kein Discord Webhook konfiguriert (DISCORD_RELEASE_WEBHOOK)"
+            exit 0
           fi
-          if [ ${#MESSAGE} -gt 1990 ]; then MESSAGE="${MESSAGE:0:1987}..."; fi
-          curl -H "Content-Type: application/json" -d "{\"content\":\"$MESSAGE\"}" "$DISCORD_WEBHOOK"
+
+          VERSION="${RELEASE_TAG#v}"
+
+          # Changelog parsen – den Abschnitt für diese Version extrahieren
+          CHANGELOG=$(cat CHANGELOG.md)
+          # Extrahiert den Block von "## [VERSION]" bis zur nächsten "## [" oder Ende
+          PATTERN="## \\[$VERSION\\][^#]*"
+          MATCH=$(echo "$CHANGELOG" | grep -Pzo "$PATTERN" | tr '\0' '\n' || true)
+
+          DESCRIPTION=""
+          CURRENT_SECTION=""
+
+          if [ -n "$MATCH" ]; then
+            while IFS= read -r line; do
+              # Deutsche Sektionstitel auf Emoji-Englisch mappen
+              if [[ "$line" =~ ^###\ Hinzugefügt ]]; then
+                CURRENT_SECTION="added"
+                DESCRIPTION+="✨ **Added**\n"
+              elif [[ "$line" =~ ^###\ Geändert ]]; then
+                CURRENT_SECTION="changed"
+                DESCRIPTION+="🔧 **Changed**\n"
+              elif [[ "$line" =~ ^###\ Behoben ]]; then
+                CURRENT_SECTION="fixed"
+                DESCRIPTION+="🛠️ **Fixed**\n"
+              elif [[ "$line" =~ ^###\ Neu ]]; then
+                CURRENT_SECTION="added"
+                DESCRIPTION+="✨ **Added**\n"
+              elif [[ "$line" =~ ^###\ Technisch ]]; then
+                CURRENT_SECTION="technical"
+                DESCRIPTION+="⚙️ **Technical**\n"
+              elif [[ "$line" =~ ^###\ Quelle ]]; then
+                CURRENT_SECTION=""
+              elif [[ "$line" =~ ^###\ Wichtig ]]; then
+                CURRENT_SECTION=""
+              elif [[ "$line" =~ ^###\ Bekannt ]]; then
+                CURRENT_SECTION=""
+              elif [[ "$line" =~ ^-\ (.+) ]]; then
+                ITEM="${BASH_REMATCH[1]}"
+                if [ -n "$CURRENT_SECTION" ]; then
+                  DESCRIPTION+="$ITEM\n"
+                fi
+              fi
+            done <<< "$MATCH"
+          fi
+
+          if [ -z "$DESCRIPTION" ]; then
+            DESCRIPTION="Alle Änderungen gibt es auf GitHub."
+          fi
+
+          # Discord-Nachricht bauen: @everyone als Content + Embed mit Changelog
+          JSON=$(cat <<EOF
+          {
+            "content": "@everyone",
+            "embeds": [{
+              "title": "🚀 LMU RACECONTROL v${VERSION} is out!",
+              "url": "$RELEASE_URL",
+              "color": 5242880,
+              "description": "$DESCRIPTION",
+              "footer": {
+                "text": "LMU RACECONTROL – Das Tool für Rennkommissare"
+              },
+              "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%S.000Z)"
+            }]
+          }
+          EOF
+          )
+
+          curl -H "Content-Type: application/json" -d "$JSON" "$DISCORD_WEBHOOK"
+          echo "✅ Discord-Benachrichtigung gesendet"
