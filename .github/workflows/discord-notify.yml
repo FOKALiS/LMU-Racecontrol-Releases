@@ -3,6 +3,13 @@ name: Discord Release Notification
 on:
   release:
     types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Git tag to use for the notification (e.g. v0.9.5)'
+        required: true
+        type: string
+        default: 'v0.9.5'
 
 jobs:
   notify:
@@ -25,6 +32,10 @@ jobs:
             exit 0
           fi
 
+          # Bei workflow_dispatch den manuell eingegebenen Tag verwenden, sonst vom Release-Event
+          if [ -n "${{ inputs.tag }}" ]; then
+            RELEASE_TAG="${{ inputs.tag }}"
+          fi
           VERSION="${RELEASE_TAG#v}"
 
           # Changelog parsen – den Abschnitt für diese Version extrahieren
