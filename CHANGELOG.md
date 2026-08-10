@@ -4,6 +4,71 @@ Alle nennenswerten Änderungen an LMU Race Control werden hier dokumentiert.
 Format angelehnt an [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
 
+## [0.9.5] - 10.08.2026 (Release-Repo, Update-Fix, Discord-Notification, Server-Backup, Lizenz-Deaktivierung)
+### Hinzugefügt
+- **Release-Repo erstellt:** `FOKALiS/LMU-Racecontrol-Releases` – NUR Release-Artefakte (kein Quellcode)
+- **Discord-Release-Benachrichtigung:** Workflow `.github/workflows/discord-notify.yml` – automatisch bei Release mit formatiertem Changelog
+- **Server-Backup-Script:** `scripts/backup-server.ps1` – automatisch (Task Scheduler) + manuell
+- **Lizenz-Deaktivierung:** User kann Lizenz deaktivieren (Rechnerwechsel) – in Einstellungen
+- **Hilfe-System:** Neue ausführliche Hilfeseiten (Lizenz, API-Key, Server, Discord)
+
+### Geändert
+- **Update-URL umgestellt:** Von altem Haupt-Repo auf `FOKALiS/LMU-Racecontrol-Releases`
+- **Tauri-Signing-Key erneuert:** Neuer Key im Release-Repo als Secret hinterlegt
+- **Keygen API Token erneuert:** Für Lizenzsystem
+
+### Behoben
+- **Update-Fix:** Alte v0.9.4-Installationen müssen einmalig manuell aktualisiert werden (geänderter Signing-Key + URL)
+
+## [0.9.4] - 07.08.2026 (API-Key Lookup, Server-Bereinigung)
+### Hinzugefügt
+- **Server-Endpunkt `POST /api/lookup-api-key`:** Validiert License-Key live bei Keygen, legt automatisch Tenant + API-Key mit korrektem Tier an (Enterprise L/XL/HOWE)
+- **Button "API-Key abfragen":** In Einstellungen → Server Verbindung – fragt API-Key zum License-Key ab (nur bei lizenzierter Enterprise)
+- **Version in Lizenz-Überschrift:** "Lizenz Informationen – Version: Enterprise XL (Server)"
+
+### Geändert
+- **Server-URL-Feld entfernt:** Muss vom User nicht änderbar sein
+- **Server `DELETE /api/incidents`:** Löscht nur Incidents des eigenen Tenants (team-sicher)
+- **Server `purge_old_incidents`:** Auto-Bereinigung alter Vorfälle (>26h) alle 30 Minuten
+- **`clear_all_incidents`:** Löscht jetzt auch Server-Vorfälle des eigenen Tenants (kein fremdes Team)
+
+## [0.9.1] - 06.08.2026 (Weiße Flagge Fix)
+### Behoben
+- **Weiße Flagge Fix:** Auch die weiße Flagge (langsames Fahrzeug) prüft jetzt `> MIN_STOPPED_SPEED_KMH (0.5 km/h)`, damit Fahrzeuge mit exakt 0.0 km/h (Pipo Derani) nicht fälschlich als "langsam" gemeldet werden
+
+## [0.9.0] - 06.08.2026 (Pipo Derani Fix, Discord-Formatierung, UI-Verbesserungen)
+### Behoben
+- **Pipo Derani Fix:** `MIN_STOPPED_SPEED_KMH = 0.5` eingeführt – Fahrzeuge mit 0.0 km/h werden nicht mehr als Stillstand erkannt
+
+### Geändert
+- **Discord-Webhook:** Formatierung überarbeitet (Fahrer, Verwarn-/Strafpunkte, "N.A." bei leerer Kurve)
+- **Einstellungen:** Überschrift linksbündig (text-align: center → left)
+- **Ordnersymbol (📂)** für LMU-Pfad-Auswahl wieder eingebaut
+- **Archiv:** Entscheidungs-Badge öffnet jetzt InvestigationModal
+- **Fenster-Titel:** "LMU RACECONTROL – Das Tool für Rennkommissare"
+
+## [0.8.8] - 05.08.2026 (Vorfall-Erkennung überarbeitet, Keyboard-Config Fix)
+### Geändert
+- **Vorfall-Erkennung überarbeitet:**
+  - ROT: Impact >3.0g, Rundenzeit >30%, Stillstand <10 km/h
+  - GELB: Rundenzeit >15%, Positionsverlust ≥3, FCY-Verstoß
+  - WEISS (NEU): >30s unter 50 km/h (Timer-basiert)
+- **Session-Buttons:** Nicht mehr klickbar, active State aus LMU (`session?.session_type`)
+- **Keyboard-Config gefixt:**
+  - Vollständige Scancode-Tabelle (fehlende Tasten ergänzt)
+  - "Onboard Cameras" unterstützt
+  - OnceLock → RwLock (Reload funktioniert jetzt mehrfach)
+- **Datei-Browser (📂)** für LMU-Installationspfad in Einstellungen
+- `@tauri-apps/plugin-dialog` installiert
+
+## [0.8.7] - 05.08.2026 (Timer, Splashscreen, Connect-Sperre)
+### Geändert
+- Timer: replay_pause() via F11 nach Vorlauf+Nachlauf
+- LIVE-Button: onSwitchToLive?.() in allen 3 Views
+- Splashscreen: Copyright "FOKALiS - Film & Medienagentur"
+- Connect-Button deaktiviert wenn nicht lizenziert
+- Session-Buttons/Player-Bar/Filter-Tabs als eigene CSS-Klassen
+
 ## [0.8.3] - 01.08.2026 (Figma MCP Integration + Player-Bar Icons)
 ### Hinzugefügt
 - **Figma MCP Server** (`figma-developer-mcp` v0.13.2) installiert und konfiguriert
