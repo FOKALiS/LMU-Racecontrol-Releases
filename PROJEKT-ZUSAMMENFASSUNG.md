@@ -3,11 +3,11 @@
 ## Projekt
 **LMU RACECONTROL** – Tauri-basiertes Desktop-Tool für Le Mans Ultimate Rennkommissionen.
 - **Pfad:** `C:\Users\Administrator\Documents\AI\Software Entwicklung\LMU Racecontrol\Tool\lmu-race-control`
-- **Aktuelle Version:** v0.9.4
-- **Build-Workflow:** https://github.com/FOKALiS/LMU-Racecontrol/actions
+- **Aktuelle Version:** v0.9.5
+- **Build-Workflow:** https://github.com/FOKALiS/LMU-Racecontrol-Releases/actions
 - **Release-Versionierung:** Zweite Kommastelle erhöhen (z. B. 0.9.0 → 0.9.1)
 - **User ist Grafik Designer, kein Code** – Schritt-für-Schritt-Anleitung nötig
-- **Letzter Commit:** `2929eda` (v0.9.4 – API-Key Lookup + Server-Bereinigung)
+- **Letzter Commit:** `2c650cd` (v0.9.5 – Neue Hilfe, aktualisierter Signing-Key)
 - **GitHub:** `origin/main` auf dem aktuellsten Stand, Arbeitsverzeichnis sauber
 
 ## Wichtige Pfade
@@ -22,7 +22,35 @@
   - `C:\Users\Administrator\Documents\AI\Software Entwicklung\LMU Racecontrol\Logo\LMU RC Logo - hell.png` (1024x486, breites Banner)
   - `C:\Users\Administrator\Documents\AI\Software Entwicklung\LMU Racecontrol\Logo\LMU RC - Icon transparent.png` (1024x1024, Flaggen-Symbol)
 
-## FUNKTIONIERT ✅ (Stand v0.9.1)
+## RELEASE-REPO (seit v0.9.5)
+- **Repository:** `https://github.com/FOKALiS/LMU-Racecontrol-Releases`
+- **Zweck:** Enthält NUR Release-Artefakte (kein Quellcode):
+  - `README.md` – Projektbeschreibung (MUSS bei jedem Push aktualisiert werden!)
+  - `CHANGELOG.md` – Änderungshistorie (MUSS bei jedem Push aktualisiert werden!)
+  - `latest.json` – Update-Info (Version, Signatur, Download-URL)
+  - `.github/workflows/discord-notify.yml` – Discord-Benachrichtigung bei Release
+- **Update-URL in tauri.conf.json:** `https://github.com/FOKALiS/LMU-Racecontrol-Releases/releases/latest/download/latest.json`
+- **Discord-Webhook:** Als Secret `DISCORD_RELEASE_WEBHOOK` im Release-Repo hinterlegt
+- **Tauri-Signing-Key:** Als Secret im Release-Repo hinterlegt (für CI-Builds)
+- **Haupt-Repo (`LMU-Racecontrol`):** Existiert nicht mehr – wurde gelöscht/umbenannt
+
+### ⚠️ WICHTIG: README & CHANGELOG SYNC
+Bei **jedem Push** in das Hauptprojekt müssen README.md und CHANGELOG.md **manuell** in das Release-Repo kopiert werden:
+```bash
+cd "C:\Users\Administrator\Dokumente\AI\Software Entwicklung\LMU Racecontrol\Tool\lmu-race-control"
+# 1. Ins Release-Repo wechseln
+cd ..\temp-release-repo
+# 2. Aktuelle Dateien aus Hauptprojekt kopieren
+Copy-Item '..\lmu-race-control\README.md' 'README.md' -Force
+Copy-Item '..\lmu-race-control\CHANGELOG.md' 'CHANGELOG.md' -Force
+# 3. Committen und pushen
+git add README.md CHANGELOG.md
+git commit -m "Update README & CHANGELOG"
+git push origin main
+```
+**Ohne diesen Schritt** sind README und CHANGELOG im Release-Repo veraltet!
+
+## FUNKTIONIERT ✅ (Stand v0.9.5)
 
 ### Kamera-Steuerung
 - **3 Kamera-Buttons:** "Bord", "TV", "Heck"
@@ -75,11 +103,17 @@
 ### Splashscreen (v0.8.7)
 - Copyright: "FOKALiS - Film & Medienagentur"
 
+### Update-Funktion (v0.9.5 – repariert)
+- **Update-URL:** `https://github.com/FOKALiS/LMU-Racecontrol-Releases/releases/latest/download/latest.json`
+- **Signing-Key:** Neu erstellt (ab v0.9.5)
+- **Problem:** Alte Versionen (v0.9.4) haben andere Update-URL + anderen Key → manuelle Neuinstallation nötig
+- **Ab v0.9.5:** Automatische Updates funktionieren dauerhaft
+
 ### Weitere funktionierende Features
 - Fahrer-Fokus per Klick auf Fahrerzeile (REST-API PUT `/rest/watch/focus/{slotID}`)
 - Speed-Anzeige
 - Connect/Disconnect
-- Lizenzsystem (Online-Aktivierung)
+- Lizenzsystem (Online-Aktivierung via Keygen)
 - Standings-Updates per Polling (1s Intervall)
 - Connect-Button deaktiviert wenn nicht lizenziert (v0.8.7)
 - Switch to Live via 86400s-Trick
@@ -145,6 +179,7 @@
 - `dump_shared_memory.py`, `read_lmu_sm.py` – Shared Memory Analyse
 - `generate-icons.py` – generiert alle Icons + Logo aus den Quellbildern
 - `check_icons_final.py` – prüft Icon-Größen + erstellt ICO mit 10 Windows-Größen
+- **`backup-server.ps1`** – Server-Backup-Script (automatisch/manuell) – NEU (v0.9.5)
 
 ## WICHTIGE RUST-DATEIEN
 - `src-tauri/src/main.rs` – `jump_to_incident_replay` Command (Doppel-Zeitsprung-Logik), Commands
@@ -156,10 +191,10 @@
 - `src-tauri/src/incidents.rs` – Vorfall-Erkennung (ROT/GELB/WEISS), Heuristik
 - `src-tauri/src/shared_memory.rs` – LMU Shared Memory Zugriff (LMU_Data, Impact-Offsets)
 - `src-tauri/src/fcy.rs` – FCY-Statusmaschine (Idle → Countdown → Active)
-- `src-tauri/src/db.rs` – SQLite-Datenbank (Incidents, Settings, License)
+- `src-tauri/src/db.rs` – SQLite-Datenbank (Incidents, Settings, License) inkl. `deactivate_license` (v0.9.5)
 - `src-tauri/src/discord.rs` – Discord-Webhook-Versand
 - `src-tauri/src/settings.rs` – Settings-Speicher (JSON-Datei)
-- `src-tauri/src/license.rs` – Lizenzsystem (Online-Aktivierung)
+- `src-tauri/src/license.rs` – Lizenzsystem (Online-Aktivierung, Deaktivierung bei Rechnerwechsel)
 
 ## WICHTIGE FRONTEND-DATEIEN
 - `frontend/src/App.tsx` – Haupt-App, Routing, View-Steuerung, session-Prop für Views
@@ -168,12 +203,66 @@
 - `frontend/src/views/FahrerfeldView.tsx` – Fahrerfeld-Ansicht (Session-Info, Player, Filter, Tabelle)
 - `frontend/src/views/VorfaelleView.tsx` – Vorfälle-Ansicht (Session-Info, Player, Filter, Vor/Nachlauf, Tabelle)
 - `frontend/src/views/ArchivView.tsx` – Archiv-Ansicht
-- `frontend/src/views/EinstellungenView.tsx` – Einstellungen (Discord Webhook, FCY, Vorlauf/Nachlauf, LMU-Pfad mit Datei-Browser, Tastenbelegung, Danger Zone)
+- `frontend/src/views/EinstellungenView.tsx` – Einstellungen (Discord Webhook, FCY, Vorlauf/Nachlauf, LMU-Pfad mit Datei-Browser, Tastenbelegung, Danger Zone, Lizenz-Deaktivierung)
 - `frontend/src/splashscreen.tsx` – Splashscreen (Logo, Version, Update-Check)
 - `frontend/src/styles.css` – Alle Styles (~2200 Zeilen)
 - `frontend/src/i18n/translations.ts` – Übersetzungen (DE/EN)
 
+## SERVER-BACKUP (v0.9.5)
+- **Script:** `scripts/backup-server.ps1`
+- **Backup-Ziel:** V-Server (ZAP) – per SCP/SSH
+- **Ausführung:** 
+  - **Automatisch:** Via Task Scheduler (täglich)
+  - **Manuell:** `.\scripts\backup-server.ps1`
+- **Backup-Inhalt:** `lmu-race-control.db` + Konfiguration
+
+## LIZENZ-DEAKTIVIERUNG (v0.9.5)
+- **Funktion:** User kann Lizenz deaktivieren (z. B. bei Rechnerwechsel)
+- **Ablauf:** 
+  - User klickt "Lizenz deaktivieren" in Einstellungen
+  - Keygen-API deaktiviert die Lizenz
+  - Lokale Lizenz-Daten werden gelöscht
+  - User kann Lizenz auf neuem Rechner reaktivieren
+- **Implementiert in:** `src-tauri/src/license.rs` + `src-tauri/src/db.rs` + `EinstellungenView.tsx`
+
+## KEYGEN-SETUP (v0.9.5)
+- **API-Token:** Wurde erneuert
+- **Dokumentation:** `KEYGEN_SETUP.md` im Projekt
+- **Lizenz-Prüfung:** Online-Aktivierung mit Keygen.io
+- **Tier-System:** Basic (lokal) / Enterprise L/XL/HOWE (Server)
+
+## DISCORD-BENACHRICHTIGUNG BEI RELEASE (v0.9.5)
+- **Workflow:** `.github/workflows/discord-notify.yml` im Release-Repo
+- **Auslösung:** Automatisch bei jedem neuen GitHub-Release (published) ODER manuell via GitHub Actions
+- **Format:**
+  ```
+  🚀 **LMU RACECONTROL v0.X.X is out!**
+
+  ✨ **Added**
+  - Feature 1
+  - Feature 2
+
+  🔧 **Changed**
+  - Change 1
+
+  🛠️ **Fixed**
+  - Fix 1
+  ```
+- **Quelle:** Der Release-Body (Beschreibungstext beim Erstellen des Releases)
+- **Webhook:** Eingetragen als Secret `DISCORD_RELEASE_WEBHOOK`
+
 ## CHANGELOG – Änderungen pro Version
+
+### v0.9.5 (10.08.2026)
+- **Release-Repo erstellt:** `FOKALiS/LMU-Racecontrol-Releases` – NUR Release-Artefakte (kein Quellcode)
+- **Update-URL umgestellt:** Von altem Haupt-Repo auf Release-Repo
+- **Tauri-Signing-Key erneuert:** Neuer Key im Release-Repo als Secret hinterlegt
+- **Discord-Release-Benachrichtigung:** Workflow `.github/workflows/discord-notify.yml` – automatisch bei Release
+- **Keygen API Token erneuert:** Für Lizenzsystem
+- **Server-Backup-Script:** `scripts/backup-server.ps1` – automatisch (Task Scheduler) + manuell
+- **Lizenz-Deaktivierung:** User kann Lizenz deaktivieren (Rechnerwechsel) – in Einstellungen
+- **Hilfe-System:** Neue ausführliche Hilfeseiten (Lizenz, API-Key, Server, Discord)
+- **Update-Fix:** Alte v0.9.4-Installationen müssen einmalig manuell aktualisiert werden (geänderter Signing-Key + URL)
 
 ### v0.9.4 (07.08.2026)
 - **Server-Endpunkt `POST /api/lookup-api-key`:** Validiert License-Key live bei Keygen, legt automatisch Tenant + API-Key mit korrektem Tier an (Enterprise L/XL/HOWE)
@@ -229,9 +318,8 @@
 1. **Manufacturers einbinden** – Hersteller-Daten aus LMU-API in FahrerfeldView anzeigen
 2. **VE (Verbale Entscheidung) einbinden** – Neue Funktion/Feature für mündliche Urteile
 3. **Tabellen-Zellen-Ausrichtung** – Zellen-Inhalte in den Tabellen korrekt ausrichten
-4. **Discord Webhook testen** – Webhook-Funktionalität prüfen und ggf. korrigieren
-5. **Shared Memory Impact-Daten testen** – Wenn LMU läuft, ob `impact_mag` Daten liefert
-6. **Replay-Zeit ausführlich testen** – Doppel-Zeitsprung in der Praxis prüfen
+4. **Shared Memory Impact-Daten testen** – Wenn LMU läuft, ob `impact_mag` Daten liefert
+5. **Replay-Zeit ausführlich testen** – Doppel-Zeitsprung in der Praxis prüfen
 
 ## 🚀 GROSSES ZIEL: Server-Architektur für Enterprise (geplant ab 07.08.2026)
 
@@ -292,6 +380,7 @@ lmu-race-control/          ← EIN Repository (das bestehende)
 | FCY-Überwachung | ✅ | ✅ |
 | Kamera-Steuerung | ✅ | ✅ |
 | Replay-Steuerung | ✅ | ✅ |
+| Update-Funktion | ✅ | ✅ |
 | Server-Anbindung | ❌ | ✅ |
 | Team-Übersicht | ❌ | ✅ |
 | Mandanten-Verwaltung | ❌ | ✅ (nur Admin) |
@@ -301,8 +390,12 @@ lmu-race-control/          ← EIN Repository (das bestehende)
 cd "C:\Users\Administrator\Documents\AI\Software Entwicklung\LMU Racecontrol\Tool\lmu-race-control"
 cargo tauri build
 ```
-- Installer: `src-tauri\target\release\bundle\nsis\LMU RACECONTROL_0.9.0_x64-setup.exe`
-- MSI: `src-tauri\target\release\bundle\msi\LMU RACECONTROL_0.9.0_x64_en-US.msi`
-- "A public key found, but no private key" Fehler = nur für Auto-Update, Installer funktionieren trotzdem
+- Installer: `src-tauri\target\release\bundle\nsis\LMU RACECONTROL_0.9.5_x64-setup.exe`
+- MSI: `src-tauri\target\release\bundle\msi\LMU RACECONTROL_0.9.5_x64_en-US.msi`
+- **Signing-Key:** Erforderlich für Auto-Update (im Release-Repo als Secret)
 - Vor Build: Version in `src-tauri/Cargo.toml`, `package.json`, `src-tauri/tauri.conf.json` anpassen
 - Server-Build: `cargo build --release -p lmu-server` (separate .exe)
+- **Release hochladen:** Assets müssen in `FOKALiS/LMU-Racecontrol-Releases` veröffentlicht werden
+  - `latest.json` (mit korrekter Signatur)
+  - `LMU.RACECONTROL_X.X.X_x64-setup.exe`
+  - `LMU.RACECONTROL_X.X.X_x64-setup.exe.sig`
