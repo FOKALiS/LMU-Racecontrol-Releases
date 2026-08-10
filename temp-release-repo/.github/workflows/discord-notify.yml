@@ -18,28 +18,36 @@ jobs:
           RELEASE_TAG: ${{ github.event.release.tag_name }}
           RELEASE_URL: ${{ github.event.release.html_url }}
           RELEASE_NAME: ${{ github.event.release.name }}
-          DOWNLOAD_URL: ${{ github.event.release.html_url }}
         shell: bash
         run: |
           if [ -z "$DISCORD_WEBHOOK" ]; then
-            echo "⚠️ Kein Discord Webhook konfiguriert (DISCORD_RELEASE_WEBHOOK)"
+            echo "⚠️ No Discord webhook configured (DISCORD_RELEASE_WEBHOOK)"
             exit 0
           fi
 
           VERSION="${RELEASE_TAG#v}"
 
-          # Changelog parsen: Section für diese Version extrahieren
+          # Parse changelog section for this version
           CHANGELOG=$(cat CHANGELOG.md)
-          
-          # Extrahiere den Abschnitt für diese Version
           SECTION=$(echo "$CHANGELOG" | awk "/^## \\[$VERSION\\]/,/^## \\[/" | head -n -1)
-          
-          # Beschreibung aufbereiten
+
+          # Build description
           DESCRIPTION=""
           while IFS= read -r line; do
             if [[ "$line" =~ ^###\ (.+) ]]; then
               HEADER="${BASH_REMATCH[1]}"
-              DESCRIPTION+="__**${HEADER}**__\n"
+              case "$HEADER" in
+                "Hinzugefügt"|"Added"|"Neu"|"New")
+                  DESCRIPTION+=":sparkles: **Added**\n" ;;
+                "Geändert"|"Changed")
+                  DESCRIPTION+=":wrench: **Changed**\n" ;;
+                "Behoben"|"Fixed"|"Bug Fixes"|"Fixes")
+                  DESCRIPTION+=":bug: **Fixed**\n" ;;
+                "Technisch"|"Technical"|"Technical Details")
+                  DESCRIPTION+=":gear: **Technical**\n" ;;
+                *)
+                  DESCRIPTION+="**$HEADER**\n" ;;
+              esac
             elif [[ "$line" =~ ^-\ \*\*(.+)\*\*:\ (.*) ]]; then
               ITEM="${BASH_REMATCH[1]}"
               DETAIL="${BASH_REMATCH[2]}"
@@ -50,20 +58,20 @@ jobs:
             fi
           done <<< "$SECTION"
 
-          # Fallback wenn kein Changelog-Eintrag gefunden
+          # Fallback if no changelog entry found
           if [ -z "$DESCRIPTION" ]; then
-            DESCRIPTION="Release Notes auf GitHub ansehen."
+            DESCRIPTION="See release notes on GitHub for details."
           fi
 
-          # Kürze die Beschreibung auf max 2048 Zeichen (Discord-Limit)
+          # Truncate to max 2048 chars (Discord limit)
           if [ ${#DESCRIPTION} -gt 2000 ]; then
             DESCRIPTION="${DESCRIPTION:0:1997}..."
           fi
 
-          # Discord-Embed mit schönem Layout
+          # Build Discord embed with @everyone ping
           JSON=$(cat <<EOF
           {
-            "content": "",
+            "content": "@everyone",
             "embeds": [{
               "title": "🚀 **LMU RACECONTROL $RELEASE_TAG**",
               "url": "$RELEASE_URL",
@@ -74,13 +82,13 @@ jobs:
               "description": "$DESCRIPTION",
               "fields": [
                 {
-                  "name": "📥 **Download**",
-                  "value": "• [Installer herunterladen]($RELEASE_URL)\n• [Alle Versionen ansehen](https://github.com/FOKALiS/LMU-Racecontrol-Releases/releases)",
+                  "name": ":inbox_tray: **Download**",
+                  "value": "• [Download Installer]($RELEASE_URL)\n• [View all releases](https://github.com/FOKALiS/LMU-Racecontrol-Releases/releases)",
                   "inline": false
                 }
               ],
               "footer": {
-                "text": "LMU RACECONTROL – Das Tool für Rennkommissare",
+                "text": "LMU RACECONTROL – Race Control Tool for Le Mans Ultimate",
                 "icon_url": "https://raw.githubusercontent.com/FOKALiS/LMU-Racecontrol-Releases/main/lmu-rc-logo.png"
               },
               "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%S.000Z)"
@@ -90,4 +98,4 @@ jobs:
           )
 
           curl -H "Content-Type: application/json" -d "$JSON" "$DISCORD_WEBHOOK"
-          echo "✅ Discord-Benachrichtigung gesendet"
+          echo "✅ Discord notification sent"
