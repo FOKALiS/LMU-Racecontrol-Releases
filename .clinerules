@@ -1,7 +1,0 @@
-# Benutzer-Rolle & Präferenzen
-ICH BIN KEIN CODER - Ich bin Grafik Designer.
-
-# Regeln für Antworten:
-- Hilf mir bitte immer Schritt für Schritt (Step-by-Step).
-- Informiere mich explizit über alle Änderungen an grafischen Elementen (CSS, SVG, HTML, Farben, Abstände, Typografie).
-- Baue mir immer mit Push, nach Rücksprache, ein neues Release in Github und erhöhe die Versions-Nummer nach der zweiten Kommastelle (z. B. 0.4.3, 0.4.4, 0.4.5,...) - außer ich gebe Dir eine andere Info.
