@@ -85,7 +85,7 @@ jobs:
             DESCRIPTION="See the release notes on GitHub for details."
           fi
 
-          # Discord-Nachricht bauen: @everyone als Content + Embed mit Changelog
+          # Versuch 1: Mit @everyone
           JSON=$(cat <<EOF
           {
             "content": "@everyone",
@@ -103,5 +103,32 @@ jobs:
           EOF
           )
 
-          curl -H "Content-Type: application/json" -d "$JSON" "$DISCORD_WEBHOOK"
+          echo "Sending to Discord with @everyone..."
+          RESPONSE=$(curl -sS -f -X POST -H "Content-Type: application/json" -d "$JSON" "$DISCORD_WEBHOOK" 2>&1)
+          if [ $? -ne 0 ]; then
+            echo "⚠️ Failed with @everyone, retrying without mention..."
+            
+            # Versuch 2: Ohne @everyone (falls Webhook keine @everyone-Berechtigung hat)
+            JSON=$(cat <<EOF
+            {
+              "embeds": [{
+                "title": "🚀 LMU RACECONTROL v${VERSION} is out!",
+                "url": "$RELEASE_URL",
+                "color": 5242880,
+                "description": "@everyone\n\n$DESCRIPTION",
+                "footer": {
+                  "text": "LMU RACECONTROL – Das Tool für Rennkommissare"
+                },
+                "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%S.000Z)"
+              }]
+            }
+            EOF
+            )
+
+            RESPONSE=$(curl -sS -f -X POST -H "Content-Type: application/json" -d "$JSON" "$DISCORD_WEBHOOK" 2>&1)
+            if [ $? -ne 0 ]; then
+              echo "❌ Discord API error: $RESPONSE"
+              exit 1
+            fi
+          fi
           echo "✅ Discord notification sent"
