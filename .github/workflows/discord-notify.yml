@@ -103,8 +103,8 @@ jobs:
             DESCRIPTION="See the release notes on GitHub for details."
           fi
 
-          # Vollständige Nachricht bauen: @everyone + Header + Changelog + Footer
-          FULL_MESSAGE="@everyone\n🚀 **LMU RACECONTROL v${VERSION} is out!**\n${RELEASE_URL}\n\n${DESCRIPTION}\n\n─\nLMU RACECONTROL – The tool for race stewards"
+          # Vollständige Nachricht bauen: @everyone + Header + Changelog + Footer (ohne GitHub-Link)
+          FULL_MESSAGE="@everyone\n🚀 **LMU RACECONTROL v${VERSION} is out!**\n\n${DESCRIPTION}\n\n─\nLMU RACECONTROL – The tool for race stewards"
 
           # \n durch echte Newlines ersetzen
           FULL_MESSAGE=$(echo -e "$FULL_MESSAGE")
