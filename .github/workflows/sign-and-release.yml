@@ -45,8 +45,8 @@ jobs:
           EXE_FILE=$(ls /tmp/*.exe 2>/dev/null | head -1)
           echo "   File: $EXE_FILE"
           
-          # Key via Python dekodieren und sauber neukodieren
-          python3 -c "import base64,sys; raw=sys.stdin.read().strip(); print(base64.b64encode(base64.b64decode(raw)).decode())" <<< "$TAURI_SIGNING_PRIVATE_KEY" > /tmp/private_key.txt
+          # Key via Python dekodieren + neukodieren (OHNE trailing Newline)
+          python3 -c "import base64,sys; raw=sys.stdin.buffer.read().strip(); sys.stdout.buffer.write(base64.b64encode(base64.b64decode(raw)))" <<< "$TAURI_SIGNING_PRIVATE_KEY" > /tmp/private_key.txt
           
           KEY_SIZE=$(wc -c < /tmp/private_key.txt)
           echo "   Key file size: $KEY_SIZE bytes"
