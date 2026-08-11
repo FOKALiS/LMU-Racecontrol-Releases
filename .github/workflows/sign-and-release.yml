@@ -30,9 +30,9 @@ jobs:
           gh release download "${{ github.event.release.tag_name }}" --pattern "*.exe" --dir /tmp
           echo "✅ EXE downloaded"
 
-      - name: Install Tauri CLI (for signer) via npm
+      - name: Install Tauri CLI (for signer)
         run: |
-          echo "📦 Installing Tauri CLI via npm (fast)..."
+          echo "📦 Installing Tauri CLI..."
           npm install -g @tauri-apps/cli@latest 2>&1
           echo "✅ Tauri CLI installed"
 
@@ -42,7 +42,6 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: |
           echo "🔐 Signing EXE ..."
-          echo "   Contents of /tmp:"
           ls -la /tmp/
           EXE_FILE=$(ls /tmp/*.exe 2>/dev/null | head -1)
           if [ -z "$EXE_FILE" ]; then
@@ -51,36 +50,68 @@ jobs:
           fi
           echo "   File: $EXE_FILE"
           
-          # Private Key bereinigen (Base64, keine Leerzeichen/Newlines)
-          CLEAN_KEY=$(echo "$TAURI_SIGNING_PRIVATE_KEY" | tr -d '\n\r ')
-          echo "   Clean key length: ${#CLEAN_KEY} chars"
+          # Key mit printf (kein extra Newline) in Datei schreiben
+          printf '%s' "$TAURI_SIGNING_PRIVATE_KEY" > /tmp/private_key.txt
+          KEY_LEN=$(wc -c < /tmp/private_key.txt)
+          echo "   Key file length: $KEY_LEN bytes"
+          echo "   Key start: $(head -c 40 /tmp/private_key.txt)..."
           
-          # Sign the file via stdin (pipe) – Tauri signer akzeptiert Base64 direkt
-          echo "$CLEAN_KEY" | npx tauri signer sign \
-            --private-key - \
+          # Prüfen ob Base64 (alphanumerisch + +/ =)
+          if grep -qE '^[A-Za-z0-9+/=]+$' /tmp/private_key.txt; then
+            echo "   ✅ Key is valid base64"
+          else
+            echo "   ⚠️ Key contains non-base64 chars – stripping whitespace"
+            # Whitespace entfernen und neu schreiben
+            tr -d '\n\r\t ' < /tmp/private_key.txt > /tmp/private_key_clean.txt
+            mv /tmp/private_key_clean.txt /tmp/private_key.txt
+            echo "   Cleaned: $(wc -c < /tmp/private_key.txt) bytes"
+          fi
+          
+          # Sign with key file (robustester Weg)
+          npx tauri signer sign \
+            --private-key /tmp/private_key.txt \
             --password "$TAURI_SIGNING_PRIVATE_KEY_PASSWORD" \
             "$EXE_FILE" 2>&1
           
           SIG_FILE="${EXE_FILE}.sig"
-          if [ ! -f "$SIG_FILE" ]; then
-            echo "❌ Signing with npm/pipe failed – trying cargo fallback..."
-            # Fallback: mit cargo + Key als Datei (ohne extra Newline)
-            echo -n "$CLEAN_KEY" > /tmp/private_key_clean.pem
-            cargo install tauri-cli --version "^2" --locked 2>&1
-            cargo tauri signer sign \
-              --private-key /tmp/private_key_clean.pem \
-              --password "$TAURI_SIGNING_PRIVATE_KEY_PASSWORD" \
-              "$EXE_FILE" 2>&1
-            rm -f /tmp/private_key_clean.pem
+          if [ -f "$SIG_FILE" ]; then
+            echo "✅ Signed: $(basename $SIG_FILE)"
+            echo "   Signature start: $(head -c 40 $SIG_FILE)..."
+            rm -f /tmp/private_key.txt
+            exit 0
           fi
+          
+          # Fallback 1: cargo tauri signer
+          echo "❌ npm signer failed – trying cargo..."
+          cargo install tauri-cli --version "^2" --locked 2>&1
+          cargo tauri signer sign \
+            --private-key /tmp/private_key.txt \
+            --password "$TAURI_SIGNING_PRIVATE_KEY_PASSWORD" \
+            "$EXE_FILE" 2>&1
+          
+          SIG_FILE="${EXE_FILE}.sig"
+          if [ -f "$SIG_FILE" ]; then
+            echo "✅ Signed via cargo: $(basename $SIG_FILE)"
+            rm -f /tmp/private_key.txt
+            exit 0
+          fi
+          
+          # Fallback 2: direkter Base64-String (ohne Datei)
+          echo "❌ cargo signer failed – trying direct base64 string..."
+          KEY_STRING=$(cat /tmp/private_key.txt)
+          npx tauri signer sign \
+            --private-key "$KEY_STRING" \
+            --password "$TAURI_SIGNING_PRIVATE_KEY_PASSWORD" \
+            "$EXE_FILE" 2>&1
+          
+          rm -f /tmp/private_key.txt
           
           SIG_FILE="${EXE_FILE}.sig"
           if [ ! -f "$SIG_FILE" ]; then
-            echo "❌ Signing failed – no .sig file created"
+            echo "❌ All signing methods failed – no .sig file created"
             exit 1
           fi
           echo "✅ Signed: $(basename $SIG_FILE)"
-          echo "   Signature start: $(cat $SIG_FILE | head -c 40)..."
 
       - name: Upload .sig to release
         env:
