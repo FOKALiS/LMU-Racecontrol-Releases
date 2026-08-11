@@ -36,7 +36,7 @@ jobs:
           cargo install tauri-cli --version "^2" 2>&1
           echo "✅ tauri-cli installed"
 
-      - name: Sign the EXE (Python base64 re-encode)
+      - name: Sign the EXE (with debug)
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
@@ -45,12 +45,18 @@ jobs:
           EXE_FILE=$(ls /tmp/*.exe 2>/dev/null | head -1)
           echo "   File: $EXE_FILE"
           
-          # Key via Python dekodieren + neukodieren (OHNE trailing Newline)
-          python3 -c "import base64,sys; raw=sys.stdin.buffer.read().strip(); sys.stdout.buffer.write(base64.b64encode(base64.b64decode(raw)))" <<< "$TAURI_SIGNING_PRIVATE_KEY" > /tmp/private_key.txt
+          # Key in Datei schreiben
+          printf '%s' "$TAURI_SIGNING_PRIVATE_KEY" > /tmp/private_key.txt
+          echo "   Key size: $(wc -c < /tmp/private_key.txt) bytes"
+          echo "   Key hex last 10: $(tail -c 10 /tmp/private_key.txt | od -A n -t x1)"
           
-          KEY_SIZE=$(wc -c < /tmp/private_key.txt)
-          echo "   Key file size: $KEY_SIZE bytes"
-          echo "   Key starts with: $(head -c 20 /tmp/private_key.txt)..."
+          # Python: Base64 dekodieren + neukodieren (einzeilig)
+          python3 -c "import base64,sys; d=open('/tmp/private_key.txt','rb').read().strip(); open('/tmp/private_key.txt','wb').write(base64.b64encode(base64.b64decode(d)))" 2>&1
+          if [ $? -ne 0 ]; then
+            echo "❌ Key is not valid base64"
+            exit 1
+          fi
+          echo "   Re-encoded key size: $(wc -c < /tmp/private_key.txt) bytes"
           
           # Signieren
           cargo tauri signer sign \
@@ -60,20 +66,10 @@ jobs:
           
           SIG_FILE="${EXE_FILE}.sig"
           if [ ! -f "$SIG_FILE" ]; then
-            echo "❌ File method failed – trying direct string..."
-            cargo tauri signer sign \
-              --private-key "$(cat /tmp/private_key.txt)" \
-              --password "$TAURI_SIGNING_PRIVATE_KEY_PASSWORD" \
-              "$EXE_FILE" 2>&1
-            SIG_FILE="${EXE_FILE}.sig"
-          fi
-          
-          rm -f /tmp/private_key.txt
-          
-          if [ ! -f "$SIG_FILE" ]; then
-            echo "❌ All signing methods failed – no .sig file created"
+            echo "❌ Signing failed"
             exit 1
           fi
+          rm -f /tmp/private_key.txt
           echo "✅ Signed: $(basename $SIG_FILE)"
           echo "   Signature start: $(head -c 40 $SIG_FILE)..."
 
