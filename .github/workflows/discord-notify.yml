@@ -23,8 +23,6 @@ jobs:
         env:
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_RELEASE_WEBHOOK }}
           RELEASE_TAG: ${{ github.event.release.tag_name }}
-          RELEASE_URL: ${{ github.event.release.html_url }}
-          RELEASE_NAME: ${{ github.event.release.name }}
         shell: bash
         run: |
           if [ -z "$DISCORD_WEBHOOK" ]; then
@@ -35,10 +33,6 @@ jobs:
           # Bei workflow_dispatch den manuell eingegebenen Tag verwenden, sonst vom Release-Event
           if [ -n "${{ inputs.tag }}" ]; then
             RELEASE_TAG="${{ inputs.tag }}"
-          fi
-          # Bei workflow_dispatch ist RELEASE_URL leer – Fallback auf den Tag-basierten Link
-          if [ -z "$RELEASE_URL" ]; then
-            RELEASE_URL="https://github.com/FOKALiS/LMU-Racecontrol-Releases/releases/tag/${RELEASE_TAG}"
           fi
           VERSION="${RELEASE_TAG#v}"
 
