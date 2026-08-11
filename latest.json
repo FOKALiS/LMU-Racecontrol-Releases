@@ -1,11 +1,11 @@
 ﻿{
     "platforms":  {
                       "windows-x86_64":  {
-                                             "signature":  "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTbjB3RHVOU0wydFpLY1JJOGFWclYwOTVRRFMrZjU2K21QazFSQnYzYWFNVEpYUWViTzF3UUwwaWhFVW9NN3pCVTFIYUg3aElVUHZUSTMrVzhaRG4ydUJIdjVGcG14VmdNPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg2NDUyNjY5CWZpbGU6TE1VLlJBQ0VDT05UUk9MXzAuOS42X3g2NC1zZXR1cC5leGUKbjdJYjkycFl4dFU5VHc5ZERUbFZXZkpGNWlrMmRidFFoWFUrVEhGT2FRRWpCUVJqYUx3cklmdXNnVTF3RDZMZUJrZGtISnRWRXZjU29Nd2ZoVVQyRHc9PQo=",
-                                             "url":  "https://github.com/FOKALiS/LMU-Racecontrol-Releases/releases/latest/download/LMU.RACECONTROL_0.9.6_x64-setup.exe"
+                                             "signature":  null,
+                                             "url":  "https://github.com/FOKALiS/LMU-Racecontrol-Releases/releases/latest/download/LMU.RACECONTROL_0.9.7_x64-setup.exe"
                                          }
                   },
-    "pub_date":  "2026-08-11T14:51:40+00:00",
-    "version":  "0.9.6",
-    "notes":  "Release v0.9.6"
+    "pub_date":  "2026-08-11T16:10:14+00:00",
+    "version":  "0.9.7",
+    "notes":  "Release v0.9.7"
 }
