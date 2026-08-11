@@ -1,4 +1,4 @@
-name: Release Signing
+name: Sign & Release
 
 on:
   release:
