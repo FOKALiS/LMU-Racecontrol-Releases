@@ -1,12 +1,10 @@
 name: Discord Release Notification
 
 on:
-  release:
-    types: [published]
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Git tag to use for the notification (e.g. v0.9.5)'
+        description: 'Release tag (e.g. v0.9.5)'
         required: true
         type: string
         default: 'v0.9.5'
