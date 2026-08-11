@@ -190,3 +190,66 @@ jobs:
           if [ $? -eq 0 ]; then
             echo "ℹ️  No changes to latest.json"
           fi
+
+      - name: Send Discord Notification
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_RELEASE_WEBHOOK }}
+        run: |
+          VERSION="${{ github.event.release.tag_name }}"
+          VERSION="${VERSION#v}"
+          
+          # Changelog für diese Version extrahieren
+          MATCH=$(awk -v ver="[$VERSION]" '
+            /^## / {found=0}
+            index($0, "## " ver) == 1 {found=1}
+            found {print}
+          ' CHANGELOG.md)
+          
+          DESCRIPTION=""
+          CURRENT_SECTION=""
+          FIRST_SECTION=true
+          
+          if [ -n "$MATCH" ]; then
+            while IFS= read -r line; do
+              if [[ "$line" =~ ^###\ Added ]]; then
+                [ "$FIRST_SECTION" = false ] && DESCRIPTION+="\n"
+                CURRENT_SECTION="added"; DESCRIPTION+="## ✨ Added\n"; FIRST_SECTION=false
+              elif [[ "$line" =~ ^###\ Changed ]]; then
+                [ "$FIRST_SECTION" = false ] && DESCRIPTION+="\n"
+                CURRENT_SECTION="changed"; DESCRIPTION+="## 🔧 Changed\n"; FIRST_SECTION=false
+              elif [[ "$line" =~ ^###\ Fixed ]]; then
+                [ "$FIRST_SECTION" = false ] && DESCRIPTION+="\n"
+                CURRENT_SECTION="fixed"; DESCRIPTION+="## 🛠️ Fixed\n"; FIRST_SECTION=false
+              elif [[ "$line" =~ ^###\ Technical ]]; then
+                [ "$FIRST_SECTION" = false ] && DESCRIPTION+="\n"
+                CURRENT_SECTION="technical"; DESCRIPTION+="## ⚙️ Technical\n"; FIRST_SECTION=false
+              elif [[ "$line" =~ ^###\ (Source|Important|Known) ]]; then
+                CURRENT_SECTION=""
+              elif [[ "$line" =~ ^-\ (.+) ]]; then
+                [ -n "$CURRENT_SECTION" ] && DESCRIPTION+="• ${BASH_REMATCH[1]}\n"
+              fi
+            done <<< "$MATCH"
+          fi
+          
+          [ -z "$DESCRIPTION" ] && DESCRIPTION="See the release notes on GitHub for details."
+          
+          # Nachricht OHNE Link
+          FULL_MESSAGE="@everyone\n🚀 **LMU RACECONTROL v${VERSION} is out!**\n\n${DESCRIPTION}\n\n─\nLMU RACECONTROL – The tool for race stewards"
+          FULL_MESSAGE=$(echo -e "$FULL_MESSAGE")
+          
+          # Senden
+          MAX_LEN=1900
+          while [ -n "$FULL_MESSAGE" ]; do
+            CHUNK="${FULL_MESSAGE:0:$MAX_LEN}"
+            if [ ${#FULL_MESSAGE} -gt $MAX_LEN ]; then
+              LAST_NEWLINE=$(echo "${CHUNK}" | awk 'END{print length-1}')
+              [ "$LAST_NEWLINE" -gt 0 ] && CHUNK="${FULL_MESSAGE:0:$LAST_NEWLINE}"
+            fi
+            JSON=$(jq -n --arg content "$CHUNK" '{content: $content}')
+            curl -sS -f -X POST -H "Content-Type: application/json" -d "$JSON" "$DISCORD_WEBHOOK" || {
+              echo "❌ Discord API error"
+              exit 1
+            }
+            FULL_MESSAGE="${FULL_MESSAGE:${#CHUNK}}"
+          done
+          echo "✅ Discord notification sent (no link)"
