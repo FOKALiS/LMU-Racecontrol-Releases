@@ -1,4 +1,4 @@
-name: Sign & Release
+name: Auto Sign Release
 
 on:
   release:
