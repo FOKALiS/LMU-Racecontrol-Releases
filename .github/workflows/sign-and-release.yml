@@ -35,7 +35,6 @@ jobs:
           echo "📦 Installing Tauri CLI via npm (fast)..."
           npm install -g @tauri-apps/cli@latest 2>&1
           echo "✅ Tauri CLI installed"
-          npx tauri --version 2>&1 || echo "⚠️ 'tauri' command not found, trying 'tauri-cli'..."
 
       - name: Sign the EXE
         env:
@@ -52,31 +51,28 @@ jobs:
           fi
           echo "   File: $EXE_FILE"
           
-          # Private Key in temporäre Datei schreiben (für Tauri Signer)
-          echo "$TAURI_SIGNING_PRIVATE_KEY" > /tmp/private_key.pem
-          echo "   Private key length: ${#TAURI_SIGNING_PRIVATE_KEY} chars"
-          echo "   Password length: ${#TAURI_SIGNING_PRIVATE_KEY_PASSWORD} chars"
+          # Private Key bereinigen (Base64, keine Leerzeichen/Newlines)
+          CLEAN_KEY=$(echo "$TAURI_SIGNING_PRIVATE_KEY" | tr -d '\n\r ')
+          echo "   Clean key length: ${#CLEAN_KEY} chars"
           
-          # Sign the file – creates .sig next to the .exe
-          npx tauri signer sign \
-            --private-key /tmp/private_key.pem \
+          # Sign the file via stdin (pipe) – Tauri signer akzeptiert Base64 direkt
+          echo "$CLEAN_KEY" | npx tauri signer sign \
+            --private-key - \
             --password "$TAURI_SIGNING_PRIVATE_KEY_PASSWORD" \
             "$EXE_FILE" 2>&1
           
           SIG_FILE="${EXE_FILE}.sig"
           if [ ! -f "$SIG_FILE" ]; then
-            echo "❌ Signing failed – no .sig file created"
-            echo "   Trying with 'cargo tauri signer sign' as fallback..."
-            # Fallback: versuche via cargo (falls npm nicht funktioniert hat)
+            echo "❌ Signing with npm/pipe failed – trying cargo fallback..."
+            # Fallback: mit cargo + Key als Datei (ohne extra Newline)
+            echo -n "$CLEAN_KEY" > /tmp/private_key_clean.pem
             cargo install tauri-cli --version "^2" --locked 2>&1
             cargo tauri signer sign \
-              --private-key /tmp/private_key.pem \
+              --private-key /tmp/private_key_clean.pem \
               --password "$TAURI_SIGNING_PRIVATE_KEY_PASSWORD" \
               "$EXE_FILE" 2>&1
+            rm -f /tmp/private_key_clean.pem
           fi
-          
-          # Aufräumen
-          rm -f /tmp/private_key.pem
           
           SIG_FILE="${EXE_FILE}.sig"
           if [ ! -f "$SIG_FILE" ]; then
@@ -84,7 +80,7 @@ jobs:
             exit 1
           fi
           echo "✅ Signed: $(basename $SIG_FILE)"
-          echo "   Signature: $(cat $SIG_FILE | head -c 40)..."
+          echo "   Signature start: $(cat $SIG_FILE | head -c 40)..."
 
       - name: Upload .sig to release
         env:
