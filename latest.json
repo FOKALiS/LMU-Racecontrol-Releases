@@ -1,11 +1,11 @@
 ﻿{
     "platforms":  {
                       "windows-x86_64":  {
-                                             "signature":  "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTbjB3RHVOU0wydGJxbG0xRnRNSDVmQXFpTjVqRGQ5TndVYXhHd3ZoYTlhcjlPOEJmSWQrc3hSd0YrdldOSVpvMVMwOEc5dlV5c01aa1hldlBEZitzejFubnhQaGUvT2dvPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg2NDU5NTY2CWZpbGU6TE1VLlJBQ0VDT05UUk9MXzAuOS42X3g2NC1zZXR1cC5leGUKT2J1azVlVkc1eVk0UStGRHFxTkNmL2FuVjBNbTROeitOQiswalFNUjlHeWJLTlRiOGQxa0JoSmpRZEtkUFRQdzdDcjR0cm5BdVN2K0RjTGQ0blRNRGc9PQo=",
+                                             "signature":  "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTbjB3RHVOU0wydForeHhQYkE4bDUrOWFJeFhRWUx1QjhBU2UyRWZWWnZHcytYbzU3dWFUQjdWSmlOcHJZaUtKTlpnVmcwSldiMFhxeExaMmg1RE93Z3ArQjNJbGN6NlFzPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg2NDYxMzU2CWZpbGU6TE1VLlJBQ0VDT05UUk9MXzAuOS42X3g2NC1zZXR1cC5leGUKWk9ycjZzZEVsejE2R2pXWFdVTE93ekFhRHQ3ODViVG1kaW9Rd3pOV2ZBRUQycFVxMEFheEM1NFY5WFlNNEcwbkZZWkpIWDJqdnlDU3QwbEZROHpYQkE9PQo=",
                                              "url":  "https://github.com/FOKALiS/LMU-Racecontrol-Releases/releases/latest/download/LMU.RACECONTROL_0.9.6_x64-setup.exe"
                                          }
                   },
-    "pub_date":  "2026-08-11T16:46:11+00:00",
+    "pub_date":  "2026-08-11T17:16:01+00:00",
     "version":  "0.9.6",
     "notes":  "## [0.9.6] - 2026-08-11 (Color-Specific Cooldown, Reset Detection, Improved Responsiveness) ### Added - **Reset detection (YELLOW):** New heuristic detects when a vehicle was slow/stopped on track and suddenly appears in the pits (reset after off-track). Normal pit entries (\u003e50 km/h) do NOT trigger. - **Color-specific cooldown:** RED (10s), YELLOW (30s), WHITE (30s) â€“ each color has its own cooldown timer. A RED incident no longer blocks YELLOW or WHITE detection. ### Changed - **RED cooldown reduced:** From 30s to 10s â€“ so a second collision shortly after the first is now detected. - **`DriverHistory` restructured:** Replaced single `last_incident_time` with three separate fields (`last_incident_time_red`, `last_incident_time_yellow`, `last_incident_time_white`). ### Technical - `src-tauri/src/incidents.rs` â€“ `RED_COOLDOWN_SECONDS = 10.0` introduced, `COOLDOWN_SECONDS = 30.0` remains for YELLOW/WHITE - `update_history()` now tracks `was_on_track` and `was_slow_while_on_track` for reset detection"
 }
