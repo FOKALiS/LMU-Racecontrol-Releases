@@ -20,7 +20,7 @@ jobs:
 
       - name: Send Discord Notification
         env:
-          DISCORD_WEBHOOK: ${{ secrets.DISCORD_RELEASE_WEBHOOK }}
+          DISCORD_WEBHOOK: https://discord.com/api/webhooks/1536255295263735829/4ZwtcC1v7lQYc06hlG1MGuNdrZdZUQMgD-3jARCifOP-DJxWH98qkOKan1twTg2y7C_q
         shell: bash
         run: |
           if [ -z "$DISCORD_WEBHOOK" ]; then
