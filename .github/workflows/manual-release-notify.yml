@@ -1,0 +1,92 @@
+name: Release Notification (manual only)
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag (e.g. v0.9.5)'
+        required: true
+        type: string
+        default: 'v0.9.5'
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Send Discord Notification
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_RELEASE_WEBHOOK }}
+        shell: bash
+        run: |
+          if [ -z "$DISCORD_WEBHOOK" ]; then
+            echo "⚠️ No Discord webhook configured"
+            exit 0
+          fi
+
+          RELEASE_TAG="${{ inputs.tag }}"
+          VERSION="${RELEASE_TAG#v}"
+
+          MATCH=$(awk -v ver="[$VERSION]" '
+            /^## / {found=0}
+            index($0, "## " ver) == 1 {found=1}
+            found {print}
+          ' CHANGELOG.md)
+
+          DESCRIPTION=""
+          CURRENT_SECTION=""
+          FIRST_SECTION=true
+
+          if [ -n "$MATCH" ]; then
+            while IFS= read -r line; do
+              if [[ "$line" =~ ^###\ Added ]]; then
+                if [ "$FIRST_SECTION" = false ]; then DESCRIPTION+="\n"; fi
+                CURRENT_SECTION="added"; DESCRIPTION+="## ✨ Added\n"; FIRST_SECTION=false
+              elif [[ "$line" =~ ^###\ Changed ]]; then
+                if [ "$FIRST_SECTION" = false ]; then DESCRIPTION+="\n"; fi
+                CURRENT_SECTION="changed"; DESCRIPTION+="## 🔧 Changed\n"; FIRST_SECTION=false
+              elif [[ "$line" =~ ^###\ Fixed ]]; then
+                if [ "$FIRST_SECTION" = false ]; then DESCRIPTION+="\n"; fi
+                CURRENT_SECTION="fixed"; DESCRIPTION+="## 🛠️ Fixed\n"; FIRST_SECTION=false
+              elif [[ "$line" =~ ^###\ Technical ]]; then
+                if [ "$FIRST_SECTION" = false ]; then DESCRIPTION+="\n"; fi
+                CURRENT_SECTION="technical"; DESCRIPTION+="## ⚙️ Technical\n"; FIRST_SECTION=false
+              elif [[ "$line" =~ ^###\ (Source|Important|Known) ]]; then
+                CURRENT_SECTION=""
+              elif [[ "$line" =~ ^-\ (.+) ]]; then
+                ITEM="${BASH_REMATCH[1]}"
+                if [ -n "$CURRENT_SECTION" ]; then DESCRIPTION+="• $ITEM\n"; fi
+              fi
+            done <<< "$MATCH"
+          fi
+
+          if [ -z "$DESCRIPTION" ]; then
+            DESCRIPTION="See the release notes on GitHub for details."
+          fi
+
+          FULL_MESSAGE="@everyone\n🚀 **LMU RACECONTROL v${VERSION} is out!**\n\n${DESCRIPTION}\n\n─\nLMU RACECONTROL – The tool for race stewards"
+          FULL_MESSAGE=$(echo -e "$FULL_MESSAGE")
+
+          echo "Sending to Discord..."
+          MAX_LEN=1900
+          while [ -n "$FULL_MESSAGE" ]; do
+            CHUNK="${FULL_MESSAGE:0:$MAX_LEN}"
+            if [ ${#FULL_MESSAGE} -gt $MAX_LEN ]; then
+              LAST_NEWLINE=$(echo "${CHUNK}" | awk 'END{print length-1}')
+              if [ "$LAST_NEWLINE" -gt 0 ]; then
+                CHUNK="${FULL_MESSAGE:0:$LAST_NEWLINE}"
+              fi
+            fi
+
+            JSON=$(jq -n --arg content "$CHUNK" '{content: $content}')
+            RESPONSE=$(curl -sS -f -X POST -H "Content-Type: application/json" -d "$JSON" "$DISCORD_WEBHOOK" 2>&1)
+            if [ $? -ne 0 ]; then
+              echo "❌ Discord API error: $RESPONSE"
+              exit 1
+            fi
+            FULL_MESSAGE="${FULL_MESSAGE:${#CHUNK}}"
+          done
+          echo "✅ Discord notification sent"
