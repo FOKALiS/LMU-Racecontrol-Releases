@@ -36,7 +36,7 @@ jobs:
           cargo install tauri-cli --version "^2" 2>&1
           echo "✅ tauri-cli installed"
 
-      - name: Sign the EXE (with temp key file)
+      - name: Sign the EXE (Python base64 re-encode)
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
@@ -45,17 +45,14 @@ jobs:
           EXE_FILE=$(ls /tmp/*.exe 2>/dev/null | head -1)
           echo "   File: $EXE_FILE"
           
-          # Key in Datei schreiben (OHNE extra Newline) + Whitespace entfernen
-          printf '%s' "$TAURI_SIGNING_PRIVATE_KEY" > /tmp/raw_key.txt
-          tr -d '[:space:]' < /tmp/raw_key.txt > /tmp/private_key.txt
-          rm -f /tmp/raw_key.txt
+          # Key via Python dekodieren und sauber neukodieren
+          python3 -c "import base64,sys; raw=sys.stdin.read().strip(); print(base64.b64encode(base64.b64decode(raw)).decode())" <<< "$TAURI_SIGNING_PRIVATE_KEY" > /tmp/private_key.txt
           
           KEY_SIZE=$(wc -c < /tmp/private_key.txt)
           echo "   Key file size: $KEY_SIZE bytes"
           echo "   Key starts with: $(head -c 20 /tmp/private_key.txt)..."
-          echo "   Key ends with: $(tail -c 5 /tmp/private_key.txt | od -A n -t x1)"
           
-          # Signieren mit DATEI (nicht mit String) – Tauri erwartet base64-Datei
+          # Signieren
           cargo tauri signer sign \
             --private-key /tmp/private_key.txt \
             --password "$TAURI_SIGNING_PRIVATE_KEY_PASSWORD" \
@@ -63,11 +60,9 @@ jobs:
           
           SIG_FILE="${EXE_FILE}.sig"
           if [ ! -f "$SIG_FILE" ]; then
-            echo "❌ Signing with file failed – trying direct string..."
-            # Fallback: direkter String
-            KEY_STRING=$(cat /tmp/private_key.txt)
+            echo "❌ File method failed – trying direct string..."
             cargo tauri signer sign \
-              --private-key "$KEY_STRING" \
+              --private-key "$(cat /tmp/private_key.txt)" \
               --password "$TAURI_SIGNING_PRIVATE_KEY_PASSWORD" \
               "$EXE_FILE" 2>&1
             SIG_FILE="${EXE_FILE}.sig"
