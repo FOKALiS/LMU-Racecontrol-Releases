@@ -30,9 +30,12 @@ jobs:
           gh release download "${{ github.event.release.tag_name }}" --pattern "*.exe" --dir /tmp
           echo "✅ EXE downloaded"
 
-      - name: Install Tauri CLI (for signer)
+      - name: Install Tauri CLI (for signer) via npm
         run: |
-          cargo install tauri-cli --version "^2" 2>/dev/null || echo "tauri-cli already installed"
+          echo "📦 Installing Tauri CLI via npm (fast)..."
+          npm install -g @tauri-apps/cli@latest 2>&1
+          echo "✅ Tauri CLI installed"
+          npx tauri --version 2>&1 || echo "⚠️ 'tauri' command not found, trying 'tauri-cli'..."
 
       - name: Sign the EXE
         env:
@@ -40,18 +43,40 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: |
           echo "🔐 Signing EXE ..."
-          EXE_FILE=$(ls /tmp/*.exe | head -1)
+          echo "   Contents of /tmp:"
+          ls -la /tmp/
+          EXE_FILE=$(ls /tmp/*.exe 2>/dev/null | head -1)
           if [ -z "$EXE_FILE" ]; then
             echo "❌ No .exe file found in /tmp"
             exit 1
           fi
           echo "   File: $EXE_FILE"
           
+          # Private Key in temporäre Datei schreiben (für Tauri Signer)
+          echo "$TAURI_SIGNING_PRIVATE_KEY" > /tmp/private_key.pem
+          echo "   Private key length: ${#TAURI_SIGNING_PRIVATE_KEY} chars"
+          echo "   Password length: ${#TAURI_SIGNING_PRIVATE_KEY_PASSWORD} chars"
+          
           # Sign the file – creates .sig next to the .exe
-          cargo tauri signer sign \
-            --private-key <(echo "$TAURI_SIGNING_PRIVATE_KEY") \
+          npx tauri signer sign \
+            --private-key /tmp/private_key.pem \
             --password "$TAURI_SIGNING_PRIVATE_KEY_PASSWORD" \
-            "$EXE_FILE"
+            "$EXE_FILE" 2>&1
+          
+          SIG_FILE="${EXE_FILE}.sig"
+          if [ ! -f "$SIG_FILE" ]; then
+            echo "❌ Signing failed – no .sig file created"
+            echo "   Trying with 'cargo tauri signer sign' as fallback..."
+            # Fallback: versuche via cargo (falls npm nicht funktioniert hat)
+            cargo install tauri-cli --version "^2" --locked 2>&1
+            cargo tauri signer sign \
+              --private-key /tmp/private_key.pem \
+              --password "$TAURI_SIGNING_PRIVATE_KEY_PASSWORD" \
+              "$EXE_FILE" 2>&1
+          fi
+          
+          # Aufräumen
+          rm -f /tmp/private_key.pem
           
           SIG_FILE="${EXE_FILE}.sig"
           if [ ! -f "$SIG_FILE" ]; then
@@ -59,6 +84,7 @@ jobs:
             exit 1
           fi
           echo "✅ Signed: $(basename $SIG_FILE)"
+          echo "   Signature: $(cat $SIG_FILE | head -c 40)..."
 
       - name: Upload .sig to release
         env:
