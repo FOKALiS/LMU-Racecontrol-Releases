@@ -36,7 +36,7 @@ jobs:
           cargo install tauri-cli --version "^2" 2>&1
           echo "✅ tauri-cli installed"
 
-      - name: Sign the EXE
+      - name: Sign the EXE (with temp key file)
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
@@ -45,20 +45,38 @@ jobs:
           EXE_FILE=$(ls /tmp/*.exe 2>/dev/null | head -1)
           echo "   File: $EXE_FILE"
           
-          # Key bereinigen: alle Whitespace-Zeichen entfernen
-          KEY=$(echo "$TAURI_SIGNING_PRIVATE_KEY" | tr -d '[:space:]')
-          echo "   Key length: ${#KEY} chars"
-          echo "   Key starts with: ${KEY:0:20}..."
+          # Key in Datei schreiben (OHNE extra Newline) + Whitespace entfernen
+          printf '%s' "$TAURI_SIGNING_PRIVATE_KEY" > /tmp/raw_key.txt
+          tr -d '[:space:]' < /tmp/raw_key.txt > /tmp/private_key.txt
+          rm -f /tmp/raw_key.txt
           
-          # Mit direktem String signieren (keine Datei, kein Pipe)
+          KEY_SIZE=$(wc -c < /tmp/private_key.txt)
+          echo "   Key file size: $KEY_SIZE bytes"
+          echo "   Key starts with: $(head -c 20 /tmp/private_key.txt)..."
+          echo "   Key ends with: $(tail -c 5 /tmp/private_key.txt | od -A n -t x1)"
+          
+          # Signieren mit DATEI (nicht mit String) – Tauri erwartet base64-Datei
           cargo tauri signer sign \
-            --private-key "$KEY" \
+            --private-key /tmp/private_key.txt \
             --password "$TAURI_SIGNING_PRIVATE_KEY_PASSWORD" \
             "$EXE_FILE" 2>&1
           
           SIG_FILE="${EXE_FILE}.sig"
           if [ ! -f "$SIG_FILE" ]; then
-            echo "❌ Signing failed – no .sig file created"
+            echo "❌ Signing with file failed – trying direct string..."
+            # Fallback: direkter String
+            KEY_STRING=$(cat /tmp/private_key.txt)
+            cargo tauri signer sign \
+              --private-key "$KEY_STRING" \
+              --password "$TAURI_SIGNING_PRIVATE_KEY_PASSWORD" \
+              "$EXE_FILE" 2>&1
+            SIG_FILE="${EXE_FILE}.sig"
+          fi
+          
+          rm -f /tmp/private_key.txt
+          
+          if [ ! -f "$SIG_FILE" ]; then
+            echo "❌ All signing methods failed – no .sig file created"
             exit 1
           fi
           echo "✅ Signed: $(basename $SIG_FILE)"
