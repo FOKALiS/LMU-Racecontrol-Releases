@@ -1,0 +1,139 @@
+name: Sign & Release
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  sign-and-release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write  # needed to upload .sig + update release
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download EXE from release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          echo "📥 Downloading EXE from release ${{ github.event.release.tag_name }} ..."
+          # Find the .exe asset in the release
+          ASSET_URL=$(gh release view "${{ github.event.release.tag_name }}" --json assets --jq '.assets[] | select(.name | endswith(".exe")) | .url' | head -1)
+          if [ -z "$ASSET_URL" ]; then
+            echo "❌ No .exe asset found in release!"
+            echo "   Please upload the EXE to the release first, then re-publish."
+            exit 1
+          fi
+          echo "   Found: $ASSET_URL"
+          gh release download "${{ github.event.release.tag_name }}" --pattern "*.exe" --dir /tmp
+          echo "✅ EXE downloaded"
+
+      - name: Install Tauri CLI (for signer)
+        run: |
+          cargo install tauri-cli --version "^2" 2>/dev/null || echo "tauri-cli already installed"
+
+      - name: Sign the EXE
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          echo "🔐 Signing EXE ..."
+          EXE_FILE=$(ls /tmp/*.exe | head -1)
+          if [ -z "$EXE_FILE" ]; then
+            echo "❌ No .exe file found in /tmp"
+            exit 1
+          fi
+          echo "   File: $EXE_FILE"
+          
+          # Sign the file – creates .sig next to the .exe
+          cargo tauri signer sign \
+            --private-key <(echo "$TAURI_SIGNING_PRIVATE_KEY") \
+            --password "$TAURI_SIGNING_PRIVATE_KEY_PASSWORD" \
+            "$EXE_FILE"
+          
+          SIG_FILE="${EXE_FILE}.sig"
+          if [ ! -f "$SIG_FILE" ]; then
+            echo "❌ Signing failed – no .sig file created"
+            exit 1
+          fi
+          echo "✅ Signed: $(basename $SIG_FILE)"
+
+      - name: Upload .sig to release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          echo "📤 Uploading .sig to release ..."
+          SIG_FILE=$(ls /tmp/*.exe.sig | head -1)
+          gh release upload "${{ github.event.release.tag_name }}" "$SIG_FILE" --clobber
+          echo "✅ .sig uploaded"
+
+      - name: Extract signature for latest.json
+        run: |
+          SIG_FILE=$(ls /tmp/*.exe.sig | head -1)
+          SIGNATURE=$(cat "$SIG_FILE" | tr -d '\n')
+          echo "SIGNATURE=$SIGNATURE" >> $GITHUB_ENV
+          echo "   Signature: ${SIGNATURE:0:40}..."
+
+      - name: Update latest.json
+        env:
+          VERSION: ${{ github.event.release.tag_name }}
+        run: |
+          VERSION_NO_V="${VERSION#v}"
+          EXE_NAME="LMU.RACECONTROL_${VERSION_NO_V}_x64-setup.exe"
+          DOWNLOAD_URL="https://github.com/FOKALiS/LMU-Racecontrol-Releases/releases/latest/download/${EXE_NAME}"
+          PUB_DATE=$(date -u +"%Y-%m-%dT%H:%M:%S+00:00")
+          
+          # Extract changelog notes for this version
+          NOTES=$(awk -v ver="[$VERSION_NO_V]" '
+            /^## / {found=0}
+            index($0, "## " ver) == 1 {found=1; next}
+            found && /^## / {exit}
+            found {print}
+          ' CHANGELOG.md | head -20)
+          if [ -z "$NOTES" ]; then
+            NOTES="Release ${VERSION}"
+          fi
+          NOTES=$(echo "$NOTES" | tr '\n' ' ' | sed 's/  */ /g')
+          
+          # Write latest.json
+          cat > /tmp/latest.json << 'JSONEOF'
+          {
+            "version": "VERSION_PLACEHOLDER",
+            "notes": "NOTES_PLACEHOLDER",
+            "pub_date": "DATE_PLACEHOLDER",
+            "platforms": {
+              "windows-x86_64": {
+                "signature": "SIGNATURE_PLACEHOLDER",
+                "url": "URL_PLACEHOLDER"
+              }
+            }
+          }
+          JSONEOF
+          
+          # Replace placeholders using jq
+          jq --arg v "$VERSION_NO_V" \
+             --arg n "$NOTES" \
+             --arg d "$PUB_DATE" \
+             --arg s "$SIGNATURE" \
+             --arg u "$DOWNLOAD_URL" \
+             '.version = $v | .notes = $n | .pub_date = $d | .platforms["windows-x86_64"].signature = $s | .platforms["windows-x86_64"].url = $u' \
+             /tmp/latest.json > latest.json
+          
+          echo "✅ latest.json updated"
+          cat latest.json | head -5
+
+      - name: Commit and push latest.json
+        run: |
+          git config user.name "Release Bot"
+          git config user.email "bot@lmu-racecontrol.com"
+          git add latest.json
+          git diff --cached --quiet || {
+            git commit -m "Update latest.json for ${{ github.event.release.tag_name }}"
+            git push origin main
+            echo "✅ latest.json committed and pushed"
+          }
+          if [ $? -eq 0 ]; then
+            echo "ℹ️  No changes to latest.json"
+          fi

@@ -4,6 +4,19 @@ All notable changes to LMU Race Control are documented here.
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.6] - 2026-08-11 (Color-Specific Cooldown, Reset Detection, Improved Responsiveness)
+### Added
+- **Reset detection (YELLOW):** New heuristic detects when a vehicle was slow/stopped on track and suddenly appears in the pits (reset after off-track). Normal pit entries (>50 km/h) do NOT trigger.
+- **Color-specific cooldown:** RED (10s), YELLOW (30s), WHITE (30s) – each color has its own cooldown timer. A RED incident no longer blocks YELLOW or WHITE detection.
+
+### Changed
+- **RED cooldown reduced:** From 30s to 10s – so a second collision shortly after the first is now detected.
+- **`DriverHistory` restructured:** Replaced single `last_incident_time` with three separate fields (`last_incident_time_red`, `last_incident_time_yellow`, `last_incident_time_white`).
+
+### Technical
+- `src-tauri/src/incidents.rs` – `RED_COOLDOWN_SECONDS = 10.0` introduced, `COOLDOWN_SECONDS = 30.0` remains for YELLOW/WHITE
+- `update_history()` now tracks `was_on_track` and `was_slow_while_on_track` for reset detection
+
 ## [0.9.5] - 2026-08-10 (Release Repo, Update Fix, Discord Notification, Server Backup, License Deactivation)
 ### Added
 - **Release repo created:** `FOKALiS/LMU-Racecontrol-Releases` – release artifacts only (no source code)
@@ -72,7 +85,7 @@ versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [0.8.3] - 2026-08-01 (Figma MCP Integration + Player Bar Icons)
 ### Added
 - **Figma MCP Server** (`figma-developer-mcp` v0.13.2) installed and configured
-- **Figma Design "LMU Racecontrol"** imported: 6 screens (Home, Driver Field, Incidents, Archive, Investigation Overlay), 14 components, design tokens
+- **Figma Design "LMU Racecontrol"** imported: 6 screens (Home, Driver Field, Incidents, Archive, Settings, Investigation Overlay), 14 components, design tokens
 - **Design data** saved in `figma-screens/design-data-complete.json`
 - **Logos** from Figma export in `figma-screens/` and `frontend/public/logo.png`
 
@@ -253,7 +266,7 @@ versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [0.4.0] - Unreleased (Splashscreen, Auto-Update, Dynamic Version Display)
 ### Added
-- Splashscreen window on program start (5 seconds, logo, version, website line), then automatic switch to maximized main window
+- Splashscreen window on program start (10 seconds, logo, version, website line), then automatic switch to maximized main window
 - Built-in auto-updater: Splashscreen checks for new versions in the background; if available, clicking the green bar downloads the update, installs it and restarts the app
 - Build workflow now uses the official `tauri-apps/tauri-action`: cryptographically signs updates, automatically creates a versioned GitHub release (e.g. "v0.4.0") including the `latest.json` required by the updater – replaces the previous provisional "latest" release
 - New one-time workflow `generate-update-key.yml` for generating the signing key pair (see GUIDE-GETTING-INSTALLER.md, step 0)
