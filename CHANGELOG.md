@@ -1,428 +1,305 @@
 # Changelog
 
-Alle nennenswerten Änderungen an LMU Race Control werden hier dokumentiert.
-Format angelehnt an [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
-Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
+All notable changes to LMU Race Control are documented here.
+Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.9.5] - 10.08.2026 (Release-Repo, Update-Fix, Discord-Notification, Server-Backup, Lizenz-Deaktivierung)
-### Hinzugefügt
-- **Release-Repo erstellt:** `FOKALiS/LMU-Racecontrol-Releases` – NUR Release-Artefakte (kein Quellcode)
-- **Discord-Release-Benachrichtigung:** Workflow `.github/workflows/discord-notify.yml` – automatisch bei Release mit formatiertem Changelog
-- **Server-Backup-Script:** `scripts/backup-server.ps1` – automatisch (Task Scheduler) + manuell
-- **Lizenz-Deaktivierung:** User kann Lizenz deaktivieren (Rechnerwechsel) – in Einstellungen
-- **Hilfe-System:** Neue ausführliche Hilfeseiten (Lizenz, API-Key, Server, Discord)
+## [0.9.5] - 2026-08-10 (Release Repo, Update Fix, Discord Notification, Server Backup, License Deactivation)
+### Added
+- **Release repo created:** `FOKALiS/LMU-Racecontrol-Releases` – release artifacts only (no source code)
+- **Discord release notification:** Workflow `.github/workflows/discord-notify.yml` – automatic on release with formatted changelog
+- **Server backup script:** `scripts/backup-server.ps1` – automatic (Task Scheduler) + manual
+- **License deactivation:** User can deactivate license (machine change) – in Settings
+- **Help system:** New detailed help pages (License, API Key, Server, Discord)
 
-### Geändert
-- **Update-URL umgestellt:** Von altem Haupt-Repo auf `FOKALiS/LMU-Racecontrol-Releases`
-- **Tauri-Signing-Key erneuert:** Neuer Key im Release-Repo als Secret hinterlegt
-- **Keygen API Token erneuert:** Für Lizenzsystem
+### Changed
+- **Update URL migrated:** From old main repo to `FOKALiS/LMU-Racecontrol-Releases`
+- **Tauri signing key renewed:** New key stored as secret in release repo
+- **Keygen API token renewed:** For license system
 
-### Behoben
-- **Update-Fix:** Alte v0.9.4-Installationen müssen einmalig manuell aktualisiert werden (geänderter Signing-Key + URL)
+### Fixed
+- **Update fix:** Old v0.9.4 installations need a one-time manual update (changed signing key + URL)
 
-## [0.9.4] - 07.08.2026 (API-Key Lookup, Server-Bereinigung)
-### Hinzugefügt
-- **Server-Endpunkt `POST /api/lookup-api-key`:** Validiert License-Key live bei Keygen, legt automatisch Tenant + API-Key mit korrektem Tier an (Enterprise L/XL/HOWE)
-- **Button "API-Key abfragen":** In Einstellungen → Server Verbindung – fragt API-Key zum License-Key ab (nur bei lizenzierter Enterprise)
-- **Version in Lizenz-Überschrift:** "Lizenz Informationen – Version: Enterprise XL (Server)"
+## [0.9.4] - 2026-08-07 (API Key Lookup, Server Cleanup)
+### Added
+- **Server endpoint `POST /api/lookup-api-key`:** Validates license key live at Keygen, auto-creates tenant + API key with correct tier (Enterprise L/XL/HOWE)
+- **Button "Request API Key":** In Settings → Server Connection – requests API key for license key (licensed Enterprise only)
+- **Version in license heading:** "License Information – Version: Enterprise XL (Server)"
 
-### Geändert
-- **Server-URL-Feld entfernt:** Muss vom User nicht änderbar sein
-- **Server `DELETE /api/incidents`:** Löscht nur Incidents des eigenen Tenants (team-sicher)
-- **Server `purge_old_incidents`:** Auto-Bereinigung alter Vorfälle (>26h) alle 30 Minuten
-- **`clear_all_incidents`:** Löscht jetzt auch Server-Vorfälle des eigenen Tenants (kein fremdes Team)
+### Changed
+- **Server URL field removed:** Should not be user-editable
+- **Server `DELETE /api/incidents`:** Only deletes incidents of own tenant (team-safe)
+- **Server `purge_old_incidents`:** Auto-cleanup of old incidents (>26h) every 30 minutes
+- **`clear_all_incidents`:** Now also deletes server incidents of own tenant (no other team's data)
 
-## [0.9.1] - 06.08.2026 (Weiße Flagge Fix)
-### Behoben
-- **Weiße Flagge Fix:** Auch die weiße Flagge (langsames Fahrzeug) prüft jetzt `> MIN_STOPPED_SPEED_KMH (0.5 km/h)`, damit Fahrzeuge mit exakt 0.0 km/h (Pipo Derani) nicht fälschlich als "langsam" gemeldet werden
+## [0.9.1] - 2026-08-06 (White Flag Fix)
+### Fixed
+- **White flag fix:** White flag (slow vehicle) now also checks `> MIN_STOPPED_SPEED_KMH (0.5 km/h)`, so vehicles at exactly 0.0 km/h (Pipo Derani) are no longer falsely reported as "slow"
 
-## [0.9.0] - 06.08.2026 (Pipo Derani Fix, Discord-Formatierung, UI-Verbesserungen)
-### Behoben
-- **Pipo Derani Fix:** `MIN_STOPPED_SPEED_KMH = 0.5` eingeführt – Fahrzeuge mit 0.0 km/h werden nicht mehr als Stillstand erkannt
+## [0.9.0] - 2026-08-06 (Pipo Derani Fix, Discord Formatting, UI Improvements)
+### Fixed
+- **Pipo Derani fix:** Introduced `MIN_STOPPED_SPEED_KMH = 0.5` – vehicles at 0.0 km/h are no longer detected as stopped
 
-### Geändert
-- **Discord-Webhook:** Formatierung überarbeitet (Fahrer, Verwarn-/Strafpunkte, "N.A." bei leerer Kurve)
-- **Einstellungen:** Überschrift linksbündig (text-align: center → left)
-- **Ordnersymbol (📂)** für LMU-Pfad-Auswahl wieder eingebaut
-- **Archiv:** Entscheidungs-Badge öffnet jetzt InvestigationModal
-- **Fenster-Titel:** "LMU RACECONTROL – Das Tool für Rennkommissare"
+### Changed
+- **Discord webhook:** Formatting overhauled (driver, warning/penalty points, "N.A." for empty corner)
+- **Settings:** Heading left-aligned (text-align: center → left)
+- **Folder icon (📂)** for LMU path selection restored
+- **Archive:** Decision badge now opens InvestigationModal
+- **Window title:** "LMU RACECONTROL – The tool for race stewards"
 
-## [0.8.8] - 05.08.2026 (Vorfall-Erkennung überarbeitet, Keyboard-Config Fix)
-### Geändert
-- **Vorfall-Erkennung überarbeitet:**
-  - ROT: Impact >3.0g, Rundenzeit >30%, Stillstand <10 km/h
-  - GELB: Rundenzeit >15%, Positionsverlust ≥3, FCY-Verstoß
-  - WEISS (NEU): >30s unter 50 km/h (Timer-basiert)
-- **Session-Buttons:** Nicht mehr klickbar, active State aus LMU (`session?.session_type`)
-- **Keyboard-Config gefixt:**
-  - Vollständige Scancode-Tabelle (fehlende Tasten ergänzt)
-  - "Onboard Cameras" unterstützt
-  - OnceLock → RwLock (Reload funktioniert jetzt mehrfach)
-- **Datei-Browser (📂)** für LMU-Installationspfad in Einstellungen
-- `@tauri-apps/plugin-dialog` installiert
+## [0.8.8] - 2026-08-05 (Incident Detection Overhaul, Keyboard Config Fix)
+### Changed
+- **Incident detection overhauled:**
+  - RED: Impact >3.0g, lap time >30%, stopped <10 km/h
+  - YELLOW: Lap time >15%, position loss ≥3, FCY violation
+  - WHITE (NEW): >30s under 50 km/h (timer-based)
+- **Session buttons:** No longer clickable, active state from LMU (`session?.session_type`)
+- **Keyboard config fixed:**
+  - Complete scancode table (missing keys added)
+  - "Onboard Cameras" supported
+  - OnceLock → RwLock (reload now works multiple times)
+- **File browser (📂)** for LMU installation path in Settings
+- `@tauri-apps/plugin-dialog` installed
 
-## [0.8.7] - 05.08.2026 (Timer, Splashscreen, Connect-Sperre)
-### Geändert
-- Timer: replay_pause() via F11 nach Vorlauf+Nachlauf
-- LIVE-Button: onSwitchToLive?.() in allen 3 Views
+## [0.8.7] - 2026-08-05 (Timer, Splashscreen, Connect Lock)
+### Changed
+- Timer: replay_pause() via F11 after pre-roll + post-roll
+- LIVE button: onSwitchToLive?.() in all 3 views
 - Splashscreen: Copyright "FOKALiS - Film & Medienagentur"
-- Connect-Button deaktiviert wenn nicht lizenziert
-- Session-Buttons/Player-Bar/Filter-Tabs als eigene CSS-Klassen
+- Connect button disabled when not licensed
+- Session buttons/Player bar/Filter tabs as separate CSS classes
 
-## [0.8.3] - 01.08.2026 (Figma MCP Integration + Player-Bar Icons)
-### Hinzugefügt
-- **Figma MCP Server** (`figma-developer-mcp` v0.13.2) installiert und konfiguriert
-- **Figma Design "LMU Racecontrol"** importiert: 6 Screens (Home, Fahrerfeld, Vorfälle,
-  Archiv, Einstellungen, Investigation Overlay), 14 Komponenten, Design-Tokens
-- **Design-Daten** in `figma-screens/design-data-complete.json` gespeichert
-- **Logos** aus Figma-Export in `figma-screens/` und `frontend/public/logo.png`
+## [0.8.3] - 2026-08-01 (Figma MCP Integration + Player Bar Icons)
+### Added
+- **Figma MCP Server** (`figma-developer-mcp` v0.13.2) installed and configured
+- **Figma Design "LMU Racecontrol"** imported: 6 screens (Home, Driver Field, Incidents, Archive, Investigation Overlay), 14 components, design tokens
+- **Design data** saved in `figma-screens/design-data-complete.json`
+- **Logos** from Figma export in `figma-screens/` and `frontend/public/logo.png`
 
-### Geändert
-- **Player-Bar Icons**: Emoji-Platzhalter (⏮⏪▶⏩⏭) durch echte PNG-Icons ersetzt
-  (Slow Rewind, Rewind, Play, Forward, Slow Forward) in allen drei Views
-  (Fahrerfeld, Vorfälle, Archiv)
-- **Icons** aus `C:\Users\Administrator\Documents\AI\Software Entwicklung\LMU Racecontrol\Icons`
-  in `frontend/public/icons/` integriert
-- **CSS-Variablen** um Figma Design-Tokens erweitert (`--text-secondary`, `--text-dim-soft`, `--purple`)
-- **CSS für Player-Icons** hinzugefügt (20x20 Größe, Hover-Effekte, disabled-State)
-- **Sidebar-Duplikat** in Sidebar.tsx behoben
-- **Logo-Höhe** auf `auto` gesetzt für korrekte Proportionen
+### Changed
+- **Player bar icons:** Emoji placeholders (⏮⏪▶⏩⏭) replaced with real PNG icons (Slow Rewind, Rewind, Play, Forward, Slow Forward) in all three views (Driver Field, Incidents, Archive)
+- **Icons** from `C:\Users\Administrator\Documents\AI\Software Entwicklung\LMU Racecontrol\Icons` integrated into `frontend/public/icons/`
+- **CSS variables** extended with Figma design tokens (`--text-secondary`, `--text-dim-soft`, `--purple`)
+- **CSS for player icons** added (20x20 size, hover effects, disabled state)
+- **Sidebar duplicate** in Sidebar.tsx fixed
+- **Logo height** set to `auto` for correct proportions
 
-### Technisch
-- **Version**: 0.8.2 → 0.8.3
+### Technical
+- **Version:** 0.8.2 → 0.8.3
 
-## [0.7.0] - 27.07.2026 (Tastatur-Simulation statt Camera-Helper + Turbo-Zoom)
-### Geändert
-- **Camera-Helper entfernt**: Der separate `camera-helper`-Prozess wurde komplett
-  entfernt. Die Kamera-Steuerung läuft jetzt direkt über `SendInput` mit Scancodes
-  aus der Tastenbelegung des Users – kein externer Prozess mehr nötig.
-- **Kamera-Button "Bord" statt "Helmet"**: Passt zur LMU-Standard-Tastenbelegung
-  (Insert = Bordkamera). "Helmet" wird trotzdem als Alias erkannt.
-- **Zoom-Funktion**: Neue Zoom-Buttons (+ / -) neben der Kamera-Steuerung.
-  Gedrückt halten = Dauer-Zoom via Hintergrund-Thread in Rust (kein setInterval).
-  Funktioniert auf allen Seiten (Fahrerfeld, Vorfälle, Archiv).
-- **Zoom-Geschwindigkeit**: ~500 Tastendrücke pro Sekunde (1ms KeyDown, 1ms Pause).
+## [0.7.0] - 2026-07-27 (Keyboard Simulation instead of Camera Helper + Turbo Zoom)
+### Changed
+- **Camera Helper removed:** The separate `camera-helper` process has been completely removed. Camera control now runs directly via `SendInput` with scancodes from the user's key bindings – no external process needed.
+- **Camera button "Onboard" instead of "Helmet":** Matches LMU default key binding (Insert = Onboard Camera). "Helmet" is still recognized as an alias.
+- **Zoom function:** New zoom buttons (+ / -) next to camera controls. Hold down = continuous zoom via background thread in Rust (no setInterval). Works on all pages (Driver Field, Incidents, Archive).
+- **Zoom speed:** ~500 key presses per second (1ms KeyDown, 1ms Pause).
 
-### Behoben
-- **Zoom funktionierte nicht auf Vorfälle/Archiv-Seiten**: `onZoomStart`/`onZoomEnd`
-  Props wurden nicht an `TopToolbar` durchgereicht. Jetzt an `VorfaelleView` und
-  `ArchivView` übergeben.
+### Fixed
+- **Zoom didn't work on Incidents/Archive pages:** `onZoomStart`/`onZoomEnd` props were not passed to `TopToolbar`. Now passed to `VorfaelleView` and `ArchivView`.
 
-### Technisch
-- `keyboard.rs`: Komplett überarbeitet – `SendInput` mit Scancodes, kein `enigo`
-  mehr. `zoom_start`/`zoom_stop` mit Hintergrund-Thread und AtomicBool-Flag.
-- `src-tauri/camera-helper/` entfernt (über 100MB Build-Artefakte eingespart).
-- `tauri.conf.json`: `resources` von `camera-helper.exe` auf leer gesetzt.
+### Technical
+- `keyboard.rs`: Completely rewritten – `SendInput` with scancodes, no more `enigo`. `zoom_start`/`zoom_stop` with background thread and AtomicBool flag.
+- `src-tauri/camera-helper/` removed (saved over 100MB build artifacts).
+- `tauri.conf.json`: `resources` changed from `camera-helper.exe` to empty.
 
-## [0.6.12] - 26.07.2026 (Cam Control + Replay-Steuerung Fix)
-### Behoben
-- **jumpToReplay setzt jetzt auch Kamera**: Nach dem Replay-Zeitsprung wird automatisch die TV-Kamera gesetzt (via REST-API). Vorher sprang der Replay an die richtige Zeit, aber der Nutzer sah nur die vorherige Kameraeinstellung.
-- **Replay-Modus wird vor Zeitsprung aktiviert**: LMU braucht zwingend den Replay-Modus, damit Kamera-Befehle wirken. `switch_to_replay` wird jetzt vor dem Zeitsprung aufgerufen.
-- **Längere Pausen zwischen Kommandos**: 200ms nach Modus-Wechsel, 500ms nach Zeitsprung – damit LMU genug Zeit hat, die Befehle zu verarbeiten.
-- **focus_driver setzt jetzt auch TV-Kamera**: Nach dem Fahrer-Fokus wird die TV-Kamera aktiviert, damit der Nutzer sofort das Fahrzeug sieht.
-- **Verbessertes Debug-Logging**: Alle Schritte werden jetzt mit Emoji und Zeitstempel geloggt, damit Fehler leichter nachvollziehbar sind.
+## [0.6.12] - 2026-07-26 (Cam Control + Replay Control Fix)
+### Fixed
+- **jumpToReplay now also sets camera:** After replay time jump, TV camera is automatically set (via REST API). Previously the replay jumped to the right time but the user only saw the previous camera angle.
+- **Replay mode activated before time jump:** LMU requires replay mode for camera commands to work. `switch_to_replay` is now called before the time jump.
+- **Longer pauses between commands:** 200ms after mode switch, 500ms after time jump – giving LMU enough time to process commands.
+- **focus_driver now also sets TV camera:** After driver focus, TV camera is activated so the user immediately sees the vehicle.
+- **Improved debug logging:** All steps are now logged with emoji and timestamp for easier troubleshooting.
 
-### Quelle
-- Analyse von BCUK (Broadcast Control UK) auf dem Desktop bestätigt: BCUK verwendet exakt denselben REST-API-Ansatz (`/rest/watch/focus/{name}`) – der Unterschied ist die **Reihenfolge**: erst Replay-Modus + Zeitsprung, dann Kamera.
-- BCUK-Plugin-JS (Stream Deck) zeigt: Kamera-Steuerung läuft über `POST /api/control` mit Aktionen wie `setTv`, `setNose`, `setCockpit`, `setOnboard`, `setOnCockpit`, `setOnDash`, `setOnRear` – die LMU-intern auf `/rest/watch/focus/{name}` gemappt werden.
+### Source
+- Analysis of BCUK (Broadcast Control UK) on desktop confirmed: BCUK uses exactly the same REST API approach (`/rest/watch/focus/{name}`) – the difference is the **order**: first replay mode + time jump, then camera.
+- BCUK plugin JS (Stream Deck) shows: Camera control runs via `POST /api/control` with actions like `setTv`, `setNose`, `setCockpit`, `setOnboard`, `setOnCockpit`, `setOnDash`, `setOnRear` – which are mapped to `/rest/watch/focus/{name}` internally by LMU.
 - Version: 0.6.11 → 0.6.12
 
-## [0.6.11] - 25.07.2026 (REST-API PUT-Body Fix + Kamera-Key-Fix)
-### Behoben
-- **Alle PUT-Requests schlugen fehl (HTTP 400)**: Die LMU REST-API verlangt bei PUT
-  zwingend einen leeren JSON-Body `{}` mit `Content-Type: application/json`. Ohne
-  Body kam HTTP 400 – betroffen waren: focus, camera, replaytime, switch_to_live/replay
-- **Kamera-Steuerung funktioniert jetzt zuverlässig via REST-API**: `/rest/watch/focus/TV`,
-  `/rest/watch/focus/Onboard`, `/rest/watch/focus/Heli` u.a. sind per curl bestätigt ✅
-  Der Endpunkt `/rest/watch/focus/{name}/{group}/{advance}` wird von LMU NICHT
-  unterstützt (HTTP 400) und wurde aus dem Code entfernt.
+## [0.6.11] - 2026-07-25 (REST API PUT Body Fix + Camera Key Fix)
+### Fixed
+- **All PUT requests failed (HTTP 400):** The LMU REST API requires an empty JSON body `{}` with `Content-Type: application/json` for PUT requests. Without a body, HTTP 400 was returned – affecting: focus, camera, replaytime, switch_to_live/replay
+- **Camera control now works reliably via REST API:** `/rest/watch/focus/TV`, `/rest/watch/focus/Onboard`, `/rest/watch/focus/Heli` and others confirmed via curl ✅ The endpoint `/rest/watch/focus/{name}/{group}/{advance}` is NOT supported by LMU (HTTP 400) and has been removed from the code.
 
-### Quelle
-- curl-Tests gegen laufende LMU-Instanz (localhost:6397) während aktiver Session
-- JSON-Struktur von `/rest/watch/standings` bestätigt (alle Feldnamen korrekt)
+### Source
+- curl tests against running LMU instance (localhost:6397) during active session
+- JSON structure from `/rest/watch/standings` confirmed (all field names correct)
 - Version: 0.6.10 → 0.6.11
 
-## [0.6.7] - 24.07.2026 (Shared Memory, Connect/Disconnect, FCY +3 km/h Toleranz)
+## [0.6.7] - 2026-07-24 (Shared Memory, Connect/Disconnect, FCY +3 km/h Tolerance)
+### Added
+- **Shared Memory (rFactor 2/LMU):** Direct access to LMU Shared Memory (`Local\rFactor2SharedMemory`). Camera switching and vehicle focus now work **without window focus, keyboard simulation, or terminal flash** – just like Broadcast Control UK, SimHub and other professional tools
+- **Connect/Disconnect hover:** When connected, hovering the mouse shows "Disconnect from Server" (red) – click disconnects
 
-### Neu
-- **Shared Memory (rFactor 2/LMU)**: Direkter Zugriff auf den LMU Shared Memory (`Local\rFactor2SharedMemory`). Kamera-Wechsel und Fahrzeug-Fokus funktionieren jetzt **ohne Fenster-Fokus, ohne Tastatur-Simulation, ohne Terminal-Flash** - wie bei Broadcast Control UK, SimHub und anderen professionellen Tools
-- **Connect/Disconnect Hover**: Wenn verbunden, wird beim Überfahren mit der Maus "Disconnect from Server" (rot) angezeigt - Klick trennt die Verbindung
+### Fixed
+- **FCY monitoring activated:** When exceeding limit + 3 km/h tolerance (e.g. 60+3=63 km/h), an FCY violation incident is automatically created
+- **Debug logging:** The API response from `/rest/watch/standings` is now printed to identify the real field names for `speed_kmh`
 
-### Behoben
-- **FCY-Überwachung aktiviert**: Bei Überschreitung von Limit + 3 km/h Toleranz (z.B. 60+3=63 km/h) wird automatisch ein FCY-Verstoß-Vorfall erstellt
-- **Debug-Logging**: Die API-Antwort von `/rest/watch/standings` wird jetzt ausgegeben, um die echten Feldnamen für `speed_kmh` zu identifizieren
+### Changed
+- `shared_memory.rs`: New module – writes camera values directly to LMU Shared Memory (group + camera ID)
+- `keyboard.rs`: Only used as fallback when Shared Memory is unavailable
+- `lmu_client.rs`: `groundSpeed` added as additional field name for `speed_kmh`, debug logging
+- `main.rs`: `set_camera` tries Shared Memory first, then keyboard fallback
+- `App.tsx` + `Sidebar.tsx`: Connect/Disconnect with hover effect
+- `translations.ts`: New texts `server_disconnect` / `server_disconnected`
+- **Version:** 0.6.6 → 0.6.7
 
-### Geändert
-- `shared_memory.rs`: Neues Modul - schreibt Kamera-Werte direkt in den LMU Shared Memory (Gruppe + Kamera-ID)
-- `keyboard.rs`: Wird nur noch als Fallback verwendet, wenn Shared Memory nicht verfügbar ist
-- `lmu_client.rs`: `groundSpeed` als zusätzlicher Feldname für `speed_kmh`, Debug-Logging
-- `main.rs`: `set_camera` versucht zuerst Shared Memory, dann Tastatur-Fallback
-- `App.tsx` + `Sidebar.tsx`: Connect/Disconnect mit Hover-Effekt
-- `translations.ts`: Neue Texte `server_disconnect` / `server_disconnected`
-- **Version**: 0.6.6 → 0.6.7
+## [0.6.6] - 2026-07-24 (Keyboard Control: Scancodes, AttachThreadInput for LMU Focus on Another Monitor)
+### Fixed
+- **Key presses now reliably reach LMU (not the Tauri app):** Scancodes via `KEYEVENTF_SCANCODE` instead of virtual key codes – games use scancodes for their key bindings
+- **LMU focus across multiple monitors:** `AttachThreadInput` bypasses Windows UIPI, allowing focus to be reliably set on LMU
+- **Additional focus safety:** `BringWindowToTop` + `SetFocus` after bringing to foreground
 
-## [0.6.6] - 24.07.2026 (Tastatur-Steuerung: Scancodes, AttachThreadInput für LMU-Fokus auf anderem Monitor)
-
-### Behoben
-- **Tastendrücke landen jetzt zuverlässig in LMU (nicht in der Tauri-App)**: Scancodes via `KEYEVENTF_SCANCODE` statt virtueller Tastencodes – Spiele verwenden Scancodes für ihre Tastenbelegung
-- **LMU-Fokus auch über mehrere Monitore hinweg**: `AttachThreadInput` umgeht Windows-UIPI, sodass der Fokus zuverlässig auf LMU gesetzt werden kann
-- **Zusätzliche Fokus-Sicherheit**: `BringWindowToTop` + `SetFocus` nach dem Vordergrund-Holen
-
-### Geändert
-- `keyboard.rs`: Scancodes (F1=0x3B, F2=0x3C, ...) statt virtuelle Tastencodes (VK_F1 etc.)
+### Changed
+- `keyboard.rs`: Scancodes (F1=0x3B, F2=0x3C, ...) instead of virtual key codes (VK_F1 etc.)
 - `force_foreground()`: `AttachThreadInput` + `BringWindowToTop` + `SetFocus`
-- **Version**: 0.6.5 → 0.6.6
+- **Version:** 0.6.5 → 0.6.6
 
-## [0.6.5] - 24.07.2026 (Tastatur-Steuerung neu: Win32 SendInput, kein PowerShell-Flash, Fahrerfeld-Sortierung, Kamera-Auswahl aktiv)
+## [0.6.5] - 2026-07-24 (Keyboard Control New: Win32 SendInput, No PowerShell Flash, Driver Field Sorting, Camera Selection Active)
+### Fixed
+- **Terminal window flash when focusing LMU eliminated:** PowerShell `AppActivate` replaced with native Win32 `FindWindowW`/`SetForegroundWindow` – no more flashing terminal
+- **Keyboard commands more reliable:** `enigo` crate removed, replaced with direct Win32 `SendInput` API with background thread architecture
+- **Async blocking fixed:** `std::thread::sleep` replaced with `tokio::time::sleep` in `focus_driver`
 
-### Behoben
-- **Terminal-Fenster-Flash beim Fokussieren von LMU beseitigt**: PowerShell `AppActivate` durch native Win32 `FindWindowW`/`SetForegroundWindow` ersetzt – kein aufblitzendes Terminal mehr
-- **Tastaturbefehle zuverlässiger**: `enigo`-Crate entfernt, stattdessen direkte Win32 `SendInput`-API mit Hintergrund-Thread-Architektur
-- **Async-Blockierung behoben**: `std::thread::sleep` durch `tokio::time::sleep` in `focus_driver` ersetzt
+### Changed
+- **Driver field now sorted by position** (1st, 2nd, 3rd, ...) via `useMemo`
+- **Camera selection shown as active:** Central `selectedCam` state in `App.tsx`, passed across all views
+- **`enigo` dependency removed:** `Cargo.toml` cleaned up
+- **`keyboard.rs` completely rewritten:** Win32 API, background thread, input buffer flush
+- **Version:** 0.6.4 → 0.6.5
 
-### Geändert
-- **Fahrerfeld wird jetzt nach Position sortiert** (1., 2., 3., ...) via `useMemo`
-- **Kamera-Auswahl wird aktiv dargestellt**: Zentraler `selectedCam`-State in `App.tsx`, view-übergreifend an alle Views weitergegeben
-- **`enigo`-Abhängigkeit entfernt**: `Cargo.toml` bereinigt
-- **`keyboard.rs` komplett neu geschrieben**: Win32-API, Hintergrund-Thread, Eingabe-Puffer-Flush
-- **Version**: 0.6.4 → 0.6.5
+## [0.6.4] - 2026-07-24 (Icon Size: Logo Enlarged on Desktop/Taskbar)
+### Fixed
+- **Icon on desktop and taskbar was too small:** The source image (`icon-source.png`) had too much transparent padding. When scaled to small icon sizes (32x32), the logo appeared tiny. The transparent padding was removed and the logo now fills almost the entire icon area.
 
-## [0.6.4] - 24.07.2026 (Icon-Größe: Logo auf Desktop/Taskleiste vergrößert)
+### Changed
+- **Version:** 0.6.3 → 0.6.4
 
-### Behoben
-- **Icon auf Desktop und Taskleiste war zu klein**: Das Logo hatte im Quellbild (`icon-source.png`) zu viel transparenten Rand. Dadurch wurde es bei der Skalierung auf kleine Icon-Größen (32x32) winzig dargestellt. Der transparente Rand wurde entfernt und das Logo füllt jetzt fast die gesamte Icon-Fläche.
+## [0.6.3] - 2026-07-23 (Icon Fix: Correct Windows Icon Generation)
+### Fixed
+- **Windows icon (.ico) was not displayed correctly:** The `icon.ico` was faulty and too small for proper display on desktop and taskbar. Regenerated from `icon-source.png` using the Tauri Icon Generator (`npx @tauri-apps/cli icon`) (34,690 bytes).
+- **All icons** (32x32.png, 128x128.png, 128x128@2x.png, icon.icns, icon.ico) were regenerated from source.
 
-### Geändert
-- **Version**: 0.6.3 → 0.6.4
+### Changed
+- **Version:** 0.6.2 → 0.6.3
 
-## [0.6.3] - 23.07.2026 (Icon-Fix: korrekte Windows-Icon-Generierung)
+## [0.6.1] - 2026-07-22 (Installer Fix, Local Fonts, Sidebar Control)
+### Fixed
+- **ERR_CONNECTION_REFUSED on startup:** The main window was missing `"url": "index.html"`, causing the installed app to try loading from the dev server (localhost:1420). The app now starts immediately, without internet connection.
+- **Fonts (Michroma/Inter) now embedded locally:** Font files are stored as `.woff2` in `frontend/public/fonts/` and are built into the app – no more Google Fonts network access. The app now works completely offline.
 
-### Behoben
-- **Windows-Icon (.ico) wurde nicht korrekt angezeigt**: Die `icon.ico` war fehlerhaft und zu klein für eine korrekte Anzeige in Desktop und Taskleiste. Mit dem Tauri Icon Generator (`npx @tauri-apps/cli icon`) aus der `icon-source.png` neu generiert (34.690 Bytes).
-- **Alle Icons** (32x32.png, 128x128.png, 128x128@2x.png, icon.icns, icon.ico) wurden aus der Quelle neu erzeugt.
+### Changed
+- **Sidebar control** adapted to three states:
+  - Without license: only "Software Info" (language, help, website, footer)
+  - Licensed, not connected: "Connect to Server" + "Software Info"
+  - Licensed + connected: all buttons (Driver Field, Incidents, Archive, FCY)
+- **`beforeBuildCommand`** changed to `npm --prefix frontend run build` (solves special character issues with umlauts in path)
+- **Version:** 0.6.0 → 0.6.1
 
-### Geändert
-- **Version**: 0.6.2 → 0.6.3
+## [0.6.0] - 2026-07-22 (Camera Control, Vehicle Focus, Splashscreen Design)
+### Added
+- **Camera control via keyboard simulation:** Camera buttons (TV, Helmet, Front, Rear, Top, Behind) now simulate F1-F6 key presses directly in LMU/rFactor2 – works because the LMU REST API doesn't provide a camera endpoint
+- **Vehicle focus via keyboard simulation:** Click on an incident or double-click on a driver jumps to the correct replay position, switches to TV camera and focuses the vehicle via Ctrl+F + vehicle number + Enter
+- **Automatic replay jump:** Replay jump to incident position now works reliably via the LMU REST API
 
-## [0.6.1] - 22.07.2026 (Installer-Fix, Schriftarten lokal, Sidebar-Steuerung)
+### Changed
+- **Splashscreen design overhauled:** Logo enlarged (300px → 380px), version number placed below logo, overall layout visually enhanced
+- **Backend:** Keyboard simulation switched from `windows` crate to `enigo` crate (solves version conflicts with Tauri 2)
+- **Version:** 0.5.4 → 0.6.0 (all version numbers updated)
 
-### Behoben
-- **ERR_CONNECTION_REFUSED beim Start**: Dem Hauptfenster fehlte `"url": "index.html"`,
-  sodass die installierte App versuchte, vom Dev-Server (localhost:1420) zu laden.
-  Die App startet jetzt sofort, ohne Internetverbindung.
-- **Schriftarten (Michroma/Inter) werden jetzt lokal eingebettet**: Die
-  Schriftart-Dateien liegen als `.woff2` im `frontend/public/fonts/`-Verzeichnis
-  und werden beim Bauen fest in die App integriert – kein Google-Fonts-Netzwerkzugriff
-  mehr nötig. Die App funktioniert jetzt vollständig offline.
+### Technical
+- `keyboard.rs`: New module for keyboard simulation with `enigo` crate
+- `main.rs`: `set_camera` and `focus_driver` now use keyboard simulation instead of failing REST API calls
+- `Cargo.toml`: `enigo = "0.2"` replaces `windows = "0.58"`
 
-### Geändert
-- **Sidebar-Steuerung** an die drei Zustände angepasst:
-  - Ohne Lizenz: nur "Software Infos" (Sprache, Hilfe, Website, Footer)
-  - Lizenziert, nicht verbunden: "Connect to Server" + "Software Infos"
-  - Lizenziert + verbunden: alle Buttons (Fahrerfeld, Vorfälle, Archiv, FCY)
-- **`beforeBuildCommand`** auf `npm --prefix frontend run build` umgestellt
-  (löst Sonderzeichen-Probleme mit Umlauten im Pfad)
-- **Version**: 0.6.0 → 0.6.1
+## [0.5.4] - Unreleased (Cam Control Right-Aligned)
+### Changed
+- Image Control + Cam Control now aligned as one unit to the right (same width as the Race Control row below) – Image Control keeps its size and only moves as a whole to the right, Cam Control now ends exactly at the true right edge instead of having empty space after it
 
-## [0.6.0] - 22.07.2026 (Kamera-Steuerung, Fahrzeug-Fokus, Splashscreen-Design)
+## [0.5.3] - Unreleased (Race Control Buttons Full Width)
+### Changed
+- "New Incident"/"Resolved Incidents"/"Full Course Yellow" on Incidents page now span the full width of Image Control + Cam Control combined (row above), buttons evenly stretched instead of just naturally right-aligned
 
-### Hinzugefügt
-- **Kamera-Steuerung per Tastatursimulation**: Die Kamera-Buttons (TV, Helmet,
-  Front, Heck, Top, Behind) simulieren jetzt die Tastendrücke F1-F6 direkt in
-  LMU/rFactor2 - funktioniert, weil die LMU-REST-API keinen Kamera-Endpunkt
-  bietet
-- **Fahrzeug-Fokus per Tastatursimulation**: Klick auf einen Vorfall oder
-  Doppelklick auf einen Fahrer springt zur richtigen Replay-Position, schaltet
-  auf TV-Kamera und fokussiert das Fahrzeug via Strg+F + Fahrzeugnummer + Enter
-- **Automatischer Replay-Sprung**: Der Replay-Sprung zur Vorfall-Position
-  funktioniert jetzt zuverlässig über die LMU-REST-API
+## [0.5.2] - Unreleased (Fix: Activation with "Require Fingerprint Scope")
+### Fixed
+- Your Keygen policy has "Require Fingerprint Scope" enabled (every validation MUST include a device fingerprint). The first activation call previously ran deliberately WITHOUT this fingerprint, which would have immediately failed with this policy setting. From now on, the device fingerprint is always sent from the start.
 
-### Geändert
-- **Splashscreen-Design überarbeitet**: Logo vergrößert (300px → 380px),
-  Versionsnummer unter dem Logo platziert, gesamtes Layout optisch
-  aufgewertet
-- **Backend**: Tastatursimulation von `windows`-crate auf `enigo`-crate
-  umgestellt (löst Versionskonflikte mit Tauri 2)
-- **Version**: 0.5.4 → 0.6.0 (alle Versionsnummern aktualisiert)
+## [0.5.1] - Unreleased (Keygen Account ID Entered)
+### Changed
+- `KEYGEN_ACCOUNT` in `src-tauri/src/license.rs` changed from placeholder to the real Keygen account ID – license validation is now actually functional (assuming the Keygen policy is configured as discussed: Node-locked, authentication strategy License/Mixed)
 
-### Technisch
-- `keyboard.rs`: Neues Modul für Tastatursimulation mit `enigo`-crate
-- `main.rs`: `set_camera` und `focus_driver` nutzen jetzt die
-  Tastatursimulation statt fehlschlagender REST-API-Aufrufe
-- `Cargo.toml`: `enigo = "0.2"` ersetzt `windows = "0.58"`
+## [0.5.0] - Unreleased (License System)
+### Added
+- License requirement: without a valid license, only the splash screen (with license key input), "Help" and the website link are usable – all other functions (Driver Field, Incidents, Archive, Settings, Connect to Server, FCY) are locked
+- Integration with Keygen License API (https://keygen.sh): per-device activation, regular online re-validation, 14-day offline grace period (so a race weekend with poor internet doesn't lock anyone out)
+- Recommended sales channel: existing Wix shop remains the point of sale, Wix Automation automatically creates a license key via the Keygen API on order receipt (setup follows as a separate step once the Keygen account is created)
 
-## [0.5.4] - Unveröffentlicht (Cam Control rechtsbündig)
+### Important – before the next build
+- Replace the placeholder `KEYGEN_ACCOUNT` in `src-tauri/src/license.rs` with the real Keygen account slug – without this step, every license validation will fail
 
-### Geändert
-- Image Control + Cam Control werden jetzt als EINE Einheit rechtsbündig
-  ausgerichtet (gleiche Breite wie die Race-Control-Zeile darunter) - Image
-  Control behält dabei seine Größe und rutscht nur als Ganzes mit nach
-  rechts, Cam Control endet jetzt exakt am wahren rechten Rand statt mit
-  Leerraum danach
+## [0.4.2] - Unreleased (FCY Highlight, Button Alignment)
+### Changed
+- When FCY is active/triggered: yellow border around the main area, "FULL COURSE YELLOW ACTIVE" banner now correctly centered over the main area (instead of over the entire window including sidebar)
+- Buttons "New Incident"/"Resolved Incidents"/"Full Course Yellow" on Incidents page are now left-aligned with the "Cam Control" row above
+- Update strategy: repository remains private for now, auto-update detection will work automatically once the project is set to "Public" – until then, updates continue to be downloaded manually from the Releases page
 
-## [0.5.3] - Unveröffentlicht (Race-Control-Buttons über volle Breite)
+## [0.4.1] - Unreleased (Visual Polish)
+### Changed
+- Language switcher (DE/EN) moved from the logo area to the "Software Info" section (was too cramped, got cut off)
+- Website line (www.lmu-racecontrol.com) in sidebar AND splashscreen is now clickable and opens the page in the default browser
+- Second input fields for "Pre-roll"/"Post-roll" widened so the adjustment arrows no longer overlap the number
+- Table headers AND data rows now consistently have rounded outer corners (previously invisible due to a CSS property that blocked rounding on table cells)
+- Text on the home page ("Welcome to...") significantly reduced in size
+- Splashscreen display duration reduced from 10 to 5 seconds
 
-### Geändert
-- "Neuer Vorfall"/"Erledigte Vorfälle"/"Full Course Yellow" bei Vorfälle
-  spannen sich jetzt über die volle Breite von Image Control + Cam Control
-  zusammen (Zeile darüber), Buttons gleichmäßig gestreckt statt nur
-  natürlich rechtsbündig gepackt
+## [0.4.0] - Unreleased (Splashscreen, Auto-Update, Dynamic Version Display)
+### Added
+- Splashscreen window on program start (5 seconds, logo, version, website line), then automatic switch to maximized main window
+- Built-in auto-updater: Splashscreen checks for new versions in the background; if available, clicking the green bar downloads the update, installs it and restarts the app
+- Build workflow now uses the official `tauri-apps/tauri-action`: cryptographically signs updates, automatically creates a versioned GitHub release (e.g. "v0.4.0") including the `latest.json` required by the updater – replaces the previous provisional "latest" release
+- New one-time workflow `generate-update-key.yml` for generating the signing key pair (see GUIDE-GETTING-INSTALLER.md, step 0)
+- Version display in sidebar is now dynamic (reads the actual app version instead of being hardcoded)
 
-## [0.5.2] - Unveröffentlicht (Fix: Aktivierung mit "Require Fingerprint Scope")
+### Important
+- Before the next build, the signing key pair must be generated and set up once (guide, step 0) – otherwise the build will fail
+- Future updates: increment version number in three files (`tauri.conf.json`, `Cargo.toml`, `package.json`), then upload as usual
 
-### Behoben
-- Eure Keygen-Policy hat "Require Fingerprint Scope" aktiviert (jede
-  Prüfung MUSS eine Geräte-Kennung mitschicken). Der erste Aktivierungs-
-  Aufruf lief bisher bewusst OHNE diese Kennung, was mit dieser
-  Policy-Einstellung sofort fehlgeschlagen wäre. Ab jetzt wird die
-  Geräte-Kennung von Anfang an immer mitgeschickt.
+## [0.3.0] - Unreleased (Polish: Name, Icon, Font, Multilingual, Help)
+### Changed
+- App name unified to "LMU RACECONTROL" everywhere (Start menu, window title, uninstall entry)
+- Fonts Michroma/Inter are now automatically downloaded during build and EMBEDDED into the app (previously: Google Fonts link was blocked by the app's security policy, so Arial appeared instead of Michroma)
+- App icon is now automatically generated from `src-tauri/icons/icon-source.png` during build (all sizes/formats) – just replace this one image to change the icon
 
-## [0.5.1] - Unveröffentlicht (Keygen-Konto-ID eingetragen)
+### Added
+- German/English switchable: automatic detection based on system language on first start, persistent toggle (DE/EN) at the top of the sidebar
+- New help window (click "Help" in sidebar) with quick overview of usage – text freely editable in `frontend/src/content/helpContent.ts`
+- Automatic, permanent installer download link (GitHub Release) in addition to the previous 90-day artifact
 
-### Geändert
-- `KEYGEN_ACCOUNT` in `src-tauri/src/license.rs` von Platzhalter auf die
-  echte Keygen-Konto-ID umgestellt - Lizenzprüfung ist damit erstmals
-  tatsächlich funktionsfähig (vorausgesetzt, die Policy in Keygen ist wie
-  besprochen konfiguriert: Node-locked, Authentifizierungsstrategie
-  License/Mixed)
+## [0.2.0] - Unreleased (Figma Design Implementation)
+### Added
+- Complete UI implemented in Figma design: sidebar with logo/navigation, Driver Field, Incidents, Archive, Investigation Modal
+- New data model: Causing/Affected driver, lap, corner, timestamp, incident type, decision, reasoning
+- Explicit "Connect to Server" instead of auto-connection on startup
+- Full Course Yellow workflow: countdown overlay, then automatic speed monitoring with automatic incident marking for violations of the configured speed limit
+- Red/Yellow/White status dots in Driver Field (crash suspicion / unusual pace anomaly / slow vehicle) – see "Known Gaps"
+- Discord webhook notification for every commission decision
+- New "Settings" area (not included in mockup, but necessary): incident categories, decision options, Discord webhook, FCY parameters – stored locally per installation
+- App icons generated from the real LMU Racecontrol logo
 
-## [0.5.0] - Unveröffentlicht (Lizenzsystem)
+### Known missing / to verify
+- Field for live speed (`speed_kmh`, for FCY monitoring) and vehicle model (`car_model`) not yet verified against a real LMU instance
+- Yellow/White markers are heuristics (pace anomaly / slow vehicle in field comparison), no confirmed flag field found in the REST API
+- "Timestamp"/lap reference is based on elapsed real time since "Connect to Server", not on a confirmed session time field
 
-### Hinzugefügt
-- Lizenzpflicht: ohne gültige Lizenz sind nur Startbildschirm (mit
-  Lizenzschlüssel-Eingabe), "Hilfe" und der Website-Link nutzbar - alle
-  anderen Funktionen (Fahrerfeld, Vorfälle, Archiv, Einstellungen,
-  Connect to Server, FCY) sind gesperrt
-- Anbindung an die Keygen-License-API (https://keygen.sh): Aktivierung pro
-  Gerät, regelmäßige Online-Nachprüfung, 14 Tage Offline-Kulanzfrist
-  (damit ein Renn-Wochenende mit schlechtem Internet niemanden aussperrt)
-- Empfohlener Vertriebsweg: bestehender Wix-Shop bleibt Verkaufsstelle,
-  Wix-Automation erzeugt bei Bestelleingang automatisch einen
-  Lizenzschlüssel über die Keygen-API (Einrichtung folgt als separater
-  Schritt, sobald das Keygen-Konto angelegt ist)
+## [0.1.0] - Unreleased (Initial Skeleton)
+### Added
+- Basic skeleton as Tauri 2 app (Rust backend + React/TypeScript frontend)
+- Client for the official LMU REST API (`localhost:6397`): Live Timing (`/rest/watch/standings`), Session Info, Replay Time Jump (`/rest/watch/replaytime/{s}`), Camera Focus (`/rest/watch/focus/{slot}`)
+- Heuristic automatic incident suspicion detection (lap time and position anomalies)
+- Manual incident marker placement by the steward
+- SQLite persistence of all incidents including status workflow (Suspicion → Under Review → No Action / Penalty Imposed)
+- One-click jump to LMU Instant Replay with configurable pre-/post-roll
+- Windows installer (NSIS/MSI) via `cargo tauri build`
 
-### Wichtig - vor dem nächsten Bau-Vorgang
-- In `src-tauri/src/license.rs` den Platzhalter `KEYGEN_ACCOUNT` durch den
-  echten Keygen-Account-Slug ersetzen - ohne diesen Schritt schlägt jede
-  Lizenzprüfung fehl
-
-## [0.4.2] - Unveröffentlicht (FCY-Hervorhebung, Button-Ausrichtung)
-
-### Geändert
-- Bei aktivem/ausgelöstem Full Course Yellow: gelber Rahmen um den
-  Hauptbereich, "FULL COURSE YELLOW AKTIV"-Banner jetzt korrekt über dem
-  Hauptbereich zentriert (statt über das gesamte Fenster inkl. Sidebar)
-- Buttons "Neuer Vorfall"/"Erledigte Vorfälle"/"Full Course Yellow" bei
-  Vorfälle sind jetzt linksbündig mit der "Cam Control"-Zeile darüber
-  ausgerichtet
-- Update-Strategie: Repository bleibt vorerst privat, Auto-Update-Erkennung
-  greift automatisch, sobald das Projekt später auf "Public" gestellt wird -
-  bis dahin Updates weiterhin manuell über die Releases-Seite herunterladen
-
-## [0.4.1] - Unveröffentlicht (Grafik-Feinschliff)
-
-### Geändert
-- Sprachumschalter (DE/EN) aus dem Logo-Bereich in den Bereich "Software Infos"
-  verschoben (war zu eng, wurde abgeschnitten)
-- Website-Zeile (www.lmu-racecontrol.com) in Sidebar UND Splashscreen ist jetzt
-  klickbar und öffnet die Seite im Standardbrowser
-- Sekunden-Eingabefelder bei "Vorlaufzeit"/"Nachlaufzeit" verbreitert, damit
-  die Pfeile zum Ändern nicht mehr auf der Zahl kleben
-- Tabellen-Kopfzeilen UND Datenzeilen haben jetzt durchgängig abgerundete
-  Außenkanten (vorher unsichtbar durch eine CSS-Eigenschaft, die Rundungen
-  an Tabellenzellen blockiert hat)
-- Text auf der Startseite ("Willkommen bei...") deutlich verkleinert
-- Splashscreen-Anzeigedauer von 10 auf 5 Sekunden verkürzt
-
-## [0.4.0] - Unveröffentlicht (Splashscreen, Auto-Update, dynamische Versionsanzeige)
-
-### Hinzugefügt
-- Splashscreen-Fenster beim Programmstart (10 Sekunden, Logo, Version,
-  Website-Zeile), danach automatischer Wechsel ins maximierte Hauptfenster
-- Eingebauter Auto-Updater: Splashscreen prüft im Hintergrund auf neue
-  Version; falls verfügbar, lädt ein Klick auf den grünen Balken das Update
-  herunter, installiert es und startet die App neu
-- Bau-Workflow nutzt jetzt die offizielle `tauri-apps/tauri-action`: signiert
-  Updates kryptografisch, erstellt automatisch einen versionierten
-  GitHub-Release (z.B. "v0.4.0") inkl. der für den Updater nötigen
-  `latest.json` - ersetzt den bisherigen provisorischen "latest"-Release
-- Neuer einmaliger Workflow `generate-update-key.yml` zum Erzeugen des
-  Signierschlüsselpaars (siehe ANLEITUNG-INSTALLER-BEKOMMEN.md, Schritt 0)
-- Versionsanzeige in der Sidebar ist jetzt dynamisch (liest die echte
-  App-Version aus, statt fest im Text zu stehen)
-
-### Wichtig
-- Vor dem nächsten Bau-Vorgang muss einmalig das Signierschlüsselpaar erzeugt
-  und eingerichtet werden (Anleitung, Schritt 0) - sonst schlägt der Bau fehl
-- Künftige Updates veröffentlichen: Versionsnummer in drei Dateien erhöhen
-  (`tauri.conf.json`, `Cargo.toml`, `package.json`), dann wie gewohnt hochladen
-
-## [0.3.0] - Unveröffentlicht (Feinschliff: Name, Icon, Schrift, Mehrsprachigkeit, Hilfe)
-
-### Geändert
-- App-Name überall auf "LMU RACECONTROL" vereinheitlicht (Startmenü, Fenstertitel,
-  Deinstallations-Eintrag)
-- Schriftarten Michroma/Inter werden jetzt beim Bauen automatisch heruntergeladen
-  und FEST in die App eingebaut (vorher: Google-Fonts-Link wurde von der
-  Sicherheitsrichtlinie der App blockiert, deshalb erschien Arial statt Michroma)
-- App-Icon wird jetzt automatisch beim Bauen aus `src-tauri/icons/icon-source.png`
-  erzeugt (alle Größen/Formate) - einfach dieses eine Bild ersetzen, um das
-  Icon zu ändern
-
-### Hinzugefügt
-- Deutsch/Englisch umschaltbar: automatische Erkennung nach Systemsprache beim
-  ersten Start, dauerhaft merkbarer Umschalter (DE/EN) oben in der Sidebar
-- Neues Hilfe-Fenster (Klick auf "Hilfe" in der Sidebar) mit Kurzübersicht zur
-  Bedienung - Text frei editierbar in `frontend/src/content/helpContent.ts`
-- Automatischer, dauerhafter Installer-Download-Link (GitHub Release) zusätzlich
-  zum bisherigen 90-Tage-Artifact
-
-## [0.2.0] - Unveröffentlicht (Figma-Design-Umsetzung)
-
-### Hinzugefügt
-- Komplettes UI im Figma-Design umgesetzt: Sidebar mit Logo/Navigation,
-  Fahrerfeld, Vorfälle, Archiv, Investigation-Modal
-- Neues Datenmodell: Verursachender/Geschädigter Fahrer, Runde, Kurve,
-  Zeitstempel, Vorfall-Art, Entscheidung, Begründung
-- Explizites "Connect to Server" statt Auto-Verbindung beim Start
-- Full-Course-Yellow-Workflow: Countdown-Overlay, danach automatische
-  Geschwindigkeitsüberwachung mit automatischer Vorfall-Markierung bei
-  Verstößen gegen das konfigurierte Tempolimit
-- Rot/Gelb/Weiß-Statuspunkte im Fahrerfeld (Crash-Verdacht / auffällige
-  Pace-Anomalie / langsames Fahrzeug) - siehe "Bekannte Lücken"
-- Discord-Webhook-Benachrichtigung bei jeder Entscheidung der Kommission
-- Neuer "Einstellungen"-Bereich (nicht im Mockup enthalten, aber
-  notwendig): Vorfall-Kategorien, Entscheidungs-Optionen, Discord-Webhook,
-  FCY-Parameter - lokal pro Installation gespeichert
-- App-Icons aus dem echten LMU-Racecontrol-Logo generiert
-
-### Bekannt fehlend / zu verifizieren
-- Feld für Live-Geschwindigkeit (`speed_kmh`, für FCY-Überwachung) und
-  Fahrzeugmodell (`car_model`) noch nicht gegen echte LMU-Instanz verifiziert
-- Gelb/Weiß-Marker sind Heuristiken (Pace-Anomalie / langsames Fahrzeug im
-  Feldvergleich), kein bestätigtes Flaggen-Feld in der REST-API gefunden
-- "Zeitstempel"/Rundenbezug basiert auf verstrichener Echtzeit seit
-  "Connect to Server", nicht auf einem bestätigten Session-Zeit-Feld
-
-## [0.1.0] - Unveröffentlicht (Erstgerüst)
-
-### Hinzugefügt
-- Grundgerüst als Tauri-2-App (Rust-Backend + React/TypeScript-Frontend)
-- Client für die offizielle LMU REST-API (`localhost:6397`):
-  Live-Timing (`/rest/watch/standings`), Sessioninfo, Replay-Zeitsprung
-  (`/rest/watch/replaytime/{s}`), Kamerafokus (`/rest/watch/focus/{slot}`)
-- Heuristische automatische Vorfall-Verdachtserkennung (Rundenzeit- und
-  Positionsanomalien)
-- Manuelles Setzen von Vorfall-Markern durch den Kommissar
-- SQLite-Persistenz aller Vorfälle inkl. Status-Workflow
-  (Verdachtsfall → In Prüfung → Keine Maßnahme / Strafe verhängt)
-- Ein-Klick-Sprung ins LMU-Instant-Replay mit konfigurierbarem Pre-/Post-Roll
-- Windows-Installer (NSIS/MSI) via `cargo tauri build`
-
-### Bekannt fehlend / zu verifizieren
-- Exaktes JSON-Feld für die "seit Session-/Replaybeginn verstrichene Zeit"
-  in `/rest/watch/sessionInfo` ist noch nicht gegen eine echte laufende
-  LMU-Instanz verifiziert (siehe README, Abschnitt "Bekannte Lücken")
-- Kein bestätigter REST-Endpunkt für Schaden/Kontakt pro gegnerischem
-  Fahrzeug gefunden - automatische Erkennung arbeitet daher mit
-  Pace-/Positionsanomalien statt direkter Kollisionserkennung
+### Known missing / to verify
+- Exact JSON field for "elapsed time since session/replay start" in `/rest/watch/sessionInfo` not yet verified against a real running LMU instance (see README, section "Known Gaps")
+- No confirmed REST endpoint for damage/contact per opposing vehicle found – automatic detection therefore works with pace/position anomalies instead of direct collision detection

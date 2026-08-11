@@ -55,47 +55,40 @@ jobs:
 
           if [ -n "$MATCH" ]; then
             while IFS= read -r line; do
-              # Deutsche Sektionstitel auf Emoji-Englisch + Discord-Überschrift mappen
-              if [[ "$line" =~ ^###\ Hinzugefügt ]]; then
+              # Englische Sektionstitel auf Discord-Überschriften mappen
+              if [[ "$line" =~ ^###\ Added ]]; then
                 if [ "$FIRST_SECTION" = false ]; then
                   DESCRIPTION+="\n"
                 fi
                 CURRENT_SECTION="added"
                 DESCRIPTION+="## ✨ Added\n"
                 FIRST_SECTION=false
-              elif [[ "$line" =~ ^###\ Geändert ]]; then
+              elif [[ "$line" =~ ^###\ Changed ]]; then
                 if [ "$FIRST_SECTION" = false ]; then
                   DESCRIPTION+="\n"
                 fi
                 CURRENT_SECTION="changed"
                 DESCRIPTION+="## 🔧 Changed\n"
                 FIRST_SECTION=false
-              elif [[ "$line" =~ ^###\ Behoben ]]; then
+              elif [[ "$line" =~ ^###\ Fixed ]]; then
                 if [ "$FIRST_SECTION" = false ]; then
                   DESCRIPTION+="\n"
                 fi
                 CURRENT_SECTION="fixed"
                 DESCRIPTION+="## 🛠️ Fixed\n"
                 FIRST_SECTION=false
-              elif [[ "$line" =~ ^###\ Neu ]]; then
-                if [ "$FIRST_SECTION" = false ]; then
-                  DESCRIPTION+="\n"
-                fi
-                CURRENT_SECTION="added"
-                DESCRIPTION+="## ✨ Added\n"
-                FIRST_SECTION=false
-              elif [[ "$line" =~ ^###\ Technisch ]]; then
+              elif [[ "$line" =~ ^###\ Technical ]]; then
                 if [ "$FIRST_SECTION" = false ]; then
                   DESCRIPTION+="\n"
                 fi
                 CURRENT_SECTION="technical"
                 DESCRIPTION+="## ⚙️ Technical\n"
                 FIRST_SECTION=false
-              elif [[ "$line" =~ ^###\ Quelle ]]; then
+              elif [[ "$line" =~ ^###\ Source ]]; then
                 CURRENT_SECTION=""
-              elif [[ "$line" =~ ^###\ Wichtig ]]; then
+              elif [[ "$line" =~ ^###\ Important ]]; then
                 CURRENT_SECTION=""
-              elif [[ "$line" =~ ^###\ Bekannt ]]; then
+              elif [[ "$line" =~ ^###\ Known ]]; then
                 CURRENT_SECTION=""
               elif [[ "$line" =~ ^-\ (.+) ]]; then
                 ITEM="${BASH_REMATCH[1]}"
