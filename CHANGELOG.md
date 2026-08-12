@@ -4,18 +4,42 @@ All notable changes to LMU Race Control are documented here.
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.9.6] - 2026-08-11 (Color-Specific Cooldown, Reset Detection, Improved Responsiveness)
+## [0.9.7] - 2026-08-12 (Manufacturer Logo Size, FCY Countdown Cancel)
+### Changed
+- **Manufacturer logo reduced:** From 32px to 27px on the Fahrerfeld page (5px smaller).
+- **FCY countdown can now be cancelled:** During the 10-second countdown phase, pressing the FCY button again immediately cancels the countdown and returns to Idle. This allows the race director to change their mind at any time.
+
+### Technical
+- `frontend/src/styles.css` – `.manufacturer-logo` width/height reduced from 32px to 27px.
+- `src-tauri/src/fcy.rs` – Added `cancel_countdown: AtomicBool` field and `cancel_countdown()` method that sets the flag and resets phase to Idle.
+- `src-tauri/src/main.rs` – `start_fcy` countdown loop now checks `cancel_countdown` flag before each iteration; `clear_fcy` detects Countdown phase and calls `cancel_countdown()` instead of `set_phase(Idle)`.
+
+## [0.9.6] - 2026-08-11 (Color-Specific Cooldown, Reset Detection, Release Process Automation)
 ### Added
 - **Reset detection (YELLOW):** New heuristic detects when a vehicle was slow/stopped on track and suddenly appears in the pits (reset after off-track). Normal pit entries (>50 km/h) do NOT trigger.
 - **Color-specific cooldown:** RED (10s), YELLOW (30s), WHITE (30s) – each color has its own cooldown timer. A RED incident no longer blocks YELLOW or WHITE detection.
+- **`release.ps1` CHANGELOG check:** Before building, the script checks if a CHANGELOG entry exists for the current version. If missing, it opens the editor and waits for you to add one.
+- **`scripts/discord-notify.py`:** New standalone Python script for Discord release notifications (separate file, no embedded code). Sends formatted changelog with `@everyone` mention.
+- **`manual-discord.yml` restored:** GitHub Actions workflow for manual Discord notifications (workflow_dispatch).
 
 ### Changed
 - **RED cooldown reduced:** From 30s to 10s – so a second collision shortly after the first is now detected.
 - **`DriverHistory` restructured:** Replaced single `last_incident_time` with three separate fields (`last_incident_time_red`, `last_incident_time_yellow`, `last_incident_time_white`).
+- **Release process:** `release.ps1` is now the single entry point for all releases. No more GitHub Workflows needed – build, sign, upload, latest.json, and Discord all run locally.
+- **Discord webhook call:** Replaced embedded Python code in `release.ps1` with a call to `scripts/discord-notify.py` (avoids encoding issues, adds User-Agent header to prevent 403).
+
+### Fixed
+- **`release.ps1` `Test-Path` syntax:** `Test-Path $x -and Test-Path $y` was invalid PowerShell syntax – fixed to `(Test-Path $x) -and (Test-Path $y)`.
+- **`release.ps1` `$ErrorActionPreference`:** `"Stop"` mode caused `cargo` Info messages to throw errors – now set to `"Continue"` during build.
+- **Discord 403 Forbidden:** Added `User-Agent` header to webhook requests – Discord blocks `Python-urllib/3.x` without it.
 
 ### Technical
 - `src-tauri/src/incidents.rs` – `RED_COOLDOWN_SECONDS = 10.0` introduced, `COOLDOWN_SECONDS = 30.0` remains for YELLOW/WHITE
 - `update_history()` now tracks `was_on_track` and `was_slow_while_on_track` for reset detection
+- `release.ps1` – Added `$ErrorActionPreference = "Continue"` for build, `(Test-Path $x) -and (Test-Path $y)` fix, CHANGELOG validation before build
+- `scripts/discord-notify.py` – New file: standalone Discord webhook sender with User-Agent, chunking for >1900 chars, proper error handling
+- `PROJEKT-ZUSAMMENFASSUNG.md` – Updated with complete release process documentation
+- `temp-release-repo/.github/workflows/` – Removed `release-signer.yml` (no longer needed), kept `manual-discord.yml`
 
 ## [0.9.5] - 2026-08-10 (Release Repo, Update Fix, Discord Notification, Server Backup, License Deactivation)
 ### Added
