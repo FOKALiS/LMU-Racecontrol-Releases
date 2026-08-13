@@ -9,11 +9,6 @@ versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **Manufacturer logo reduced:** From 32px to 27px on the Fahrerfeld page (5px smaller).
 - **FCY countdown can now be cancelled:** During the 10-second countdown phase, pressing the FCY button again immediately cancels the countdown and returns to Idle. This allows the race director to change their mind at any time.
 
-### Technical
-- `frontend/src/styles.css` – `.manufacturer-logo` width/height reduced from 32px to 27px.
-- `src-tauri/src/fcy.rs` – Added `cancel_countdown: AtomicBool` field and `cancel_countdown()` method that sets the flag and resets phase to Idle.
-- `src-tauri/src/main.rs` – `start_fcy` countdown loop now checks `cancel_countdown` flag before each iteration; `clear_fcy` detects Countdown phase and calls `cancel_countdown()` instead of `set_phase(Idle)`.
-
 ## [0.9.6] - 2026-08-11 (Color-Specific Cooldown, Reset Detection, Release Process Automation)
 ### Added
 - **Reset detection (YELLOW):** New heuristic detects when a vehicle was slow/stopped on track and suddenly appears in the pits (reset after off-track). Normal pit entries (>50 km/h) do NOT trigger.
@@ -32,14 +27,6 @@ versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **`release.ps1` `Test-Path` syntax:** `Test-Path $x -and Test-Path $y` was invalid PowerShell syntax – fixed to `(Test-Path $x) -and (Test-Path $y)`.
 - **`release.ps1` `$ErrorActionPreference`:** `"Stop"` mode caused `cargo` Info messages to throw errors – now set to `"Continue"` during build.
 - **Discord 403 Forbidden:** Added `User-Agent` header to webhook requests – Discord blocks `Python-urllib/3.x` without it.
-
-### Technical
-- `src-tauri/src/incidents.rs` – `RED_COOLDOWN_SECONDS = 10.0` introduced, `COOLDOWN_SECONDS = 30.0` remains for YELLOW/WHITE
-- `update_history()` now tracks `was_on_track` and `was_slow_while_on_track` for reset detection
-- `release.ps1` – Added `$ErrorActionPreference = "Continue"` for build, `(Test-Path $x) -and (Test-Path $y)` fix, CHANGELOG validation before build
-- `scripts/discord-notify.py` – New file: standalone Discord webhook sender with User-Agent, chunking for >1900 chars, proper error handling
-- `PROJEKT-ZUSAMMENFASSUNG.md` – Updated with complete release process documentation
-- `temp-release-repo/.github/workflows/` – Removed `release-signer.yml` (no longer needed), kept `manual-discord.yml`
 
 ## [0.9.5] - 2026-08-10 (Release Repo, Update Fix, Discord Notification, Server Backup, License Deactivation)
 ### Added
@@ -121,9 +108,6 @@ versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **Sidebar duplicate** in Sidebar.tsx fixed
 - **Logo height** set to `auto` for correct proportions
 
-### Technical
-- **Version:** 0.8.2 → 0.8.3
-
 ## [0.7.0] - 2026-07-27 (Keyboard Simulation instead of Camera Helper + Turbo Zoom)
 ### Changed
 - **Camera Helper removed:** The separate `camera-helper` process has been completely removed. Camera control now runs directly via `SendInput` with scancodes from the user's key bindings – no external process needed.
@@ -133,11 +117,6 @@ versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 - **Zoom didn't work on Incidents/Archive pages:** `onZoomStart`/`onZoomEnd` props were not passed to `TopToolbar`. Now passed to `VorfaelleView` and `ArchivView`.
-
-### Technical
-- `keyboard.rs`: Completely rewritten – `SendInput` with scancodes, no more `enigo`. `zoom_start`/`zoom_stop` with background thread and AtomicBool flag.
-- `src-tauri/camera-helper/` removed (saved over 100MB build artifacts).
-- `tauri.conf.json`: `resources` changed from `camera-helper.exe` to empty.
 
 ## [0.6.12] - 2026-07-26 (Cam Control + Replay Control Fix)
 ### Fixed
@@ -242,11 +221,6 @@ versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **Splashscreen design overhauled:** Logo enlarged (300px → 380px), version number placed below logo, overall layout visually enhanced
 - **Backend:** Keyboard simulation switched from `windows` crate to `enigo` crate (solves version conflicts with Tauri 2)
 - **Version:** 0.5.4 → 0.6.0 (all version numbers updated)
-
-### Technical
-- `keyboard.rs`: New module for keyboard simulation with `enigo` crate
-- `main.rs`: `set_camera` and `focus_driver` now use keyboard simulation instead of failing REST API calls
-- `Cargo.toml`: `enigo = "0.2"` replaces `windows = "0.58"`
 
 ## [0.5.4] - Unreleased (Cam Control Right-Aligned)
 ### Changed
