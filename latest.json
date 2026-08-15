@@ -1,11 +1,11 @@
 {
-  "version": "0.9.7",
-  "notes": "## [0.9.7] - 2026-08-12 (Manufacturer Logo Size, FCY Countdown Cancel) ### Changed - **Manufacturer logo reduced:** From 32px to 27px on the Fahrerfeld page (5px smaller). - **FCY countdown can now be cancelled:** During the 10-second countdown phase, pressing the FCY button again immediately cancels the countdown and returns to Idle. This allows the race director to change their mind at any time. ### Technical - `frontend/src/styles.css` - `.manufacturer-logo` width/height reduced from 32px to 27px. - `src-tauri/src/fcy.rs` - Added `cancel_countdown: AtomicBool` field and `cancel_countdown()` method that sets the flag and resets phase to Idle. - `src-tauri/src/main.rs` - `start_fcy` countdown loop now checks `cancel_countdown` flag before each iteration; `clear_fcy` detects Countdown phase and calls `cancel_countdown()` instead of `set_phase(Idle)`.",
-  "pub_date": "2026-08-12T12:14:46+00:00",
-  "platforms": {
-    "windows-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTbjB3RHVOU0wydFh6dE1YRUg3b2EyLy9DbjlseGZPV3RsNmx2WWlsOVpocTMzMU9QUzZzczlKem55TnNSZnRtc0hySG9MVVVaYU1EY2h5d2tZMTk3MWQ5aStScmI5bFFVPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg2NTI5NjgyCWZpbGU6TE1VLlJBQ0VDT05UUk9MXzAuOS43X3g2NC1zZXR1cC5leGUKTU1US2sybm9qMVBZWERyUHA5YW1pMGJPdjhsc3dFcno4UDV2Y0RLK05HZG1NUDRJdWlFZFNWYy9FZGhtemNDUWRHK3NBamVxYnQ5QjNjL0t3cTFhRHc9PQo=",
-      "url": "https://github.com/FOKALiS/LMU-Racecontrol-Releases/releases/latest/download/LMU.RACECONTROL_0.9.7_x64-setup.exe"
-    }
-  }
+    "platforms":  {
+                      "windows-x86_64":  {
+                                             "signature":  "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTbjB3RHVOU0wydGVyVE1yL3M1dWtRSTlsY0dZVzlCbE5HR2pvc3k4Z2dIOHhxdldaVXQxTUpiNUN1RDdtY1ZKR0JsRE15WEFWbm9iNi9mNld1Mll1YUJDMmQrOXl3bkF3PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg2ODI5MzM1CWZpbGU6TE1VLlJBQ0VDT05UUk9MXzAuOS44X3g2NC1zZXR1cC5leGUKOUw1a2kyTzNFMjc3UCt3RHVmN0JENFV5MW5rREtzbkFra1V1SE1qOXpuK1gvODlOeXR5aGJmbnM3VWRCVmQxWW5WTkNla3gvUHllTjJTMUtLTEJuQUE9PQo=",
+                                             "url":  "https://github.com/FOKALiS/LMU-Racecontrol-Releases/releases/latest/download/LMU.RACECONTROL_0.9.8_x64-setup.exe"
+                                         }
+                  },
+    "pub_date":  "2026-08-15T23:30:06+00:00",
+    "version":  "0.9.8",
+    "notes":  "License expiry date: When generating a license in the Admin Tool, you can now set a duration (Days/Weeks/Months/Years/Unlimited). Expired licenses are automatically rejected by the server. Expiry display in Admin Tool and LMU RC App."
 }
